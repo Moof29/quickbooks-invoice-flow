@@ -1,0 +1,410 @@
+
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Zap, 
+  CheckCircle, 
+  XCircle, 
+  RefreshCw,
+  Settings,
+  AlertTriangle,
+  ExternalLink
+} from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+interface QBOConnection {
+  id: string;
+  is_active: boolean;
+  last_connected_at: string;
+  last_sync_at: string;
+  qbo_company_id: string;
+  qbo_realm_id: string;
+  environment: string;
+}
+
+interface SyncHistory {
+  id: string;
+  sync_type: string;
+  status: string;
+  started_at: string;
+  completed_at: string;
+  entity_count: number;
+  success_count: number;
+  failure_count: number;
+  error_summary: string;
+}
+
+const QuickBooksIntegration = () => {
+  const [connection, setConnection] = useState<QBOConnection | null>(null);
+  const [syncHistory, setSyncHistory] = useState<SyncHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadConnectionStatus();
+    loadSyncHistory();
+  }, []);
+
+  const loadConnectionStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('qbo_connection')
+        .select('*')
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setConnection(data);
+    } catch (error) {
+      console.error('Error loading connection status:', error);
+    }
+  };
+
+  const loadSyncHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('qbo_sync_history')
+        .select('*')
+        .order('started_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setSyncHistory(data || []);
+    } catch (error) {
+      console.error('Error loading sync history:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load sync history",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConnect = () => {
+    // This would typically redirect to QuickBooks OAuth
+    toast({
+      title: "QuickBooks Integration",
+      description: "QuickBooks OAuth integration would be implemented here",
+    });
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm('Are you sure you want to disconnect from QuickBooks?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('qbo_connection')
+        .update({ is_active: false })
+        .eq('id', connection?.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Disconnected from QuickBooks successfully",
+      });
+
+      loadConnectionStatus();
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      toast({
+        title: "Error",
+        description: "Failed to disconnect from QuickBooks",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSync = async () => {
+    if (!connection?.is_active) {
+      toast({
+        title: "Error",
+        description: "Please connect to QuickBooks first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      // This would trigger the actual sync process
+      toast({
+        title: "Sync Started",
+        description: "Data synchronization with QuickBooks has been initiated",
+      });
+
+      // Reload sync history after a delay to show the new sync
+      setTimeout(() => {
+        loadSyncHistory();
+        setSyncing(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error syncing:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start synchronization",
+        variant: "destructive",
+      });
+      setSyncing(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+      case 'success':
+        return 'bg-green-100 text-green-800';
+      case 'running':
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'failed':
+      case 'error':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading QuickBooks integration...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">QuickBooks Integration</h1>
+              <p className="text-gray-600 mt-1">Connect and sync your data with QuickBooks Online</p>
+            </div>
+            <div className="flex space-x-3">
+              {connection?.is_active ? (
+                <>
+                  <Button 
+                    onClick={handleSync} 
+                    disabled={syncing}
+                    variant="outline"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                    {syncing ? 'Syncing...' : 'Sync Now'}
+                  </Button>
+                  <Button onClick={handleDisconnect} variant="destructive">
+                    Disconnect
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={handleConnect}>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Connect to QuickBooks
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Connection Status */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Zap className="w-5 h-5 mr-2 text-blue-600" />
+              Connection Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {connection?.is_active ? (
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                  <span className="text-green-800 font-medium">Connected to QuickBooks Online</span>
+                  <Badge className="ml-2 bg-green-100 text-green-800">Active</Badge>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Company ID</p>
+                    <p className="font-medium">{connection.qbo_company_id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Environment</p>
+                    <p className="font-medium capitalize">{connection.environment}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Last Connected</p>
+                    <p className="font-medium">
+                      {new Date(connection.last_connected_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                {connection.last_sync_at && (
+                  <div className="pt-2">
+                    <p className="text-sm text-gray-600">Last Sync</p>
+                    <p className="font-medium">
+                      {new Date(connection.last_sync_at).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <XCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Not Connected</h3>
+                <p className="text-gray-500 mb-6">
+                  Connect to QuickBooks Online to sync your invoices, customers, and items
+                </p>
+                <Button onClick={handleConnect}>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Connect to QuickBooks
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Integration Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Customers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">
+                Sync customer profiles between your app and QuickBooks
+              </p>
+              <div className="flex items-center text-sm">
+                <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                <span>Automatic sync enabled</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Invoices</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">
+                Create invoices here and sync them to QuickBooks automatically
+              </p>
+              <div className="flex items-center text-sm">
+                <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                <span>Automatic sync enabled</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Items</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">
+                Keep your product and service items in sync across platforms
+              </p>
+              <div className="flex items-center text-sm">
+                <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                <span>Automatic sync enabled</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sync History */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Sync History</CardTitle>
+            <CardDescription>
+              Recent synchronization activities with QuickBooks
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {syncHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <RefreshCw className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No sync history</h3>
+                <p className="text-gray-500">
+                  {connection?.is_active ? 
+                    'Start your first sync to see the history here' : 
+                    'Connect to QuickBooks to start syncing data'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {syncHistory.map((sync) => (
+                  <div key={sync.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-blue-100 p-2 rounded-lg">
+                        <RefreshCw className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{sync.sync_type} Sync</p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(sync.started_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="text-sm">
+                          {sync.success_count}/{sync.entity_count} successful
+                        </p>
+                        {sync.failure_count > 0 && (
+                          <p className="text-sm text-red-600">
+                            {sync.failure_count} failed
+                          </p>
+                        )}
+                      </div>
+                      <Badge className={getStatusColor(sync.status)}>
+                        {sync.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Setup Instructions */}
+        {!connection?.is_active && (
+          <Alert className="mt-8">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Setup Required:</strong> To connect with QuickBooks Online, you'll need to:
+              <ol className="list-decimal list-inside mt-2 space-y-1">
+                <li>Have a QuickBooks Online account</li>
+                <li>Authorize this application to access your QuickBooks data</li>
+                <li>Configure sync preferences for your data</li>
+              </ol>
+              <Button variant="link" className="p-0 mt-2" asChild>
+                <a href="https://developer.intuit.com/" target="_blank" rel="noopener noreferrer">
+                  Learn more about QuickBooks API <ExternalLink className="w-3 h-3 ml-1" />
+                </a>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default QuickBooksIntegration;
