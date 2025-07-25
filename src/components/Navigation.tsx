@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { 
@@ -10,8 +10,11 @@ import {
   Zap,
   Settings,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -23,7 +26,27 @@ const navigation = [
 
 export const Navigation = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { signOut } = useAuth();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+      navigate('/');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <>
@@ -36,7 +59,7 @@ export const Navigation = () => {
                 <div className="bg-blue-600 rounded-lg p-2">
                   <FileText className="h-6 w-6 text-white" />
                 </div>
-                <span className="ml-3 text-xl font-bold text-gray-900">InvoiceApp</span>
+                <span className="ml-3 text-xl font-bold text-gray-900">Batchly</span>
               </div>
             </div>
             <nav className="mt-8 flex-1 space-y-1 px-2">
@@ -64,6 +87,16 @@ export const Navigation = () => {
                 );
               })}
             </nav>
+            <div className="mt-auto p-4">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start" 
+                onClick={handleSignOut}
+              >
+                <LogOut className="mr-3 h-5 w-5" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -75,7 +108,7 @@ export const Navigation = () => {
             <div className="bg-blue-600 rounded-lg p-2">
               <FileText className="h-5 w-5 text-white" />
             </div>
-            <span className="ml-2 text-lg font-bold text-gray-900">InvoiceApp</span>
+            <span className="ml-2 text-lg font-bold text-gray-900">Batchly</span>
           </div>
           <Button
             variant="ghost"
@@ -114,6 +147,14 @@ export const Navigation = () => {
                   </Link>
                 );
               })}
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start mt-4" 
+                onClick={handleSignOut}
+              >
+                <LogOut className="mr-3 h-5 w-5" />
+                Sign Out
+              </Button>
             </div>
           </div>
         )}

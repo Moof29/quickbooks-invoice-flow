@@ -1,4 +1,6 @@
 
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -10,8 +12,17 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/dashboard');
+    }
+  }, [user, loading, navigate]);
   const features = [
     {
       icon: FileText,
@@ -54,10 +65,10 @@ const Index = () => {
               <div className="bg-blue-600 rounded-lg p-2">
                 <FileText className="h-6 w-6 text-white" />
               </div>
-              <span className="ml-3 text-xl font-bold text-gray-900">InvoiceApp</span>
+              <span className="ml-3 text-xl font-bold text-gray-900">Batchly</span>
             </div>
             <Button asChild>
-              <Link to="/dashboard">
+              <Link to="/auth">
                 Get Started <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
@@ -78,7 +89,7 @@ const Index = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="text-lg px-8 py-3">
-              <Link to="/dashboard">
+              <Link to="/auth">
                 Start Free Trial <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
             </Button>
@@ -125,7 +136,7 @@ const Index = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                Why Choose InvoiceApp?
+                Why Choose Batchly?
               </h2>
               <p className="text-lg text-gray-600 mb-8">
                 Built for small to medium businesses that need professional invoicing 
@@ -143,10 +154,10 @@ const Index = () => {
             <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-8 text-white">
               <h3 className="text-2xl font-bold mb-4">Ready to Get Started?</h3>
               <p className="text-blue-100 mb-6">
-                Join thousands of businesses already using InvoiceApp to streamline their operations.
+                Join thousands of businesses already using Batchly to streamline their operations.
               </p>
               <Button asChild variant="secondary" size="lg" className="w-full">
-                <Link to="/dashboard">
+                <Link to="/auth">
                   Start Your Free Trial <ArrowRight className="w-4 h-4 ml-2" />
                 </Link>
               </Button>
@@ -163,10 +174,10 @@ const Index = () => {
               <div className="bg-blue-600 rounded-lg p-2">
                 <FileText className="h-6 w-6 text-white" />
               </div>
-              <span className="ml-3 text-xl font-bold">InvoiceApp</span>
+              <span className="ml-3 text-xl font-bold">Batchly</span>
             </div>
             <p className="text-gray-400">
-              © 2024 InvoiceApp. All rights reserved. Built with modern web technologies.
+              © 2024 Batchly. All rights reserved. Built with modern web technologies.
             </p>
           </div>
         </div>
