@@ -1,1 +1,29 @@
 project_id = "pnqcbnmrfzqihymmzhkb"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[edge_runtime]
+enabled = true
+port = 54329
+
+[functions.qbo-oauth-initiate]
+verify_jwt = false
+
+[functions.qbo-oauth-callback]
+verify_jwt = false

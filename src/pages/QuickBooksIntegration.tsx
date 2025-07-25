@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 
 interface QBOConnection {
   id: string;
@@ -44,8 +45,31 @@ const QuickBooksIntegration = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
+  const { profile } = useAuthProfile();
 
   useEffect(() => {
+    // Check for OAuth callback parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+    
+    if (success === 'true') {
+      toast({
+        title: "Connected Successfully",
+        description: "Your QuickBooks Online account has been connected.",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error) {
+      toast({
+        title: "Connection Failed",
+        description: decodeURIComponent(error),
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
     loadConnectionStatus();
     loadSyncHistory();
   }, []);
@@ -86,12 +110,40 @@ const QuickBooksIntegration = () => {
     }
   };
 
-  const handleConnect = () => {
-    // This would typically redirect to QuickBooks OAuth
-    toast({
-      title: "QuickBooks Integration",
-      description: "QuickBooks OAuth integration would be implemented here",
-    });
+  const handleConnect = async () => {
+    if (!profile?.organization_id) {
+      toast({
+        title: "Error",
+        description: "Organization not found. Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await supabase.functions.invoke('qbo-oauth-initiate', {
+        body: { organizationId: profile.organization_id }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const { authUrl } = response.data;
+      
+      // Redirect to QuickBooks OAuth
+      window.location.href = authUrl;
+    } catch (error: any) {
+      console.error('OAuth initiation failed:', error);
+      toast({
+        title: "Connection Failed", 
+        description: error.message || "Failed to initiate QuickBooks connection.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDisconnect = async () => {
@@ -122,7 +174,7 @@ const QuickBooksIntegration = () => {
   };
 
   const handleSync = async () => {
-    if (!connection?.is_active) {
+    if (!connection?.is_active || !profile?.organization_id) {
       toast({
         title: "Error",
         description: "Please connect to QuickBooks first",
@@ -133,24 +185,42 @@ const QuickBooksIntegration = () => {
 
     setSyncing(true);
     try {
-      // This would trigger the actual sync process
       toast({
         title: "Sync Started",
         description: "Data synchronization with QuickBooks has been initiated",
       });
 
-      // Reload sync history after a delay to show the new sync
-      setTimeout(() => {
-        loadSyncHistory();
-        setSyncing(false);
-      }, 2000);
-    } catch (error) {
+      // Start customer sync
+      const response = await supabase.functions.invoke('qbo-sync-customers', {
+        body: { 
+          organizationId: profile.organization_id,
+          direction: "both"
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const { results } = response.data;
+      
+      toast({
+        title: "Sync Completed",
+        description: `Synced ${results.pulled + results.pushed} records. ${results.errors.length > 0 ? `${results.errors.length} errors occurred.` : ''}`,
+        variant: results.errors.length > 0 ? "destructive" : "default",
+      });
+
+      // Reload sync history and connection status
+      loadSyncHistory();
+      loadConnectionStatus();
+    } catch (error: any) {
       console.error('Error syncing:', error);
       toast({
         title: "Error",
-        description: "Failed to start synchronization",
+        description: error.message || "Failed to start synchronization",
         variant: "destructive",
       });
+    } finally {
       setSyncing(false);
     }
   };
