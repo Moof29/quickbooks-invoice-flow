@@ -4565,6 +4565,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_organization_id: {
+        Args: { user_id: string }
+        Returns: string
+      }
       invite_user_to_organization: {
         Args: {
           p_email: string
