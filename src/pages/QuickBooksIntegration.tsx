@@ -88,10 +88,10 @@ const QuickBooksIntegration = () => {
       const { data, error } = await supabase
         .from('qbo_connection')
         .select('*')
-        .single();
+        .maybeSingle();
 
       console.log('Connection query result:', { data, error });
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
       setConnection(data);
     } catch (error) {
       console.error('Error loading connection status:', error);
@@ -121,7 +121,10 @@ const QuickBooksIntegration = () => {
   };
 
   const handleConnect = async () => {
+    console.log('Connect button clicked, profile:', profile);
+    
     if (!profile?.organization_id) {
+      console.error('No organization_id found in profile');
       toast({
         title: "Error",
         description: "Organization not found. Please refresh and try again.",
@@ -132,15 +135,19 @@ const QuickBooksIntegration = () => {
 
     setLoading(true);
     try {
+      console.log('Calling qbo-oauth-initiate with organizationId:', profile.organization_id);
       const response = await supabase.functions.invoke('qbo-oauth-initiate', {
         body: { organizationId: profile.organization_id }
       });
+
+      console.log('OAuth initiate response:', response);
 
       if (response.error) {
         throw new Error(response.error.message);
       }
 
       const { authUrl } = response.data;
+      console.log('Redirecting to QuickBooks OAuth URL:', authUrl);
       
       // Redirect to QuickBooks OAuth
       window.location.href = authUrl;
@@ -151,7 +158,6 @@ const QuickBooksIntegration = () => {
         description: error.message || "Failed to initiate QuickBooks connection.",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
