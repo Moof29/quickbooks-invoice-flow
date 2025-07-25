@@ -48,6 +48,14 @@ const QuickBooksIntegration = () => {
   const { profile } = useAuthProfile();
 
   useEffect(() => {
+    console.log('QuickBooks page useEffect triggered, profile:', profile);
+    
+    // Only proceed if we have profile data
+    if (!profile) {
+      console.log('No profile yet, waiting...');
+      return;
+    }
+    
     // Check for OAuth callback parameters
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
@@ -72,15 +80,17 @@ const QuickBooksIntegration = () => {
     
     loadConnectionStatus();
     loadSyncHistory();
-  }, []);
+  }, [profile]);
 
   const loadConnectionStatus = async () => {
     try {
+      console.log('Loading connection status for profile:', profile);
       const { data, error } = await supabase
         .from('qbo_connection')
         .select('*')
         .single();
 
+      console.log('Connection query result:', { data, error });
       if (error && error.code !== 'PGRST116') throw error;
       setConnection(data);
     } catch (error) {
