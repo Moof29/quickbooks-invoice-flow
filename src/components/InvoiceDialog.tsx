@@ -141,10 +141,14 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
 
       const total = calculateTotal();
       
+      // TODO: Get organization_id from authenticated user context
+      const organization_id = '00000000-0000-0000-0000-000000000000'; // Placeholder - should come from auth
+      
       // Create invoice
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoice_record')
         .insert({
+          organization_id,
           invoice_number: invoiceNumber,
           customer_id: formData.customer_id,
           invoice_date: formData.invoice_date,
@@ -165,6 +169,7 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
         .filter(item => item.description.trim() !== '')
         .map(item => ({
           invoice_id: invoice.id,
+          organization_id,
           item_id: item.item_id || null,
           description: item.description,
           quantity: item.quantity,

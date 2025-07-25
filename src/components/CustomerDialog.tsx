@@ -36,9 +36,13 @@ export const CustomerDialog = ({ open, onOpenChange, onSuccess }: CustomerDialog
     setLoading(true);
 
     try {
+      // TODO: Get organization_id from authenticated user context
+      const organization_id = '00000000-0000-0000-0000-000000000000'; // Placeholder - should come from auth
+      
       const { error } = await supabase
         .from('customer_profile')
         .insert({
+          organization_id,
           display_name: formData.display_name,
           company_name: formData.company_name || null,
           email: formData.email || null,
