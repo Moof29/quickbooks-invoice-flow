@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
@@ -23,17 +24,14 @@ export default function Auth() {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuthProfile();
 
   useEffect(() => {
     // Check if user is already signed in
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        navigate('/dashboard');
-      }
-    };
-    checkUser();
-  }, [navigate]);
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();

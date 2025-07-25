@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
   public: {
     Tables: {
@@ -1997,6 +1997,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      organization_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invitation_token: string
+          invited_by: string
+          organization_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invitation_token?: string
+          invited_by: string
+          organization_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invitation_token?: string
+          invited_by?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       organizations: {
         Row: {
@@ -4523,6 +4565,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      invite_user_to_organization: {
+        Args: {
+          p_email: string
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_organization_id: string
+        }
+        Returns: string
+      }
       qbo_enqueue_sync_operation: {
         Args: {
           p_entity_id: string

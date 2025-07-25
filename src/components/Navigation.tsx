@@ -13,7 +13,7 @@ import {
   X,
   LogOut
 } from 'lucide-react';
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthProfile } from "@/hooks/useAuthProfile";
 import { useToast } from "@/hooks/use-toast";
 
 const navigation = [
@@ -28,7 +28,7 @@ export const Navigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { signOut } = useAuth();
+  const { signOut, profile, organization } = useAuthProfile();
   const { toast } = useToast();
 
   const handleSignOut = async () => {
