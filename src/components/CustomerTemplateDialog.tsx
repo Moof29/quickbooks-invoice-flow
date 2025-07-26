@@ -112,7 +112,8 @@ export function CustomerTemplateDialog({
         description: template.description || '',
         is_active: template.is_active
       });
-      setTemplateItems([]);
+      // Load template items if editing
+      loadTemplateItems(template.id);
     } else {
       setFormData({
         name: '',
@@ -123,6 +124,48 @@ export function CustomerTemplateDialog({
       setTemplateItems([]);
     }
   }, [template, open]);
+
+  const loadTemplateItems = async (templateId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('customer_template_items')
+        .select('*')
+        .eq('template_id', templateId);
+
+      if (error) throw error;
+
+      // Get item names for the loaded items
+      const itemIds = data.map(item => item.item_id);
+      const { data: itemData, error: itemError } = await supabase
+        .from('item_record')
+        .select('id, name')
+        .in('id', itemIds);
+
+      if (itemError) throw itemError;
+
+      const items = data.map(item => {
+        const itemRecord = itemData.find(ir => ir.id === item.item_id);
+        return {
+          id: item.id,
+          item_id: item.item_id,
+          item_name: itemRecord?.name || 'Unknown Item',
+          unit_measure: item.unit_measure,
+          unit_price: item.unit_price,
+          monday_qty: item.monday_qty,
+          tuesday_qty: item.tuesday_qty,
+          wednesday_qty: item.wednesday_qty,
+          thursday_qty: item.thursday_qty,
+          friday_qty: item.friday_qty,
+          saturday_qty: item.saturday_qty,
+          sunday_qty: item.sunday_qty
+        };
+      });
+
+      setTemplateItems(items);
+    } catch (error) {
+      console.error('Error loading template items:', error);
+    }
+  };
 
   const addTemplateItem = () => {
     if (!items || items.length === 0) return;
@@ -186,24 +229,76 @@ export function CustomerTemplateDialog({
     setLoading(true);
 
     try {
-      // Customer-specific pricing is now built into the template
-      // When items are added, they start with standard pricing (purchase_cost)
-      // Users can edit unit_price to lock in custom pricing for this customer
-      const templateSummary = templateItems.map(item => ({
-        item: item.item_name,
-        customPrice: item.unit_price,
-        totalQty: calculateTotalQty(item),
-        extPrice: calculateExtPrice(item)
-      }));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organization_id) {
+        throw new Error('No organization found');
+      }
 
-      console.log('Template with customer-specific pricing:', {
-        template: formData,
-        items: templateSummary
-      });
+      const templateData = {
+        name: formData.name,
+        customer_id: formData.customer_id,
+        description: formData.description,
+        is_active: formData.is_active,
+        organization_id: user.user_metadata.organization_id
+      };
+
+      let savedTemplate;
+      if (template) {
+        const { data, error } = await supabase
+          .from('customer_templates')
+          .update(templateData)
+          .eq('id', template.id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        savedTemplate = data;
+      } else {
+        const { data, error } = await supabase
+          .from('customer_templates')
+          .insert(templateData)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        savedTemplate = data;
+      }
+
+      // Delete existing template items if updating
+      if (template) {
+        await supabase
+          .from('customer_template_items')
+          .delete()
+          .eq('template_id', template.id);
+      }
+
+      // Save template items with customer-specific pricing
+      if (templateItems.length > 0) {
+        const itemsToInsert = templateItems.map(item => ({
+          template_id: savedTemplate.id,
+          item_id: item.item_id,
+          unit_measure: item.unit_measure,
+          unit_price: item.unit_price, // Customer-specific pricing locked in
+          monday_qty: item.monday_qty,
+          tuesday_qty: item.tuesday_qty,
+          wednesday_qty: item.wednesday_qty,
+          thursday_qty: item.thursday_qty,
+          friday_qty: item.friday_qty,
+          saturday_qty: item.saturday_qty,
+          sunday_qty: item.sunday_qty,
+          organization_id: user.user_metadata.organization_id
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('customer_template_items')
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+      }
 
       toast({
         title: "Success",
-        description: `Template "${formData.name}" ready with customer-specific pricing. Database integration pending.`,
+        description: `Template "${formData.name}" ${template ? 'updated' : 'created'} successfully`,
       });
 
       onSuccess();

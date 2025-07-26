@@ -1088,6 +1088,93 @@ export type Database = {
           },
         ]
       }
+      customer_template_items: {
+        Row: {
+          created_at: string
+          friday_qty: number
+          id: string
+          item_id: string
+          monday_qty: number
+          organization_id: string
+          saturday_qty: number
+          sunday_qty: number
+          template_id: string
+          thursday_qty: number
+          tuesday_qty: number
+          unit_measure: string
+          unit_price: number
+          updated_at: string
+          wednesday_qty: number
+        }
+        Insert: {
+          created_at?: string
+          friday_qty?: number
+          id?: string
+          item_id: string
+          monday_qty?: number
+          organization_id: string
+          saturday_qty?: number
+          sunday_qty?: number
+          template_id: string
+          thursday_qty?: number
+          tuesday_qty?: number
+          unit_measure?: string
+          unit_price?: number
+          updated_at?: string
+          wednesday_qty?: number
+        }
+        Update: {
+          created_at?: string
+          friday_qty?: number
+          id?: string
+          item_id?: string
+          monday_qty?: number
+          organization_id?: string
+          saturday_qty?: number
+          sunday_qty?: number
+          template_id?: string
+          thursday_qty?: number
+          tuesday_qty?: number
+          unit_measure?: string
+          unit_price?: number
+          updated_at?: string
+          wednesday_qty?: number
+        }
+        Relationships: []
+      }
+      customer_templates: {
+        Row: {
+          created_at: string
+          customer_id: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employee_profile: {
         Row: {
           address_line1: string | null

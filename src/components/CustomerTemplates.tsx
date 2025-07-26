@@ -29,7 +29,6 @@ interface Customer {
 }
 
 export function CustomerTemplates() {
-  const [templates, setTemplates] = useState<CustomerTemplate[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -50,34 +49,44 @@ export function CustomerTemplates() {
     }
   });
 
-  // For demo purposes, use mock data since tables don't exist yet
-  useEffect(() => {
-    const mockTemplates: CustomerTemplate[] = [
-      {
-        id: '1',
-        customer_id: 'customer1',
-        name: 'Weekly Bakery Order',
-        description: 'Standard weekly order for fresh bread and pastries',
-        is_active: true,
-        created_at: new Date().toISOString(),
-        customer_profile: {
-          company_name: 'Corner Bakery'
-        }
-      },
-      {
-        id: '2',
-        customer_id: 'customer2',
-        name: 'Restaurant Supplies',
-        description: 'Monthly restaurant supply order',
-        is_active: false,
-        created_at: new Date().toISOString(),
-        customer_profile: {
-          company_name: 'Downtown Diner'
-        }
+  // Fetch customer templates from database
+  const { data: templates, isLoading, refetch } = useQuery<CustomerTemplate[]>({
+    queryKey: ['customer-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('customer_templates')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching templates:', error);
+        return [];
       }
-    ];
-    setTemplates(mockTemplates);
-  }, []);
+
+      if (!data || data.length === 0) return [];
+
+      // Fetch customer info separately
+      const customerIds = [...new Set(data.map(t => t.customer_id))];
+      const { data: customerData, error: customerError } = await supabase
+        .from('customer_profile')
+        .select('id, company_name')
+        .in('id', customerIds);
+
+      if (customerError) {
+        console.error('Error fetching customer data:', customerError);
+        return data.map(template => ({ ...template, customer_profile: undefined }));
+      }
+
+      // Combine the data
+      return data.map(template => {
+        const customer = customerData.find(c => c.id === template.customer_id);
+        return {
+          ...template,
+          customer_profile: customer ? { company_name: customer.company_name } : undefined
+        };
+      });
+    }
+  });
 
   const handleEdit = (template: CustomerTemplate) => {
     setEditingTemplate(template);
@@ -85,30 +94,62 @@ export function CustomerTemplates() {
   };
 
   const handleDelete = async (templateId: string) => {
-    // Mock delete functionality
-    setTemplates(templates.filter(t => t.id !== templateId));
-    toast({
-      title: "Success",
-      description: "Template deleted successfully (demo)",
-    });
+    try {
+      const { error } = await supabase
+        .from('customer_templates')
+        .delete()
+        .eq('id', templateId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Template deleted successfully",
+      });
+      refetch();
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete template",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDuplicate = async (template: CustomerTemplate) => {
-    // Mock duplicate functionality
-    const newTemplate = {
-      ...template,
-      id: Date.now().toString(),
-      name: `${template.name} (Copy)`,
-      is_active: false
-    };
-    setTemplates([...templates, newTemplate]);
-    toast({
-      title: "Success",
-      description: "Template duplicated successfully (demo)",
-    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organization_id) return;
+
+      const { error } = await supabase
+        .from('customer_templates')
+        .insert({
+          customer_id: template.customer_id,
+          name: `${template.name} (Copy)`,
+          description: template.description,
+          is_active: false,
+          organization_id: user.user_metadata.organization_id
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Template duplicated successfully",
+      });
+      refetch();
+    } catch (error) {
+      console.error('Error duplicating template:', error);
+      toast({
+        title: "Error",
+        description: "Failed to duplicate template",
+        variant: "destructive",
+      });
+    }
   };
 
-  const filteredTemplates = templates.filter(template =>
+  const filteredTemplates = (templates || []).filter(template =>
     template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     template.customer_profile?.company_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -237,6 +278,7 @@ export function CustomerTemplates() {
         onSuccess={() => {
           setDialogOpen(false);
           setEditingTemplate(null);
+          refetch(); // Refresh the templates list
         }}
       />
     </div>
