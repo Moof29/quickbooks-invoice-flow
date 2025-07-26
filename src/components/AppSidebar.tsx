@@ -5,7 +5,8 @@ import {
   Users, 
   Zap,
   Settings,
-  LogOut
+  LogOut,
+  ShoppingCart
 } from 'lucide-react';
 import { useAuthProfile } from "@/hooks/useAuthProfile";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +29,7 @@ import { Button } from "@/components/ui/button";
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Invoices', href: '/invoices', icon: FileText },
+  { name: 'Sales Orders', href: '/sales-orders', icon: ShoppingCart },
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'QuickBooks', href: '/quickbooks', icon: Zap },
   { name: 'Settings', href: '/settings', icon: Settings },
