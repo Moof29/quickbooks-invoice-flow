@@ -4652,6 +4652,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_sales_order_number: {
+        Args: { org_id: string }
+        Returns: string
+      }
+      generate_sales_orders_from_templates: {
+        Args: {
+          p_date?: string
+          p_organization_id?: string
+          p_customer_id?: string
+          p_template_id?: string
+        }
+        Returns: Json
+      }
+      get_template_item_quantity_for_date: {
+        Args: {
+          monday_qty: number
+          tuesday_qty: number
+          wednesday_qty: number
+          thursday_qty: number
+          friday_qty: number
+          saturday_qty: number
+          sunday_qty: number
+          target_date: string
+        }
+        Returns: number
+      }
       get_user_organization_id: {
         Args: { user_id: string }
         Returns: string
