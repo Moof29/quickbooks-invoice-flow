@@ -226,12 +226,36 @@ export function CustomerTemplateDialog({
       return;
     }
 
+    // Validate template items
+    for (let i = 0; i < templateItems.length; i++) {
+      const item = templateItems[i];
+      if (!item.item_id) {
+        toast({
+          title: "Error",
+          description: `Please select an item for row ${i + 1}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organization_id) {
-        throw new Error('No organization found');
+      if (!user) {
+        throw new Error('No user found');
+      }
+      
+      // Get organization_id from profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError || !profile?.organization_id) {
+        throw new Error('No organization found for user');
       }
 
       const templateData = {
@@ -239,7 +263,7 @@ export function CustomerTemplateDialog({
         customer_id: formData.customer_id,
         description: formData.description,
         is_active: formData.is_active,
-        organization_id: user.user_metadata.organization_id
+        organization_id: profile.organization_id
       };
 
       let savedTemplate;
@@ -286,7 +310,7 @@ export function CustomerTemplateDialog({
           friday_qty: item.friday_qty,
           saturday_qty: item.saturday_qty,
           sunday_qty: item.sunday_qty,
-          organization_id: user.user_metadata.organization_id
+          organization_id: profile.organization_id
         }));
 
         const { error: itemsError } = await supabase
