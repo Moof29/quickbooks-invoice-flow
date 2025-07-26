@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Invoices from "./pages/Invoices";
 import SalesOrders from "./pages/SalesOrders";
+import Items from "./pages/Items";
 import Customers from "./pages/Customers";
 import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import NotFound from "./pages/NotFound";
@@ -96,6 +97,16 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout>
                     <SalesOrders />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/items"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Items />
                   </AppLayout>
                 </ProtectedRoute>
               }
