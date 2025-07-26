@@ -4577,6 +4577,10 @@ export type Database = {
         }
         Returns: string
       }
+      is_admin_user: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
       qbo_enqueue_sync_operation: {
         Args: {
           p_entity_id: string
