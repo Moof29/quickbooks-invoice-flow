@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 
 interface CustomerDialogProps {
   open: boolean;
@@ -16,6 +17,7 @@ interface CustomerDialogProps {
 
 export const CustomerDialog = ({ open, onOpenChange, onSuccess }: CustomerDialogProps) => {
   const [loading, setLoading] = useState(false);
+  const { profile } = useAuthProfile();
   const [formData, setFormData] = useState({
     display_name: '',
     company_name: '',
@@ -36,13 +38,14 @@ export const CustomerDialog = ({ open, onOpenChange, onSuccess }: CustomerDialog
     setLoading(true);
 
     try {
-      // TODO: Get organization_id from authenticated user context
-      const organization_id = '00000000-0000-0000-0000-000000000000'; // Placeholder - should come from auth
+      if (!profile?.organization_id) {
+        throw new Error('No organization found for user');
+      }
       
       const { error } = await supabase
         .from('customer_profile')
         .insert({
-          organization_id,
+          organization_id: profile.organization_id,
           display_name: formData.display_name,
           company_name: formData.company_name || null,
           email: formData.email || null,
