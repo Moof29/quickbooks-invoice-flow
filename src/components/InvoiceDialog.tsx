@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trash2, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 import { useToast } from '@/hooks/use-toast';
 
 interface Customer {
@@ -59,6 +60,7 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
       amount: 0
     }
   ]);
+  const { profile } = useAuthProfile();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -126,6 +128,10 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
     setLoading(true);
 
     try {
+      if (!profile?.organization_id) {
+        throw new Error('No organization found for user');
+      }
+
       // Generate invoice number (simple increment-based)
       const { data: lastInvoice } = await supabase
         .from('invoice_record')
@@ -141,14 +147,11 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
 
       const total = calculateTotal();
       
-      // TODO: Get organization_id from authenticated user context
-      const organization_id = '00000000-0000-0000-0000-000000000000'; // Placeholder - should come from auth
-      
       // Create invoice
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoice_record')
         .insert({
-          organization_id,
+          organization_id: profile.organization_id,
           invoice_number: invoiceNumber,
           customer_id: formData.customer_id,
           invoice_date: formData.invoice_date,
@@ -169,7 +172,7 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
         .filter(item => item.description.trim() !== '')
         .map(item => ({
           invoice_id: invoice.id,
-          organization_id,
+          organization_id: profile.organization_id,
           item_id: item.item_id || null,
           description: item.description,
           quantity: item.quantity,
