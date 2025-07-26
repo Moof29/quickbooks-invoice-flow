@@ -50,8 +50,8 @@ export const Navigation = () => {
 
   return (
     <>
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+      {/* Desktop Sidebar Only */}
+      <div className="hidden xl:fixed xl:inset-y-0 xl:flex xl:w-64 xl:flex-col">
         <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
             <div className="flex items-center flex-shrink-0 px-4">
@@ -101,8 +101,8 @@ export const Navigation = () => {
         </div>
       </div>
 
-      {/* Mobile menu button */}
-      <div className="lg:hidden">
+      {/* Mobile & Tablet menu button */}
+      <div className="xl:hidden">
         <div className="flex items-center justify-between bg-white px-4 py-2 border-b border-gray-200">
           <div className="flex items-center">
             <div className="bg-blue-600 rounded-lg p-2">
@@ -119,9 +119,9 @@ export const Navigation = () => {
           </Button>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile & Tablet menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden">
+          <div className="xl:hidden">
             <div className="pt-2 pb-3 space-y-1 bg-white border-b border-gray-200">
               {navigation.map((item) => {
                 const isActive = location.pathname === item.href;
