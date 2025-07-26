@@ -108,7 +108,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Redirect to the frontend with success
     const frontendUrl = supabaseUrl.replace('.supabase.co', '.lovableproject.com');
-    const redirectUrl = `${frontendUrl}/quickbooks-integration?success=true`;
+    const redirectUrl = `${frontendUrl}/quickbooks?success=true`;
     
     return new Response(null, {
       status: 302,
@@ -124,7 +124,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Redirect to frontend with error
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const frontendUrl = supabaseUrl.replace('.supabase.co', '.lovableproject.com');
-    const redirectUrl = `${frontendUrl}/quickbooks-integration?error=${encodeURIComponent(error.message)}`;
+    const redirectUrl = `${frontendUrl}/quickbooks?error=${encodeURIComponent(error.message)}`;
     
     return new Response(null, {
       status: 302,
