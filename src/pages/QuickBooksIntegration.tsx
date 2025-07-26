@@ -273,28 +273,29 @@ const QuickBooksIntegration = () => {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 py-4 sm:py-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">QuickBooks Integration</h1>
-              <p className="text-gray-600 mt-1">Connect and sync your data with QuickBooks Online</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">QuickBooks Integration</h1>
+              <p className="text-gray-600 mt-1 text-sm sm:text-base">Connect and sync your data with QuickBooks Online</p>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               {connection?.is_active ? (
                 <>
                   <Button 
                     onClick={handleSync} 
                     disabled={syncing}
                     variant="outline"
+                    className="w-full sm:w-auto"
                   >
                     <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                     {syncing ? 'Syncing...' : 'Sync Now'}
                   </Button>
-                  <Button onClick={handleDisconnect} variant="destructive">
+                  <Button onClick={handleDisconnect} variant="destructive" className="w-full sm:w-auto">
                     Disconnect
                   </Button>
                 </>
               ) : (
-                <Button onClick={handleConnect}>
+                <Button onClick={handleConnect} className="w-full sm:w-auto">
                   <Zap className="w-4 h-4 mr-2" />
                   Connect to QuickBooks
                 </Button>
@@ -322,7 +323,7 @@ const QuickBooksIntegration = () => {
                   <Badge className="ml-2 bg-green-100 text-green-800">Active</Badge>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
                   <div>
                     <p className="text-sm text-gray-600">Company ID</p>
                     <p className="font-medium">{connection.qbo_company_id}</p>
@@ -365,7 +366,7 @@ const QuickBooksIntegration = () => {
         </Card>
 
         {/* Integration Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Customers</CardTitle>
@@ -435,9 +436,9 @@ const QuickBooksIntegration = () => {
             ) : (
               <div className="space-y-4">
                 {syncHistory.map((sync) => (
-                  <div key={sync.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div key={sync.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg">
                     <div className="flex items-center space-x-4">
-                      <div className="bg-blue-100 p-2 rounded-lg">
+                      <div className="bg-blue-100 p-2 rounded-lg flex-shrink-0">
                         <RefreshCw className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
@@ -447,8 +448,8 @@ const QuickBooksIntegration = () => {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                      <div className="text-left sm:text-right">
                         <p className="text-sm">
                           {sync.success_count}/{sync.entity_count} successful
                         </p>
@@ -458,7 +459,7 @@ const QuickBooksIntegration = () => {
                           </p>
                         )}
                       </div>
-                      <Badge className={getStatusColor(sync.status)}>
+                      <Badge className={`${getStatusColor(sync.status)} w-fit`}>
                         {sync.status}
                       </Badge>
                     </div>
