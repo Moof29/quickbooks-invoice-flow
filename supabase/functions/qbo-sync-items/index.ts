@@ -172,11 +172,22 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
     }
 
     const data = await response.json();
-    console.log("QuickBooks API response data:", JSON.stringify(data, null, 2));
+    console.log("QuickBooks API full response:", JSON.stringify(data, null, 2));
+    
+    // Check if QueryResponse exists
+    if (!data.QueryResponse) {
+      console.log("No QueryResponse in API response");
+      return 0;
+    }
     
     const items = data.QueryResponse?.Item || [];
     
     console.log(`Found ${items.length} items in QuickBooks`);
+    
+    // If no items, let's also check what's in the QueryResponse
+    if (items.length === 0) {
+      console.log("QueryResponse content:", JSON.stringify(data.QueryResponse, null, 2));
+    }
 
     // Save items to database
     let savedCount = 0;
