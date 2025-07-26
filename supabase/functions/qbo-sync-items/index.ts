@@ -136,6 +136,12 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
 
 async function pullItemsFromQB(supabase: any, connection: any): Promise<number> {
   console.log("Pulling items from QuickBooks...");
+  console.log("Connection details:", {
+    environment: connection.environment,
+    realm_id: connection.qbo_realm_id,
+    has_token: !!connection.qbo_access_token,
+    token_preview: connection.qbo_access_token?.substring(0, 10) + "..."
+  });
   
   // Use sandbox URL for testing, production for live
   const baseUrl = connection.environment === 'sandbox' 
@@ -145,6 +151,7 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
   const query = "SELECT * FROM Item MAXRESULTS 1000";
 
   console.log("Making request to:", qbApiUrl);
+  console.log("Query:", query);
 
   try {
     const response = await fetch(`${qbApiUrl}?query=${encodeURIComponent(query)}`, {
