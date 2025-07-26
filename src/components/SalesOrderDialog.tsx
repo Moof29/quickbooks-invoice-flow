@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, Package, DollarSign, Truck, FileText, AlertCircle } from 'lucide-react';
+import { Calendar, Package, DollarSign, Truck, FileText, AlertCircle, Check, X, Edit2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -70,6 +70,8 @@ interface LineItem {
 export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrderDialogProps) {
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState<Partial<SalesOrderDetails>>({});
+  const [editingQuantity, setEditingQuantity] = useState<string | null>(null);
+  const [tempQuantity, setTempQuantity] = useState<string>('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -120,7 +122,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
     enabled: !!salesOrderId,
   });
 
-  // Update mutation
+  // Update sales order mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: Partial<SalesOrderDetails>) => {
       if (!salesOrderId) throw new Error('No sales order ID');
@@ -151,12 +153,66 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
     },
   });
 
+  // Update line item quantity mutation
+  const updateQuantityMutation = useMutation({
+    mutationFn: async ({ lineItemId, quantity }: { lineItemId: string; quantity: number }) => {
+      const { error } = await supabase
+        .from('sales_order_line_item')
+        .update({ quantity })
+        .eq('id', lineItemId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      toast({
+        title: 'Success',
+        description: 'Quantity updated successfully',
+      });
+      setEditingQuantity(null);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: 'Failed to update quantity',
+        variant: 'destructive',
+      });
+      console.error('Quantity update error:', error);
+      setEditingQuantity(null);
+    },
+  });
+
   // Initialize form data when sales order loads
   useEffect(() => {
     if (salesOrder) {
       setFormData(salesOrder);
     }
   }, [salesOrder]);
+
+  const handleQuantityEdit = (lineItemId: string, currentQuantity: number) => {
+    setEditingQuantity(lineItemId);
+    setTempQuantity(currentQuantity.toString());
+  };
+
+  const handleQuantitySave = (lineItemId: string) => {
+    const quantity = parseFloat(tempQuantity);
+    if (isNaN(quantity) || quantity <= 0) {
+      toast({
+        title: 'Invalid Quantity',
+        description: 'Please enter a valid positive number',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    updateQuantityMutation.mutate({ lineItemId, quantity });
+  };
+
+  const handleQuantityCancel = () => {
+    setEditingQuantity(null);
+    setTempQuantity('');
+  };
 
   const handleSave = () => {
     if (!formData) return;
@@ -322,6 +378,123 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
                 </CardContent>
               </Card>
             </div>
+
+            {/* Line Items - Moved up for fast editing */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Line Items - Quick Edit Quantities
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {lineItems && lineItems.length > 0 ? (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Item</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead className="text-right">Quantity</TableHead>
+                          <TableHead className="text-right">Unit Price</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead className="w-[100px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lineItems.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">
+                              {item.item_record.name}
+                              {item.description && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {item.description}
+                                </p>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {item.item_record.sku || '-'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {editingQuantity === item.id ? (
+                                <div className="flex items-center gap-1 justify-end">
+                                  <Input
+                                    type="number"
+                                    value={tempQuantity}
+                                    onChange={(e) => setTempQuantity(e.target.value)}
+                                    className="w-20 h-8 text-right"
+                                    step="0.01"
+                                    min="0"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleQuantitySave(item.id);
+                                      } else if (e.key === 'Escape') {
+                                        handleQuantityCancel();
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleQuantityEdit(item.id, item.quantity)}
+                                  className="text-right hover:bg-muted/50 px-2 py-1 rounded transition-colors"
+                                >
+                                  {item.quantity}
+                                </button>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              ${item.unit_price.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              ${item.amount.toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              {editingQuantity === item.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleQuantitySave(item.id)}
+                                    disabled={updateQuantityMutation.isPending}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={handleQuantityCancel}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleQuantityEdit(item.id, item.quantity)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No line items found</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Order Details */}
             <Card>
@@ -533,60 +706,6 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
               </CardContent>
             </Card>
 
-            {/* Line Items */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Line Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {lineItems && lineItems.length > 0 ? (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Item</TableHead>
-                          <TableHead>SKU</TableHead>
-                          <TableHead className="text-right">Quantity</TableHead>
-                          <TableHead className="text-right">Unit Price</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {lineItems.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">
-                              {item.item_record.name}
-                              {item.description && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {item.description}
-                                </p>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {item.item_record.sku || '-'}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {item.quantity}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              ${item.unit_price.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              ${item.amount.toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No line items found</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
             {/* Totals Summary */}
             <Card>
