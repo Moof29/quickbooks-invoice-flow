@@ -95,6 +95,8 @@ const handler = async (req: Request): Promise<Response> => {
         last_connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         environment: "production",
+      }, {
+        onConflict: 'organization_id'
       });
 
     if (updateError) {
