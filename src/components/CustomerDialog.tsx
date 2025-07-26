@@ -38,27 +38,38 @@ export const CustomerDialog = ({ open, onOpenChange, onSuccess }: CustomerDialog
     setLoading(true);
 
     try {
+      console.log('DEBUG: Profile data:', profile);
+      console.log('DEBUG: Organization ID:', profile?.organization_id);
+      
       if (!profile?.organization_id) {
+        console.error('DEBUG: No organization found for user');
         throw new Error('No organization found for user');
       }
+
+      const insertData = {
+        organization_id: profile.organization_id,
+        display_name: formData.display_name,
+        company_name: formData.company_name || null,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        billing_address_line1: formData.billing_address_line1 || null,
+        billing_address_line2: formData.billing_address_line2 || null,
+        billing_city: formData.billing_city || null,
+        billing_state: formData.billing_state || null,
+        billing_postal_code: formData.billing_postal_code || null,
+        billing_country: formData.billing_country || null,
+        notes: formData.notes || null,
+        is_active: true,
+      };
       
-      const { error } = await supabase
+      console.log('DEBUG: Insert data:', insertData);
+      
+      const { data, error } = await supabase
         .from('customer_profile')
-        .insert({
-          organization_id: profile.organization_id,
-          display_name: formData.display_name,
-          company_name: formData.company_name || null,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          billing_address_line1: formData.billing_address_line1 || null,
-          billing_address_line2: formData.billing_address_line2 || null,
-          billing_city: formData.billing_city || null,
-          billing_state: formData.billing_state || null,
-          billing_postal_code: formData.billing_postal_code || null,
-          billing_country: formData.billing_country || null,
-          notes: formData.notes || null,
-          is_active: true,
-        });
+        .insert(insertData)
+        .select();
+
+      console.log('DEBUG: Insert result:', { data, error });
 
       if (error) throw error;
 
