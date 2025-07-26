@@ -108,20 +108,20 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
 
   if (expiresAt <= fiveMinutesFromNow) {
     console.log("Token expired, refreshing...");
-    const refreshResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/qbo-token-refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-      },
-      body: JSON.stringify({
+    
+    // Use Supabase client to invoke the token refresh function
+    const { data: refreshData, error: refreshError } = await supabase.functions.invoke('qbo-token-refresh', {
+      body: {
         organizationId: connection.organization_id
-      }),
+      }
     });
 
-    if (!refreshResponse.ok) {
-      throw new Error("Failed to refresh token");
+    if (refreshError) {
+      console.error("Token refresh error:", refreshError);
+      throw new Error(`Failed to refresh token: ${refreshError.message}`);
     }
+    
+    console.log("Token refreshed successfully");
   }
 }
 
