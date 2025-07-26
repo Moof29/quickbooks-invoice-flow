@@ -185,7 +185,7 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
           last_sync_at: new Date().toISOString(),
         };
 
-        // Insert or update item
+        // Insert or update item - try insert first, then update if exists
         const { error } = await supabase
           .from('item_record')
           .upsert(itemData, {
