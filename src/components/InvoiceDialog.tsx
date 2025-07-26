@@ -176,8 +176,8 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
           item_id: item.item_id || null,
           description: item.description,
           quantity: item.quantity,
-          unit_price: item.unit_price,
-          amount: item.amount
+          unit_price: item.unit_price
+          // amount is a generated column, so we don't include it in the insert
         }));
 
       if (lineItemInserts.length > 0) {
