@@ -39,7 +39,7 @@ interface TemplateItem {
 interface Item {
   id: string;
   name: string;
-  purchase_cost?: number;
+  list_price?: number; // Sales price from items module
 }
 
 interface Customer {
@@ -90,12 +90,17 @@ export function CustomerTemplateDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('item_record')
-        .select('id, name, purchase_cost')
+        .select('id, name, purchase_cost') // Will be 'list_price' when items module is expanded
         .eq('is_active', true)
         .order('name');
       
       if (error) throw error;
-      return data as Item[];
+      // Map purchase_cost to list_price for now
+      return data.map(item => ({
+        id: item.id,
+        name: item.name,
+        list_price: item.purchase_cost
+      })) as Item[];
     }
   });
 
@@ -127,7 +132,7 @@ export function CustomerTemplateDialog({
       item_id: firstItem.id,
       item_name: firstItem.name,
       unit_measure: 'EA',
-      unit_price: firstItem.purchase_cost || 0,
+      unit_price: firstItem.list_price || 0,
       monday_qty: 0,
       tuesday_qty: 0,
       wednesday_qty: 0,
@@ -152,7 +157,7 @@ export function CustomerTemplateDialog({
       if (selectedItem) {
         updated[index].item_name = selectedItem.name;
         updated[index].unit_measure = 'EA';
-        updated[index].unit_price = selectedItem.purchase_cost || 0;
+        updated[index].unit_price = selectedItem.list_price || 0;
       }
     }
     
