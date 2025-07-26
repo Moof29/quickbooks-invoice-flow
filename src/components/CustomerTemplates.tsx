@@ -23,6 +23,11 @@ interface CustomerTemplate {
   };
 }
 
+interface Customer {
+  id: string;
+  company_name: string;
+}
+
 export function CustomerTemplates() {
   const [templates, setTemplates] = useState<CustomerTemplate[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
@@ -32,7 +37,7 @@ export function CustomerTemplates() {
   const { toast } = useToast();
 
   // Fetch customers for filter
-  const { data: customers } = useQuery({
+  const { data: customers } = useQuery<Customer[]>({
     queryKey: ['customers'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -41,43 +46,38 @@ export function CustomerTemplates() {
         .order('company_name');
       
       if (error) throw error;
-      return data;
+      return data as Customer[];
     }
   });
 
-  // Fetch templates
-  const fetchTemplates = async () => {
-    let query = supabase
-      .from('customer_templates')
-      .select(`
-        *,
-        customer_profile:customer_id (
-          company_name
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (selectedCustomer !== 'all') {
-      query = query.eq('customer_id', selectedCustomer);
-    }
-
-    const { data, error } = await query;
-    
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch customer templates",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setTemplates(data || []);
-  };
-
+  // For demo purposes, use mock data since tables don't exist yet
   useEffect(() => {
-    fetchTemplates();
-  }, [selectedCustomer]);
+    const mockTemplates: CustomerTemplate[] = [
+      {
+        id: '1',
+        customer_id: 'customer1',
+        name: 'Weekly Bakery Order',
+        description: 'Standard weekly order for fresh bread and pastries',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        customer_profile: {
+          company_name: 'Corner Bakery'
+        }
+      },
+      {
+        id: '2',
+        customer_id: 'customer2',
+        name: 'Restaurant Supplies',
+        description: 'Monthly restaurant supply order',
+        is_active: false,
+        created_at: new Date().toISOString(),
+        customer_profile: {
+          company_name: 'Downtown Diner'
+        }
+      }
+    ];
+    setTemplates(mockTemplates);
+  }, []);
 
   const handleEdit = (template: CustomerTemplate) => {
     setEditingTemplate(template);
@@ -85,53 +85,27 @@ export function CustomerTemplates() {
   };
 
   const handleDelete = async (templateId: string) => {
-    const { error } = await supabase
-      .from('customer_templates')
-      .delete()
-      .eq('id', templateId);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete template",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Mock delete functionality
+    setTemplates(templates.filter(t => t.id !== templateId));
     toast({
       title: "Success",
-      description: "Template deleted successfully",
+      description: "Template deleted successfully (demo)",
     });
-    
-    fetchTemplates();
   };
 
   const handleDuplicate = async (template: CustomerTemplate) => {
-    const { error } = await supabase
-      .from('customer_templates')
-      .insert({
-        customer_id: template.customer_id,
-        name: `${template.name} (Copy)`,
-        description: template.description,
-        is_active: false
-      });
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to duplicate template",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Mock duplicate functionality
+    const newTemplate = {
+      ...template,
+      id: Date.now().toString(),
+      name: `${template.name} (Copy)`,
+      is_active: false
+    };
+    setTemplates([...templates, newTemplate]);
     toast({
       title: "Success",
-      description: "Template duplicated successfully",
+      description: "Template duplicated successfully (demo)",
     });
-    
-    fetchTemplates();
   };
 
   const filteredTemplates = templates.filter(template =>
@@ -147,7 +121,7 @@ export function CustomerTemplates() {
             <div>
               <CardTitle>Customer Templates</CardTitle>
               <CardDescription>
-                Create and manage ordering templates for your customers
+                Create and manage ordering templates for your customers (Batchly-only feature)
               </CardDescription>
             </div>
             <Button 
@@ -261,7 +235,6 @@ export function CustomerTemplates() {
         onOpenChange={setDialogOpen}
         template={editingTemplate}
         onSuccess={() => {
-          fetchTemplates();
           setDialogOpen(false);
           setEditingTemplate(null);
         }}
