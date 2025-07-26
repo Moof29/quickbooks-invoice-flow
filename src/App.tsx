@@ -52,7 +52,7 @@ const App = () => (
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <div className="md:pl-48 lg:pl-64">
+                  <div className="lg:pl-64">
                     <Navigation />
                     <Dashboard />
                   </div>
@@ -63,7 +63,7 @@ const App = () => (
               path="/invoices"
               element={
                 <ProtectedRoute>
-                  <div className="md:pl-48 lg:pl-64">
+                  <div className="lg:pl-64">
                     <Navigation />
                     <Invoices />
                   </div>
@@ -74,7 +74,7 @@ const App = () => (
               path="/customers"
               element={
                 <ProtectedRoute>
-                  <div className="md:pl-48 lg:pl-64">
+                  <div className="lg:pl-64">
                     <Navigation />
                     <Customers />
                   </div>
@@ -85,7 +85,7 @@ const App = () => (
               path="/quickbooks"
               element={
                 <ProtectedRoute>
-                  <div className="md:pl-48 lg:pl-64">
+                  <div className="lg:pl-64">
                     <Navigation />
                     <QuickBooksIntegration />
                   </div>
@@ -96,7 +96,7 @@ const App = () => (
               path="/settings"
               element={
                 <ProtectedRoute>
-                  <div className="md:pl-48 lg:pl-64">
+                  <div className="lg:pl-64">
                     <Navigation />
                     <Settings />
                   </div>

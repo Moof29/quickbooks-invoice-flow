@@ -50,8 +50,8 @@ export const Navigation = () => {
 
   return (
     <>
-      {/* Desktop & Tablet Sidebar */}
-      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-48 lg:w-64 md:flex-col">
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
             <div className="flex items-center flex-shrink-0 px-4">
@@ -102,7 +102,7 @@ export const Navigation = () => {
       </div>
 
       {/* Mobile menu button */}
-      <div className="md:hidden">
+      <div className="lg:hidden">
         <div className="flex items-center justify-between bg-white px-4 py-2 border-b border-gray-200">
           <div className="flex items-center">
             <div className="bg-blue-600 rounded-lg p-2">
