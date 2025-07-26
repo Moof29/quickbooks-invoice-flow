@@ -156,6 +156,8 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
       },
     });
 
+    console.log("QuickBooks API response status:", response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error("QuickBooks API error response:", response.status, errorText);
@@ -163,6 +165,8 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
     }
 
     const data = await response.json();
+    console.log("QuickBooks API response data:", JSON.stringify(data, null, 2));
+    
     const items = data.QueryResponse?.Item || [];
     
     console.log(`Found ${items.length} items in QuickBooks`);
