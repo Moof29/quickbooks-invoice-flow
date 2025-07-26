@@ -212,7 +212,7 @@ async function pushCustomersToQB(supabase: any, connection: any): Promise<number
     .select("*")
     .eq("organization_id", connection.organization_id)
     .eq("is_active", true)
-    .or("qbo_id.is.null,last_sync_at.is.null,updated_at.gt.last_sync_at");
+    .or("qbo_id.is.null,last_sync_at.is.null");
 
   if (error) {
     throw new Error(`Failed to fetch customers: ${error.message}`);
