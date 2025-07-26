@@ -5,7 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProfileProvider, useAuthProfile } from "@/hooks/useAuthProfile";
-import { Navigation } from "@/components/Navigation";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -38,6 +39,26 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        <AppSidebar />
+        <SidebarInset className="flex-1">
+          <header className="flex h-12 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <div className="h-4 w-px bg-border" />
+            <span className="text-sm font-medium">Batchly</span>
+          </header>
+          <main className="flex-1 p-6">
+            {children}
+          </main>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
+  );
+}
+
 const App = () => (
   <AuthProfileProvider>
     <QueryClientProvider client={queryClient}>
@@ -52,10 +73,9 @@ const App = () => (
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <div className="xl:pl-64">
-                    <Navigation />
+                  <AppLayout>
                     <Dashboard />
-                  </div>
+                  </AppLayout>
                 </ProtectedRoute>
               }
             />
@@ -63,10 +83,9 @@ const App = () => (
               path="/invoices"
               element={
                 <ProtectedRoute>
-                  <div className="xl:pl-64">
-                    <Navigation />
+                  <AppLayout>
                     <Invoices />
-                  </div>
+                  </AppLayout>
                 </ProtectedRoute>
               }
             />
@@ -74,10 +93,9 @@ const App = () => (
               path="/customers"
               element={
                 <ProtectedRoute>
-                  <div className="xl:pl-64">
-                    <Navigation />
+                  <AppLayout>
                     <Customers />
-                  </div>
+                  </AppLayout>
                 </ProtectedRoute>
               }
             />
@@ -85,10 +103,9 @@ const App = () => (
               path="/quickbooks"
               element={
                 <ProtectedRoute>
-                  <div className="xl:pl-64">
-                    <Navigation />
+                  <AppLayout>
                     <QuickBooksIntegration />
-                  </div>
+                  </AppLayout>
                 </ProtectedRoute>
               }
             />
@@ -96,10 +113,9 @@ const App = () => (
               path="/settings"
               element={
                 <ProtectedRoute>
-                  <div className="xl:pl-64">
-                    <Navigation />
+                  <AppLayout>
                     <Settings />
-                  </div>
+                  </AppLayout>
                 </ProtectedRoute>
               }
             />
