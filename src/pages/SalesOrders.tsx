@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CustomerTemplates } from "@/components/CustomerTemplates";
+import { SalesOrdersList } from "@/components/SalesOrdersList";
 
 export default function SalesOrders() {
   return (
@@ -21,9 +22,7 @@ export default function SalesOrders() {
         </TabsContent>
         
         <TabsContent value="orders" className="mt-6">
-          <div className="text-center text-muted-foreground">
-            Sales Orders functionality coming soon...
-          </div>
+          <SalesOrdersList />
         </TabsContent>
       </Tabs>
     </div>
