@@ -181,15 +181,30 @@ export function CustomerTemplateDialog({
     setLoading(true);
 
     try {
-      // For now, just show success - actual save functionality will be implemented once tables are created
+      // Customer-specific pricing is now built into the template
+      // When items are added, they start with standard pricing (purchase_cost)
+      // Users can edit unit_price to lock in custom pricing for this customer
+      const templateSummary = templateItems.map(item => ({
+        item: item.item_name,
+        customPrice: item.unit_price,
+        totalQty: calculateTotalQty(item),
+        extPrice: calculateExtPrice(item)
+      }));
+
+      console.log('Template with customer-specific pricing:', {
+        template: formData,
+        items: templateSummary
+      });
+
       toast({
         title: "Success",
-        description: `Template functionality coming soon - template "${formData.name}" would be ${template ? 'updated' : 'created'}`,
+        description: `Template "${formData.name}" ready with customer-specific pricing. Database integration pending.`,
       });
 
       onSuccess();
       onOpenChange(false);
     } catch (error) {
+      console.error('Save error:', error);
       toast({
         title: "Error",
         description: `Failed to ${template ? 'update' : 'create'} template`,
@@ -310,7 +325,17 @@ export function CustomerTemplateDialog({
                           </Select>
                         </TableCell>
                         <TableCell>{item.unit_measure}</TableCell>
-                        <TableCell>{item.unit_price.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={item.unit_price}
+                            onChange={(e) => updateTemplateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                            className="w-20"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                        </TableCell>
                         <TableCell>
                           <Input
                             type="number"
