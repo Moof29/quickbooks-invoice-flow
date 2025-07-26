@@ -106,6 +106,13 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
   const now = new Date();
   const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
 
+  console.log("Token check:", {
+    expiresAt: expiresAt.toISOString(),
+    now: now.toISOString(),
+    fiveMinutesFromNow: fiveMinutesFromNow.toISOString(),
+    needsRefresh: expiresAt <= fiveMinutesFromNow
+  });
+
   if (expiresAt <= fiveMinutesFromNow) {
     console.log("Token expired, refreshing...");
     
@@ -122,6 +129,21 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
     }
     
     console.log("Token refreshed successfully");
+    
+    // Get the updated connection after refresh
+    const { data: updatedConnection } = await supabase
+      .from("qbo_connection")
+      .select("*")
+      .eq("organization_id", connection.organization_id)
+      .eq("is_active", true)
+      .single();
+    
+    // Update the connection object with new token
+    if (updatedConnection) {
+      connection.qbo_access_token = updatedConnection.qbo_access_token;
+      connection.qbo_token_expires_at = updatedConnection.qbo_token_expires_at;
+      console.log("Updated connection with new token");
+    }
   }
 }
 
@@ -137,11 +159,15 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
       "Authorization": `Bearer ${connection.qbo_access_token}`,
       "Accept": "application/json",
     },
+  }).catch(error => {
+    console.error("Network error calling QuickBooks API:", error);
+    throw new Error(`Network error: ${error.message}`);
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`QuickBooks API error: ${errorText}`);
+    console.error("QuickBooks API error response:", response.status, errorText);
+    throw new Error(`QuickBooks API error (${response.status}): ${errorText}`);
   }
 
   const data = await response.json();
