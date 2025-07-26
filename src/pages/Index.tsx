@@ -12,11 +12,11 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthProfile } from "@/hooks/useAuthProfile";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuthProfile();
 
   useEffect(() => {
     if (!loading && user) {
