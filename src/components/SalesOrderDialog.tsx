@@ -161,6 +161,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
       if (!lineItem) throw new Error('Line item not found');
       
       const newAmount = quantity * lineItem.unit_price;
+      console.log('Updating line item:', { lineItemId, quantity, newAmount, unitPrice: lineItem.unit_price });
       
       const { error } = await supabase
         .from('sales_order_line_item')
@@ -172,20 +173,27 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
 
       if (error) throw error;
 
-      // Recalculate sales order totals
+      // Recalculate sales order totals by fetching all current line items
       if (salesOrderId) {
-        const { data: allLineItems, error: lineItemsError } = await supabase
+        // Fetch fresh line items after the update
+        const { data: updatedLineItems, error: lineItemsError } = await supabase
           .from('sales_order_line_item')
           .select('amount')
           .eq('sales_order_id', salesOrderId);
 
         if (lineItemsError) throw lineItemsError;
 
-        const newSubtotal = allLineItems.reduce((sum, item) => {
-          return sum + item.amount;
-        }, 0) - (lineItems?.find(item => item.id === lineItemId)?.amount || 0) + newAmount;
-
+        const newSubtotal = updatedLineItems.reduce((sum, item) => sum + item.amount, 0);
         const newTotal = newSubtotal + (salesOrder?.tax_total || 0) + (salesOrder?.shipping_total || 0) - (salesOrder?.discount_total || 0);
+
+        console.log('Recalculating totals:', { 
+          updatedLineItems, 
+          newSubtotal, 
+          taxTotal: salesOrder?.tax_total || 0,
+          shippingTotal: salesOrder?.shipping_total || 0,
+          discountTotal: salesOrder?.discount_total || 0,
+          newTotal 
+        });
 
         const { error: updateError } = await supabase
           .from('sales_order')
