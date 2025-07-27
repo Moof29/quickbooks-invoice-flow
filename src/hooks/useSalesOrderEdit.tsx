@@ -85,133 +85,30 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
     },
   });
 
-  // Update line item quantity with automatic total recalculation
+  // Update line item quantity - database triggers handle all calculations automatically
   const updateQuantityMutation = useMutation({
-    mutationFn: async ({ lineItemId, quantity, salesOrder }: { 
+    mutationFn: async ({ lineItemId, quantity }: { 
       lineItemId: string; 
       quantity: number; 
-      salesOrder: SalesOrderDetails;
     }) => {
-      try {
-        console.log('=== Starting line item quantity update ===');
-        console.log('Input:', { lineItemId, quantity, salesOrderId });
-        
-        // First, get the line item details to verify it exists
-        console.log('Fetching line item details...');
-        const { data: lineItem, error: lineItemFetchError } = await supabase
-          .from('sales_order_line_item')
-          .select('unit_price, sales_order_id, organization_id')
-          .eq('id', lineItemId)
-          .single();
+      console.log('=== Starting line item quantity update ===');
+      console.log('Input:', { lineItemId, quantity, salesOrderId });
+      
+      // Update only the quantity - database triggers handle amount and totals automatically
+      const { error: updateError } = await supabase
+        .from('sales_order_line_item')
+        .update({ quantity })
+        .eq('id', lineItemId);
 
-        if (lineItemFetchError) {
-          console.error('Failed to fetch line item:', lineItemFetchError);
-          throw new Error(`Failed to fetch line item: ${lineItemFetchError.message}`);
-        }
-
-        if (!lineItem) {
-          throw new Error('Line item not found');
-        }
-
-        console.log('Line item found:', lineItem);
-
-        // Verify the line item belongs to the current sales order
-        if (lineItem.sales_order_id !== salesOrderId) {
-          throw new Error('Line item does not belong to this sales order');
-        }
-
-        const expectedAmount = quantity * lineItem.unit_price;
-        console.log('Expected new amount:', { quantity, unitPrice: lineItem.unit_price, expectedAmount });
-
-        // Update only the quantity - database should auto-calculate amount
-        console.log('Updating line item quantity...');
-        const { error: updateError } = await supabase
-          .from('sales_order_line_item')
-          .update({ quantity })
-          .eq('id', lineItemId);
-
-        if (updateError) {
-          console.error('Line item update failed:', updateError);
-          throw new Error(`Failed to update line item: ${updateError.message}`);
-        }
-
-        console.log('Line item quantity updated successfully');
-
-        // Wait a moment for any database triggers to complete
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Fetch all updated line items to recalculate totals
-        console.log('Fetching all line items for total calculation...');
-        const { data: allLineItems, error: lineItemsError } = await supabase
-          .from('sales_order_line_item')
-          .select('amount')
-          .eq('sales_order_id', salesOrderId);
-
-        if (lineItemsError) {
-          console.error('Failed to fetch all line items:', lineItemsError);
-          throw new Error(`Failed to fetch line items: ${lineItemsError.message}`);
-        }
-
-        if (!allLineItems || allLineItems.length === 0) {
-          console.warn('No line items found for sales order:', salesOrderId);
-        }
-
-        console.log('Fetched line items for calculation:', allLineItems);
-
-        const newSubtotal = allLineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-        const taxTotal = salesOrder.tax_total || 0;
-        const shippingTotal = salesOrder.shipping_total || 0;
-        const discountTotal = salesOrder.discount_total || 0;
-        const newTotal = newSubtotal + taxTotal + shippingTotal - discountTotal;
-
-        console.log('Calculated totals:', { 
-          newSubtotal, 
-          taxTotal,
-          shippingTotal,
-          discountTotal,
-          newTotal,
-          lineItemCount: allLineItems.length
-        });
-
-        // Update sales order totals with proper number formatting
-        console.log('Updating sales order totals...');
-        const updateData = { 
-          subtotal: Math.round(newSubtotal * 100) / 100, // Ensure 2 decimal places
-          total: Math.round(newTotal * 100) / 100        // Ensure 2 decimal places
-        };
-        
-        console.log('Update data:', updateData);
-        
-        const { error: totalsUpdateError } = await supabase
-          .from('sales_order')
-          .update(updateData)
-          .eq('id', salesOrderId);
-
-        if (totalsUpdateError) {
-          console.error('Failed to update sales order totals:', totalsUpdateError);
-          // If validation fails, try to update without triggering validation
-          console.log('Retrying update with minimal data...');
-          const { error: retryError } = await supabase
-            .from('sales_order')
-            .update({ updated_at: new Date().toISOString() })
-            .eq('id', salesOrderId);
-          
-          if (retryError) {
-            throw new Error(`Failed to update order totals: ${totalsUpdateError.message}`);
-          }
-          
-          console.log('Updated timestamp only - totals will be recalculated by line items');
-        }
-
-        console.log('=== Quantity update completed successfully ===');
-
-        return { newSubtotal, newTotal, lineItemCount: allLineItems.length };
-
-      } catch (error: any) {
-        console.error('=== Quantity update failed ===');
-        console.error('Error details:', error);
-        throw error;
+      if (updateError) {
+        console.error('Line item update failed:', updateError);
+        throw new Error(`Failed to update quantity: ${updateError.message}`);
       }
+
+      console.log('=== Quantity update completed successfully ===');
+      
+      // Return simple success - database triggers have handled all calculations
+      return { success: true, quantity };
     },
     onSuccess: (data) => {
       console.log('Mutation onSuccess:', data);
@@ -220,7 +117,7 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       toast({
         title: 'Success',
-        description: `Quantity updated. New total: $${data.newTotal.toFixed(2)}`,
+        description: `Quantity updated to ${data.quantity}`,
       });
       setEditingQuantity(null);
       setTempQuantity('');
@@ -242,7 +139,7 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
     setTempQuantity(currentQuantity.toString());
   }, []);
 
-  const handleQuantitySave = useCallback((lineItemId: string, salesOrder: SalesOrderDetails) => {
+  const handleQuantitySave = useCallback((lineItemId: string) => {
     const quantity = parseFloat(tempQuantity);
     if (isNaN(quantity) || quantity < 0) {
       toast({
@@ -253,7 +150,7 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       return;
     }
     
-    updateQuantityMutation.mutate({ lineItemId, quantity, salesOrder });
+    updateQuantityMutation.mutate({ lineItemId, quantity });
   }, [tempQuantity, updateQuantityMutation, toast]);
 
   const handleQuantityCancel = useCallback(() => {

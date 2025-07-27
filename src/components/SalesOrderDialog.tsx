@@ -333,7 +333,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
                                     autoFocus
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') {
-                                        handleQuantitySave(item.id, salesOrder);
+                                        handleQuantitySave(item.id);
                                       } else if (e.key === 'Escape') {
                                         handleQuantityCancel();
                                       }
@@ -361,7 +361,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => handleQuantitySave(item.id, salesOrder)}
+                                    onClick={() => handleQuantitySave(item.id)}
                                     disabled={updateQuantityMutation.isPending}
                                     className="h-8 w-8 p-0"
                                   >
