@@ -92,92 +92,129 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       quantity: number; 
       salesOrder: SalesOrderDetails;
     }) => {
-      console.log('Starting line item quantity update...', { lineItemId, quantity });
-      
-      // First, get the line item details
-      const { data: lineItem, error: lineItemFetchError } = await supabase
-        .from('sales_order_line_item')
-        .select('unit_price')
-        .eq('id', lineItemId)
-        .single();
+      try {
+        console.log('=== Starting line item quantity update ===');
+        console.log('Input:', { lineItemId, quantity, salesOrderId });
+        
+        // First, get the line item details to verify it exists
+        console.log('Fetching line item details...');
+        const { data: lineItem, error: lineItemFetchError } = await supabase
+          .from('sales_order_line_item')
+          .select('unit_price, sales_order_id, organization_id')
+          .eq('id', lineItemId)
+          .single();
 
-      if (lineItemFetchError) {
-        console.error('Failed to fetch line item:', lineItemFetchError);
-        throw lineItemFetchError;
+        if (lineItemFetchError) {
+          console.error('Failed to fetch line item:', lineItemFetchError);
+          throw new Error(`Failed to fetch line item: ${lineItemFetchError.message}`);
+        }
+
+        if (!lineItem) {
+          throw new Error('Line item not found');
+        }
+
+        console.log('Line item found:', lineItem);
+
+        // Verify the line item belongs to the current sales order
+        if (lineItem.sales_order_id !== salesOrderId) {
+          throw new Error('Line item does not belong to this sales order');
+        }
+
+        const expectedAmount = quantity * lineItem.unit_price;
+        console.log('Expected new amount:', { quantity, unitPrice: lineItem.unit_price, expectedAmount });
+
+        // Update only the quantity - database should auto-calculate amount
+        console.log('Updating line item quantity...');
+        const { error: updateError } = await supabase
+          .from('sales_order_line_item')
+          .update({ quantity })
+          .eq('id', lineItemId);
+
+        if (updateError) {
+          console.error('Line item update failed:', updateError);
+          throw new Error(`Failed to update line item: ${updateError.message}`);
+        }
+
+        console.log('Line item quantity updated successfully');
+
+        // Wait a moment for any database triggers to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Fetch all updated line items to recalculate totals
+        console.log('Fetching all line items for total calculation...');
+        const { data: allLineItems, error: lineItemsError } = await supabase
+          .from('sales_order_line_item')
+          .select('amount')
+          .eq('sales_order_id', salesOrderId);
+
+        if (lineItemsError) {
+          console.error('Failed to fetch all line items:', lineItemsError);
+          throw new Error(`Failed to fetch line items: ${lineItemsError.message}`);
+        }
+
+        if (!allLineItems || allLineItems.length === 0) {
+          console.warn('No line items found for sales order:', salesOrderId);
+        }
+
+        console.log('Fetched line items for calculation:', allLineItems);
+
+        const newSubtotal = allLineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+        const taxTotal = salesOrder.tax_total || 0;
+        const shippingTotal = salesOrder.shipping_total || 0;
+        const discountTotal = salesOrder.discount_total || 0;
+        const newTotal = newSubtotal + taxTotal + shippingTotal - discountTotal;
+
+        console.log('Calculated totals:', { 
+          newSubtotal, 
+          taxTotal,
+          shippingTotal,
+          discountTotal,
+          newTotal,
+          lineItemCount: allLineItems.length
+        });
+
+        // Update sales order totals
+        console.log('Updating sales order totals...');
+        const { error: totalsUpdateError } = await supabase
+          .from('sales_order')
+          .update({ 
+            subtotal: newSubtotal,
+            total: newTotal 
+          })
+          .eq('id', salesOrderId);
+
+        if (totalsUpdateError) {
+          console.error('Failed to update sales order totals:', totalsUpdateError);
+          throw new Error(`Failed to update order totals: ${totalsUpdateError.message}`);
+        }
+
+        console.log('=== Quantity update completed successfully ===');
+
+        return { newSubtotal, newTotal, lineItemCount: allLineItems.length };
+
+      } catch (error: any) {
+        console.error('=== Quantity update failed ===');
+        console.error('Error details:', error);
+        throw error;
       }
-
-      const newAmount = quantity * lineItem.unit_price;
-      console.log('Expected new amount:', { quantity, unitPrice: lineItem.unit_price, newAmount });
-
-      // Update only the quantity - let the database calculate the amount automatically
-      const { error: updateError } = await supabase
-        .from('sales_order_line_item')
-        .update({ quantity })
-        .eq('id', lineItemId);
-
-      if (updateError) {
-        console.error('Line item update error:', updateError);
-        throw updateError;
-      }
-
-      // Fetch all line items to recalculate totals
-      const { data: allLineItems, error: lineItemsError } = await supabase
-        .from('sales_order_line_item')
-        .select('amount')
-        .eq('sales_order_id', salesOrderId);
-
-      if (lineItemsError) {
-        console.error('Failed to fetch all line items:', lineItemsError);
-        throw lineItemsError;
-      }
-
-      const newSubtotal = allLineItems.reduce((sum, item) => sum + item.amount, 0);
-      const newTotal = newSubtotal + 
-                      (salesOrder.tax_total || 0) + 
-                      (salesOrder.shipping_total || 0) - 
-                      (salesOrder.discount_total || 0);
-
-      console.log('Recalculated totals:', { 
-        newSubtotal, 
-        taxTotal: salesOrder.tax_total || 0,
-        shippingTotal: salesOrder.shipping_total || 0,
-        discountTotal: salesOrder.discount_total || 0,
-        newTotal 
-      });
-
-      // Update sales order totals
-      const { error: totalsUpdateError } = await supabase
-        .from('sales_order')
-        .update({ 
-          subtotal: newSubtotal,
-          total: newTotal 
-        })
-        .eq('id', salesOrderId);
-
-      if (totalsUpdateError) {
-        console.error('Sales order totals update error:', totalsUpdateError);
-        throw totalsUpdateError;
-      }
-
-      console.log('Line item and totals updated successfully');
     },
-    onSuccess: () => {
-      console.log('Quantity update completed successfully');
+    onSuccess: (data) => {
+      console.log('Mutation onSuccess:', data);
       queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', salesOrderId] });
       queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       toast({
         title: 'Success',
-        description: 'Quantity updated and totals recalculated',
+        description: `Quantity updated. New total: $${data.newTotal.toFixed(2)}`,
       });
       setEditingQuantity(null);
       setTempQuantity('');
     },
     onError: (error: any) => {
-      console.error('Quantity update error:', error);
+      console.error('Mutation onError:', error);
       toast({
-        title: 'Error',
-        description: `Failed to update quantity: ${error.message}`,
+        title: 'Update Failed',
+        description: error.message || 'Failed to update quantity',
         variant: 'destructive',
       });
       setEditingQuantity(null);
