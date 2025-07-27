@@ -156,19 +156,55 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
   // Update line item quantity mutation
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ lineItemId, quantity }: { lineItemId: string; quantity: number }) => {
+      // Update the line item quantity and amount
+      const lineItem = lineItems?.find(item => item.id === lineItemId);
+      if (!lineItem) throw new Error('Line item not found');
+      
+      const newAmount = quantity * lineItem.unit_price;
+      
       const { error } = await supabase
         .from('sales_order_line_item')
-        .update({ quantity })
+        .update({ 
+          quantity,
+          amount: newAmount
+        })
         .eq('id', lineItemId);
 
       if (error) throw error;
+
+      // Recalculate sales order totals
+      if (salesOrderId) {
+        const { data: allLineItems, error: lineItemsError } = await supabase
+          .from('sales_order_line_item')
+          .select('amount')
+          .eq('sales_order_id', salesOrderId);
+
+        if (lineItemsError) throw lineItemsError;
+
+        const newSubtotal = allLineItems.reduce((sum, item) => {
+          return sum + item.amount;
+        }, 0) - (lineItems?.find(item => item.id === lineItemId)?.amount || 0) + newAmount;
+
+        const newTotal = newSubtotal + (salesOrder?.tax_total || 0) + (salesOrder?.shipping_total || 0) - (salesOrder?.discount_total || 0);
+
+        const { error: updateError } = await supabase
+          .from('sales_order')
+          .update({ 
+            subtotal: newSubtotal,
+            total: newTotal 
+          })
+          .eq('id', salesOrderId);
+
+        if (updateError) throw updateError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       toast({
         title: 'Success',
-        description: 'Quantity updated successfully',
+        description: 'Quantity updated and totals recalculated',
       });
       setEditingQuantity(null);
     },
