@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Calendar, Package, DollarSign, Truck, FileText, AlertCircle, Check, X, Edit2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { useSalesOrderEdit } from '@/hooks/useSalesOrderEdit';
 
 interface SalesOrderDialogProps {
   salesOrderId: string | null;
@@ -68,12 +68,21 @@ interface LineItem {
 }
 
 export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrderDialogProps) {
-  const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState<Partial<SalesOrderDetails>>({});
-  const [editingQuantity, setEditingQuantity] = useState<string | null>(null);
-  const [tempQuantity, setTempQuantity] = useState<string>('');
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  
+  const {
+    editMode,
+    setEditMode,
+    editingQuantity,
+    tempQuantity,
+    setTempQuantity,
+    handleQuantityEdit,
+    handleQuantitySave,
+    handleQuantityCancel,
+    handleOrderSave,
+    updateOrderMutation,
+    updateQuantityMutation,
+  } = useSalesOrderEdit(salesOrderId);
 
   // Fetch sales order details
   const { data: salesOrder, isLoading } = useQuery({
@@ -122,188 +131,12 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
     enabled: !!salesOrderId,
   });
 
-  // Update sales order mutation
-  const updateMutation = useMutation({
-    mutationFn: async (updates: Partial<SalesOrderDetails>) => {
-      if (!salesOrderId) throw new Error('No sales order ID');
-      
-      const { error } = await supabase
-        .from('sales_order')
-        .update(updates)
-        .eq('id', salesOrderId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
-      toast({
-        title: 'Success',
-        description: 'Sales order updated successfully',
-      });
-      setEditMode(false);
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: 'Failed to update sales order',
-        variant: 'destructive',
-      });
-      console.error('Update error:', error);
-    },
-  });
-
-  // Update line item quantity mutation
-  const updateQuantityMutation = useMutation({
-    mutationFn: async ({ lineItemId, quantity }: { lineItemId: string; quantity: number }) => {
-      try {
-        console.log('Starting quantity update...', { lineItemId, quantity });
-        
-        // Update the line item quantity and amount
-        const lineItem = lineItems?.find(item => item.id === lineItemId);
-        if (!lineItem) throw new Error('Line item not found');
-        
-        const newAmount = quantity * lineItem.unit_price;
-        console.log('Updating line item:', { lineItemId, quantity, newAmount, unitPrice: lineItem.unit_price });
-        
-        const { error: lineItemError } = await supabase
-          .from('sales_order_line_item')
-          .update({ 
-            quantity,
-            amount: newAmount
-          })
-          .eq('id', lineItemId);
-
-        if (lineItemError) {
-          console.error('Line item update error:', lineItemError);
-          throw lineItemError;
-        }
-
-        console.log('Line item updated successfully');
-
-        // Recalculate sales order totals by fetching all current line items
-        if (salesOrderId) {
-          console.log('Fetching updated line items...');
-          
-          // Fetch fresh line items after the update
-          const { data: updatedLineItems, error: lineItemsError } = await supabase
-            .from('sales_order_line_item')
-            .select('amount')
-            .eq('sales_order_id', salesOrderId);
-
-          if (lineItemsError) {
-            console.error('Failed to fetch line items:', lineItemsError);
-            throw lineItemsError;
-          }
-
-          const newSubtotal = updatedLineItems.reduce((sum, item) => sum + item.amount, 0);
-          const newTotal = newSubtotal + (salesOrder?.tax_total || 0) + (salesOrder?.shipping_total || 0) - (salesOrder?.discount_total || 0);
-
-          console.log('Recalculating totals:', { 
-            updatedLineItems, 
-            newSubtotal, 
-            taxTotal: salesOrder?.tax_total || 0,
-            shippingTotal: salesOrder?.shipping_total || 0,
-            discountTotal: salesOrder?.discount_total || 0,
-            newTotal 
-          });
-
-          console.log('Updating sales order totals...');
-          
-          const { error: updateError } = await supabase
-            .from('sales_order')
-            .update({ 
-              subtotal: newSubtotal,
-              total: newTotal 
-            })
-            .eq('id', salesOrderId);
-
-          if (updateError) {
-            console.error('Sales order update error:', updateError);
-            throw updateError;
-          }
-          
-          console.log('Sales order totals updated successfully');
-        }
-      } catch (error) {
-        console.error('Full mutation error:', error);
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      console.log('Mutation completed successfully');
-      queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
-      toast({
-        title: 'Success',
-        description: 'Quantity updated and totals recalculated',
-      });
-      setEditingQuantity(null);
-    },
-    onError: (error) => {
-      console.error('Mutation onError:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to update quantity: ${error.message}`,
-        variant: 'destructive',
-      });
-      setEditingQuantity(null);
-    },
-  });
-
   // Initialize form data when sales order loads
   useEffect(() => {
     if (salesOrder) {
       setFormData(salesOrder);
     }
   }, [salesOrder]);
-
-  const handleQuantityEdit = (lineItemId: string, currentQuantity: number) => {
-    setEditingQuantity(lineItemId);
-    setTempQuantity(currentQuantity.toString());
-  };
-
-  const handleQuantitySave = (lineItemId: string) => {
-    const quantity = parseFloat(tempQuantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      toast({
-        title: 'Invalid Quantity',
-        description: 'Please enter a valid positive number',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    updateQuantityMutation.mutate({ lineItemId, quantity });
-  };
-
-  const handleQuantityCancel = () => {
-    setEditingQuantity(null);
-    setTempQuantity('');
-  };
-
-  const handleSave = () => {
-    if (!formData) return;
-    
-    updateMutation.mutate({
-      status: formData.status,
-      customer_po_number: formData.customer_po_number,
-      requested_ship_date: formData.requested_ship_date,
-      promised_ship_date: formData.promised_ship_date,
-      shipping_method: formData.shipping_method,
-      shipping_terms: formData.shipping_terms,
-      shipping_address_line1: formData.shipping_address_line1,
-      shipping_address_line2: formData.shipping_address_line2,
-      shipping_city: formData.shipping_city,
-      shipping_state: formData.shipping_state,
-      shipping_postal_code: formData.shipping_postal_code,
-      shipping_country: formData.shipping_country,
-      memo: formData.memo,
-      message: formData.message,
-      terms: formData.terms,
-    });
-  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -381,8 +214,11 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
                   <Button variant="outline" onClick={() => setEditMode(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleSave} disabled={updateMutation.isPending}>
-                    {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                  <Button 
+                    onClick={() => handleOrderSave(formData)} 
+                    disabled={updateOrderMutation.isPending}
+                  >
+                    {updateOrderMutation.isPending ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </div>
               ) : (
@@ -448,7 +284,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
               </Card>
             </div>
 
-            {/* Line Items - Moved up for fast editing */}
+            {/* Line Items - Priority section for fast editing */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -497,7 +333,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
                                     autoFocus
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') {
-                                        handleQuantitySave(item.id);
+                                        handleQuantitySave(item.id, salesOrder);
                                       } else if (e.key === 'Escape') {
                                         handleQuantityCancel();
                                       }
@@ -507,7 +343,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
                               ) : (
                                 <button
                                   onClick={() => handleQuantityEdit(item.id, item.quantity)}
-                                  className="text-right hover:bg-muted/50 px-2 py-1 rounded transition-colors"
+                                  className="text-right hover:bg-muted/50 px-2 py-1 rounded transition-colors w-full"
                                 >
                                   {item.quantity}
                                 </button>
@@ -525,7 +361,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => handleQuantitySave(item.id)}
+                                    onClick={() => handleQuantitySave(item.id, salesOrder)}
                                     disabled={updateQuantityMutation.isPending}
                                     className="h-8 w-8 p-0"
                                   >
@@ -774,7 +610,6 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
                 </div>
               </CardContent>
             </Card>
-
 
             {/* Totals Summary */}
             <Card>
