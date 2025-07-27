@@ -107,15 +107,12 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       }
 
       const newAmount = quantity * lineItem.unit_price;
-      console.log('Calculated new amount:', { quantity, unitPrice: lineItem.unit_price, newAmount });
+      console.log('Expected new amount:', { quantity, unitPrice: lineItem.unit_price, newAmount });
 
-      // Update the line item
+      // Update only the quantity - let the database calculate the amount automatically
       const { error: updateError } = await supabase
         .from('sales_order_line_item')
-        .update({ 
-          quantity,
-          amount: newAmount
-        })
+        .update({ quantity })
         .eq('id', lineItemId);
 
       if (updateError) {
