@@ -146,129 +146,105 @@ export function ContextualSidebar() {
   }
 
   return (
-    <Sidebar className="w-80 border-l" side="right">
-      <SidebarContent>
-        <ScrollArea className="h-full">
+    <div className="w-72 border-l bg-background">
+      <div className="p-4 border-b">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          {currentModule === 'sales-orders' && <><FileText className="h-4 w-4" />Sales Orders</>}
+          {currentModule === 'customers' && <><Users className="h-4 w-4" />Customers</>}
+          {currentModule === 'items' && <><Package className="h-4 w-4" />Items</>}
+          {currentModule === 'invoices' && <><DollarSign className="h-4 w-4" />Invoices</>}
+        </h3>
+      </div>
+      
+      <ScrollArea className="h-[calc(100vh-12rem)]">
+        <div className="p-2">
           {currentModule === 'sales-orders' && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Recent Sales Orders
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {salesOrders?.map((order) => (
-                    <SidebarMenuItem key={order.id}>
-                      <SidebarMenuButton
-                        onClick={() => navigate(`/sales-orders/${order.id}`)}
-                        className={location.pathname === `/sales-orders/${order.id}` ? 'bg-accent' : ''}
-                      >
-                        <div className="flex flex-col items-start w-full">
-                          <div className="flex items-center justify-between w-full">
-                            <span className="font-medium text-sm">{order.order_number}</span>
-                            <Badge variant={getStatusVariant(order.status)} className="text-xs">
-                              {getStatusLabel(order.status)}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-                            <span className="truncate max-w-[120px]">
-                              {order.customer_profile?.company_name}
-                            </span>
-                            <span>${order.total?.toFixed(2) || '0.00'}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(order.order_date), 'MMM dd')}
-                          </span>
-                        </div>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            <div className="space-y-1">
+              {salesOrders?.map((order) => (
+                <div
+                  key={order.id}
+                  onClick={() => navigate(`/sales-orders/${order.id}`)}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${
+                    location.pathname === `/sales-orders/${order.id}` ? 'bg-accent' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">{order.order_number}</span>
+                    <Badge variant={getStatusVariant(order.status)} className="text-xs">
+                      {getStatusLabel(order.status)}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground truncate">
+                      {order.customer_profile?.company_name}
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {format(new Date(order.order_date), 'MMM dd, yyyy')}
+                      </span>
+                      <span className="font-medium">${order.total?.toFixed(2) || '0.00'}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
 
           {currentModule === 'customers' && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Customer List
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {customers?.map((customer) => (
-                    <SidebarMenuItem key={customer.id}>
-                      <SidebarMenuButton
-                        onClick={() => navigate(`/customers/${customer.id}`)}
-                        className={location.pathname === `/customers/${customer.id}` ? 'bg-accent' : ''}
-                      >
-                        <div className="flex flex-col items-start w-full">
-                          <span className="font-medium text-sm truncate w-full">
-                            {customer.company_name}
-                          </span>
-                          <span className="text-xs text-muted-foreground truncate w-full">
-                            {customer.email}
-                          </span>
-                        </div>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            <div className="space-y-1">
+              {customers?.map((customer) => (
+                <div
+                  key={customer.id}
+                  onClick={() => navigate(`/customers/${customer.id}`)}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${
+                    location.pathname === `/customers/${customer.id}` ? 'bg-accent' : ''
+                  }`}
+                >
+                  <div className="font-medium text-sm mb-1 truncate">
+                    {customer.company_name}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {customer.email}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
 
           {currentModule === 'items' && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Item Catalog
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {items?.map((item) => (
-                    <SidebarMenuItem key={item.id}>
-                      <SidebarMenuButton
-                        onClick={() => navigate(`/items/${item.id}`)}
-                        className={location.pathname === `/items/${item.id}` ? 'bg-accent' : ''}
-                      >
-                        <div className="flex flex-col items-start w-full">
-                          <span className="font-medium text-sm truncate w-full">
-                            {item.name}
-                          </span>
-                          <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-                            <span>{item.sku || 'No SKU'}</span>
-                            <span>${item.purchase_cost?.toFixed(2) || '0.00'}</span>
-                          </div>
-                          {item.item_type && (
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {item.item_type}
-                            </Badge>
-                          )}
-                        </div>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            <div className="space-y-1">
+              {items?.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => navigate(`/items/${item.id}`)}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${
+                    location.pathname === `/items/${item.id}` ? 'bg-accent' : ''
+                  }`}
+                >
+                  <div className="font-medium text-sm mb-1 truncate">
+                    {item.name}
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{item.sku || 'No SKU'}</span>
+                    <span className="font-medium">${item.purchase_cost?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  {item.item_type && (
+                    <Badge variant="outline" className="text-xs mt-1">
+                      {item.item_type}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
 
-          {currentModule === 'invoices' && invoices && invoices.length > 0 && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Recent Invoices
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <div className="text-center text-muted-foreground py-4">
-                  <p className="text-xs">Invoice module coming soon</p>
-                </div>
-              </SidebarGroupContent>
-            </SidebarGroup>
+          {currentModule === 'invoices' && (
+            <div className="text-center text-muted-foreground py-8">
+              <p className="text-sm">Invoice module coming soon</p>
+            </div>
           )}
-        </ScrollArea>
-      </SidebarContent>
-    </Sidebar>
+        </div>
+      </ScrollArea>
+    </div>
   );
 }

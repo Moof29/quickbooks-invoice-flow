@@ -38,7 +38,7 @@ const navigation = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuthProfile();
@@ -62,24 +62,32 @@ export function AppSidebar() {
     }
   };
 
-  const isActive = (path: string) => location.pathname === path;
-
   return (
-    <Sidebar className="w-16" collapsible="icon">
+    <Sidebar 
+      collapsible="icon" 
+      className={isCollapsed ? "w-16" : "w-52"}
+    >
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild tooltip={item.name}>
+                  <SidebarMenuButton asChild>
                     <NavLink
                       to={item.href}
                       className={({ isActive }) =>
-                        isActive ? "bg-accent text-accent-foreground" : ""
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                          isActive 
+                            ? "bg-accent text-accent-foreground" 
+                            : "hover:bg-accent/50"
+                        }`
                       }
                     >
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium">{item.name}</span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -92,13 +100,16 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Sign Out">
+            <SidebarMenuButton asChild>
               <Button 
                 variant="ghost" 
-                className="w-full justify-center p-2" 
+                className={`w-full transition-all ${
+                  isCollapsed ? "justify-center px-2" : "justify-start px-3 gap-3"
+                }`}
                 onClick={handleSignOut}
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-4 w-4 flex-shrink-0" />
+                {!isCollapsed && <span className="text-sm">Sign Out</span>}
               </Button>
             </SidebarMenuButton>
           </SidebarMenuItem>

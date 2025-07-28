@@ -48,18 +48,16 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
+        <ContextualSidebar />
         <SidebarInset className="flex-1">
           <header className="flex h-12 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <div className="h-4 w-px bg-border" />
             <span className="text-sm font-medium">Batchly</span>
           </header>
-          <div className="flex flex-1">
-            <main className="flex-1 p-6">
-              {children}
-            </main>
-            <ContextualSidebar />
-          </div>
+          <main className="flex-1 p-6">
+            {children}
+          </main>
         </SidebarInset>
       </div>
     </SidebarProvider>
