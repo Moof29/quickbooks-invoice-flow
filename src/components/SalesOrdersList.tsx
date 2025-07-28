@@ -30,7 +30,6 @@ export function SalesOrdersList() {
   const navigate = useNavigate();
 
   const handleCreateSalesOrder = () => {
-    console.log('Create Sales Order button clicked');
     toast.info("Create Sales Order feature coming soon!");
   };
 
