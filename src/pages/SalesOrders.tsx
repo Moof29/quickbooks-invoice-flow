@@ -11,7 +11,7 @@ export default function SalesOrders() {
         <p className="text-muted-foreground">Manage sales orders and customer templates</p>
       </div>
 
-      <Tabs defaultValue="templates" className="w-full">
+      <Tabs defaultValue="orders" className="w-full">
         <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
           <TabsTrigger value="templates">Customer Templates</TabsTrigger>
           <TabsTrigger value="orders">Sales Orders</TabsTrigger>

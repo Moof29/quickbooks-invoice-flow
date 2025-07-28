@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Search, FileText, DollarSign } from 'lucide-react';
+import { Calendar, Search, FileText, DollarSign, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface SalesOrder {
@@ -154,9 +154,15 @@ export function SalesOrdersList() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          Sales Orders
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Sales Orders
+          </div>
+          <Button onClick={() => navigate('/sales-orders/new')} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Create Sales Order
+          </Button>
         </CardTitle>
         <CardDescription>
           View and manage sales orders generated from customer templates
