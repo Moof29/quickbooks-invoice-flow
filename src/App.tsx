@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProfileProvider, useAuthProfile } from "@/hooks/useAuthProfile";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { ContextualSidebar } from "@/components/ContextualSidebar";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -53,9 +54,12 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="h-4 w-px bg-border" />
             <span className="text-sm font-medium">Batchly</span>
           </header>
-          <main className="flex-1 p-6">
-            {children}
-          </main>
+          <div className="flex flex-1">
+            <main className="flex-1 p-6">
+              {children}
+            </main>
+            <ContextualSidebar />
+          </div>
         </SidebarInset>
       </div>
     </SidebarProvider>

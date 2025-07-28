@@ -65,29 +65,21 @@ export function AppSidebar() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-border">
-        <div className="flex items-center gap-2 px-2 py-2">
-          <div className="bg-primary rounded-lg p-2 flex-shrink-0">
-            <FileText className="h-5 w-5 text-primary-foreground" />
-          </div>
-          {!isCollapsed && (
-            <span className="text-lg font-bold text-foreground">Batchly</span>
-          )}
-        </div>
-      </SidebarHeader>
-      
+    <Sidebar className="w-16" collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild isActive={isActive(item.href)}>
-                    <NavLink to={item.href}>
+                  <SidebarMenuButton asChild tooltip={item.name}>
+                    <NavLink
+                      to={item.href}
+                      className={({ isActive }) =>
+                        isActive ? "bg-accent text-accent-foreground" : ""
+                      }
+                    >
                       <item.icon className="h-4 w-4" />
-                      <span>{item.name}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -96,18 +88,17 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      <SidebarFooter className="border-t border-border">
+      
+      <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
+            <SidebarMenuButton asChild tooltip="Sign Out">
               <Button 
                 variant="ghost" 
-                className="w-full justify-start h-auto p-2" 
+                className="w-full justify-center p-2" 
                 onClick={handleSignOut}
               >
                 <LogOut className="h-4 w-4" />
-                {!isCollapsed && <span>Sign Out</span>}
               </Button>
             </SidebarMenuButton>
           </SidebarMenuItem>
