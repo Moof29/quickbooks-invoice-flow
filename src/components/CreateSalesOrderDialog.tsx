@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -57,6 +58,7 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
   const [requestedShipDate, setRequestedShipDate] = useState<Date>();
   const [promisedShipDate, setPromisedShipDate] = useState<Date>();
   const queryClient = useQueryClient();
+  const { profile } = useAuthProfile();
 
   const form = useForm<CreateSalesOrderData>({
     defaultValues: {
@@ -87,9 +89,14 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
   // Create sales order mutation
   const createSalesOrderMutation = useMutation({
     mutationFn: async (data: CreateSalesOrderData) => {
+      if (!profile?.organization_id) {
+        throw new Error('Organization not found');
+      }
+
       const { error } = await supabase
         .from('sales_order')
         .insert({
+          organization_id: profile.organization_id,
           customer_id: data.customer_id,
           order_date: data.order_date,
           customer_po_number: data.customer_po_number || null,
