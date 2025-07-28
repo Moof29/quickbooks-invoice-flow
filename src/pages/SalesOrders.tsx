@@ -13,8 +13,8 @@ export default function SalesOrders() {
 
       <Tabs defaultValue="orders" className="w-full">
         <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="templates">Customer Templates</TabsTrigger>
           <TabsTrigger value="orders">Sales Orders</TabsTrigger>
+          <TabsTrigger value="templates">Customer Templates</TabsTrigger>
         </TabsList>
         
         <TabsContent value="templates" className="mt-6">
