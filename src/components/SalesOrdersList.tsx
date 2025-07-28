@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, Search, FileText, DollarSign, Plus } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 interface SalesOrder {
   id: string;
@@ -27,6 +28,10 @@ export function SalesOrdersList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const navigate = useNavigate();
+
+  const handleCreateSalesOrder = () => {
+    toast.info("Create Sales Order feature coming soon!");
+  };
 
   // Fetch sales orders with customer names
   const { data: salesOrders, isLoading, error } = useQuery({
@@ -159,7 +164,7 @@ export function SalesOrdersList() {
             <FileText className="h-5 w-5" />
             Sales Orders
           </div>
-          <Button onClick={() => navigate('/sales-orders/new')} className="flex items-center gap-2">
+          <Button onClick={handleCreateSalesOrder} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Create Sales Order
           </Button>
