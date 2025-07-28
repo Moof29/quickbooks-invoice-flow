@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { SalesOrderDialog } from './SalesOrderDialog';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,8 +26,7 @@ interface SalesOrder {
 export function SalesOrdersList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Fetch sales orders with customer names
   const { data: salesOrders, isLoading, error } = useQuery({
@@ -275,10 +274,7 @@ export function SalesOrdersList() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => {
-                          setSelectedOrderId(order.id);
-                          setDialogOpen(true);
-                        }}
+                        onClick={() => navigate(`/sales-orders/${order.id}`)}
                       >
                         View
                       </Button>
@@ -290,12 +286,6 @@ export function SalesOrdersList() {
           </div>
         )}
       </CardContent>
-
-      <SalesOrderDialog
-        salesOrderId={selectedOrderId}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
     </Card>
   );
 }
