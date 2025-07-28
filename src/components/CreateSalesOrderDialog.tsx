@@ -31,10 +31,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+
+interface LineItem {
+  item_id: string;
+  quantity: number;
+  unit_price: number;
+  description?: string;
+}
 
 interface CreateSalesOrderData {
   customer_id: string;
@@ -57,6 +64,7 @@ interface CreateSalesOrderDialogProps {
 export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderDialogProps) {
   const [requestedShipDate, setRequestedShipDate] = useState<Date>();
   const [promisedShipDate, setPromisedShipDate] = useState<Date>();
+  const [lineItems, setLineItems] = useState<LineItem[]>([{ item_id: '', quantity: 1, unit_price: 0 }]);
   const queryClient = useQueryClient();
   const { profile } = useAuthProfile();
 
@@ -86,6 +94,21 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
     },
   });
 
+  // Fetch items for the dropdown
+  const { data: items } = useQuery({
+    queryKey: ['items'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('item_record')
+        .select('id, name, description')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Create sales order mutation
   const createSalesOrderMutation = useMutation({
     mutationFn: async (data: CreateSalesOrderData) => {
@@ -93,7 +116,14 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
         throw new Error('Organization not found');
       }
 
-      const { error } = await supabase
+      // Validate line items
+      const validLineItems = lineItems.filter(item => item.item_id && item.quantity > 0);
+      if (validLineItems.length === 0) {
+        throw new Error('At least one line item is required');
+      }
+
+      // Create sales order first
+      const { data: salesOrder, error: orderError } = await supabase
         .from('sales_order')
         .insert({
           organization_id: profile.organization_id,
@@ -108,9 +138,29 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
           message: data.message || null,
           terms: data.terms || null,
           status: 'draft',
-        });
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (orderError) throw orderError;
+
+      // Create line items
+      const lineItemsToInsert = validLineItems.map(item => ({
+        organization_id: profile.organization_id,
+        sales_order_id: salesOrder.id,
+        item_id: item.item_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        description: item.description || null,
+      }));
+
+      const { error: lineItemsError } = await supabase
+        .from('sales_order_line_item')
+        .insert(lineItemsToInsert);
+
+      if (lineItemsError) throw lineItemsError;
+
+      return salesOrder;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
@@ -119,11 +169,34 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
       form.reset();
       setRequestedShipDate(undefined);
       setPromisedShipDate(undefined);
+      setLineItems([{ item_id: '', quantity: 1, unit_price: 0 }]);
     },
     onError: (error: any) => {
       toast.error(`Failed to create sales order: ${error.message}`);
     },
   });
+
+  const addLineItem = () => {
+    setLineItems([...lineItems, { item_id: '', quantity: 1, unit_price: 0 }]);
+  };
+
+  const removeLineItem = (index: number) => {
+    if (lineItems.length > 1) {
+      setLineItems(lineItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateLineItem = (index: number, field: keyof LineItem, value: any) => {
+    const updatedItems = [...lineItems];
+    updatedItems[index] = { ...updatedItems[index], [field]: value };
+    setLineItems(updatedItems);
+  };
+
+  const calculateTotal = () => {
+    return lineItems.reduce((total, item) => {
+      return total + (item.quantity * item.unit_price);
+    }, 0);
+  };
 
   const onSubmit = (data: CreateSalesOrderData) => {
     const submitData = {
@@ -350,6 +423,111 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
                 </FormItem>
               )}
             />
+
+            {/* Line Items Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">Line Items</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addLineItem}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              </div>
+
+              {lineItems.map((lineItem, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-end p-4 border rounded-lg">
+                  {/* Item Selection */}
+                  <div className="col-span-4">
+                    <label className="text-sm font-medium">Item *</label>
+                    <Select
+                      value={lineItem.item_id}
+                      onValueChange={(value) => updateLineItem(index, 'item_id', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select item" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {items?.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium">Qty *</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={lineItem.quantity}
+                      onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+
+                  {/* Unit Price */}
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium">Unit Price *</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={lineItem.unit_price}
+                      onChange={(e) => updateLineItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+
+                  {/* Amount (calculated) */}
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium">Amount</label>
+                    <Input
+                      value={`$${(lineItem.quantity * lineItem.unit_price).toFixed(2)}`}
+                      disabled
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div className="col-span-1">
+                    <label className="text-sm font-medium">Description</label>
+                    <Input
+                      placeholder="Optional"
+                      value={lineItem.description || ''}
+                      onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                    />
+                  </div>
+
+                  {/* Remove Button */}
+                  <div className="col-span-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeLineItem(index)}
+                      disabled={lineItems.length === 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Total */}
+              <div className="flex justify-end">
+                <div className="text-right">
+                  <div className="text-lg font-medium">
+                    Total: ${calculateTotal().toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button 
