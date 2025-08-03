@@ -11,6 +11,7 @@ import {
   TableRow, 
   TableCell,
   Badge,
+  BadgeDelta,
   Button,
   TextInput,
   Select,
@@ -22,8 +23,8 @@ import {
   Metric,
   Icon
 } from '@tremor/react';
-import { CalendarIcon, MagnifyingGlassIcon, DocumentTextIcon, CurrencyDollarIcon, PlusIcon, PencilIcon, EyeIcon } from '@heroicons/react/24/outline';
-import { format } from 'date-fns';
+import { CalendarIcon, MagnifyingGlassIcon, DocumentTextIcon, CurrencyDollarIcon, PlusIcon, PencilIcon, EyeIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon, ClockIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
 
 interface SalesOrder {
@@ -117,6 +118,46 @@ export function SalesOrdersList() {
     }
   };
 
+  // Calculate metrics for dashboard
+  const currentMonth = new Date();
+  const lastMonth = subMonths(currentMonth, 1);
+  const currentMonthStart = startOfMonth(currentMonth);
+  const currentMonthEnd = endOfMonth(currentMonth);
+  const lastMonthStart = startOfMonth(lastMonth);
+  const lastMonthEnd = endOfMonth(lastMonth);
+
+  const currentMonthOrders = salesOrders?.filter(order => {
+    const orderDate = new Date(order.order_date);
+    return orderDate >= currentMonthStart && orderDate <= currentMonthEnd;
+  }) || [];
+
+  const lastMonthOrders = salesOrders?.filter(order => {
+    const orderDate = new Date(order.order_date);
+    return orderDate >= lastMonthStart && orderDate <= lastMonthEnd;
+  }) || [];
+
+  const totalRevenue = currentMonthOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+  const lastMonthRevenue = lastMonthOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+  const revenueGrowth = lastMonthRevenue > 0 ? ((totalRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
+
+  const pendingOrders = salesOrders?.filter(order => 
+    ['draft', 'open', 'approved', 'template_generated'].includes(order.status)
+  ) || [];
+  const lastMonthPendingOrders = lastMonthOrders.filter(order => 
+    ['draft', 'open', 'approved', 'template_generated'].includes(order.status)
+  );
+  const pendingGrowth = lastMonthPendingOrders.length > 0 ? 
+    ((pendingOrders.length - lastMonthPendingOrders.length) / lastMonthPendingOrders.length) * 100 : 0;
+
+  const completedOrders = salesOrders?.filter(order => 
+    ['shipped', 'invoiced', 'closed'].includes(order.status)
+  ) || [];
+  const totalOrders = salesOrders?.length || 0;
+  const completionRate = totalOrders > 0 ? (completedOrders.length / totalOrders) * 100 : 0;
+
+  const ordersGrowth = lastMonthOrders.length > 0 ? 
+    ((currentMonthOrders.length - lastMonthOrders.length) / lastMonthOrders.length) * 100 : 0;
+
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'template_generated':
@@ -162,6 +203,106 @@ export function SalesOrdersList() {
 
   return (
     <div className="space-y-6">
+      {/* KPI Dashboard Cards */}
+      <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-6">
+        {/* Total Revenue Card */}
+        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 shadow-sm">
+          <Flex alignItems="start" justifyContent="between">
+            <div className="space-y-2">
+              <Text className="text-green-700 font-medium text-sm">Total Revenue</Text>
+              <Metric className="text-green-900 text-2xl font-bold">
+                ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Metric>
+              <div className="flex items-center space-x-2">
+                <BadgeDelta 
+                  deltaType={revenueGrowth >= 0 ? "increase" : "decrease"} 
+                  size="xs"
+                  className="text-xs"
+                >
+                  {Math.abs(revenueGrowth).toFixed(1)}%
+                </BadgeDelta>
+                <Text className="text-green-600 text-xs">vs last month</Text>
+              </div>
+            </div>
+            <Icon 
+              icon={CurrencyDollarIcon} 
+              className="h-8 w-8 text-green-600 bg-green-100 p-1.5 rounded-lg" 
+            />
+          </Flex>
+        </Card>
+
+        {/* Pending Orders Card */}
+        <Card className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 shadow-sm">
+          <Flex alignItems="start" justifyContent="between">
+            <div className="space-y-2">
+              <Text className="text-orange-700 font-medium text-sm">Pending Orders</Text>
+              <Metric className="text-orange-900 text-2xl font-bold">
+                {pendingOrders.length}
+              </Metric>
+              <div className="flex items-center space-x-2">
+                <BadgeDelta 
+                  deltaType={pendingGrowth >= 0 ? "increase" : "decrease"} 
+                  size="xs"
+                  className="text-xs"
+                >
+                  {Math.abs(pendingGrowth).toFixed(1)}%
+                </BadgeDelta>
+                <Text className="text-orange-600 text-xs">orders pending</Text>
+              </div>
+            </div>
+            <Icon 
+              icon={ClockIcon} 
+              className="h-8 w-8 text-orange-600 bg-orange-100 p-1.5 rounded-lg" 
+            />
+          </Flex>
+        </Card>
+
+        {/* Completed Orders Card */}
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 shadow-sm">
+          <Flex alignItems="start" justifyContent="between">
+            <div className="space-y-2">
+              <Text className="text-blue-700 font-medium text-sm">Completed Orders</Text>
+              <Metric className="text-blue-900 text-2xl font-bold">
+                {completedOrders.length}
+              </Metric>
+              <div className="flex items-center space-x-2">
+                <Badge color="blue" size="xs" className="text-xs font-medium">
+                  {completionRate.toFixed(1)}% rate
+                </Badge>
+                <Text className="text-blue-600 text-xs">completed</Text>
+              </div>
+            </div>
+            <Icon 
+              icon={CheckCircleIcon} 
+              className="h-8 w-8 text-blue-600 bg-blue-100 p-1.5 rounded-lg" 
+            />
+          </Flex>
+        </Card>
+
+        {/* Growth Metrics Card */}
+        <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200 shadow-sm">
+          <Flex alignItems="start" justifyContent="between">
+            <div className="space-y-2">
+              <Text className="text-purple-700 font-medium text-sm">Growth Metrics</Text>
+              <Metric className="text-purple-900 text-2xl font-bold">
+                {ordersGrowth >= 0 ? '+' : ''}{ordersGrowth.toFixed(1)}%
+              </Metric>
+              <div className="flex items-center space-x-2">
+                <Icon 
+                  icon={ordersGrowth >= 0 ? ArrowTrendingUpIcon : ArrowTrendingDownIcon}
+                  className={`h-4 w-4 ${ordersGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                />
+                <Text className="text-purple-600 text-xs">orders volume</Text>
+              </div>
+            </div>
+            <Icon 
+              icon={ArrowTrendingUpIcon} 
+              className="h-8 w-8 text-purple-600 bg-purple-100 p-1.5 rounded-lg" 
+            />
+          </Flex>
+        </Card>
+      </Grid>
+
       {/* Header Section */}
       <Card className="shadow-sm border-0 bg-white">
         <Flex alignItems="center" justifyContent="between" className="p-6 border-b border-gray-100">
@@ -204,36 +345,36 @@ export function SalesOrdersList() {
           </Flex>
         </div>
 
-        {/* Summary Metrics */}
+        {/* Summary Metrics - Simplified */}
         {filteredOrders.length > 0 && (
           <div className="p-6 border-b border-gray-100">
             <Grid numItems={1} numItemsSm={3} className="gap-4">
-              <Card className="bg-blue-50 border border-blue-100">
+              <Card className="bg-gray-50 border border-gray-200">
                 <Flex alignItems="center" justifyContent="start" className="space-x-3 p-4">
-                  <Icon icon={DocumentTextIcon} className="h-8 w-8 text-blue-600" />
+                  <Icon icon={DocumentTextIcon} className="h-6 w-6 text-gray-600" />
                   <div>
-                    <Text className="text-blue-600 font-medium text-sm">Total Orders</Text>
-                    <Metric className="text-blue-900">{filteredOrders.length}</Metric>
+                    <Text className="text-gray-600 font-medium text-sm">Filtered Results</Text>
+                    <Metric className="text-gray-900 text-lg">{filteredOrders.length}</Metric>
                   </div>
                 </Flex>
               </Card>
-              <Card className="bg-green-50 border border-green-100">
+              <Card className="bg-gray-50 border border-gray-200">
                 <Flex alignItems="center" justifyContent="start" className="space-x-3 p-4">
-                  <Icon icon={CurrencyDollarIcon} className="h-8 w-8 text-green-600" />
+                  <Icon icon={CurrencyDollarIcon} className="h-6 w-6 text-gray-600" />
                   <div>
-                    <Text className="text-green-600 font-medium text-sm">Total Value</Text>
-                    <Metric className="text-green-900">
+                    <Text className="text-gray-600 font-medium text-sm">Filtered Value</Text>
+                    <Metric className="text-gray-900 text-lg">
                       ${filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Metric>
                   </div>
                 </Flex>
               </Card>
-              <Card className="bg-purple-50 border border-purple-100">
+              <Card className="bg-gray-50 border border-gray-200">
                 <Flex alignItems="center" justifyContent="start" className="space-x-3 p-4">
-                  <Icon icon={CalendarIcon} className="h-8 w-8 text-purple-600" />
+                  <Icon icon={CalendarIcon} className="h-6 w-6 text-gray-600" />
                   <div>
-                    <Text className="text-purple-600 font-medium text-sm">Auto-Generated</Text>
-                    <Metric className="text-purple-900">
+                    <Text className="text-gray-600 font-medium text-sm">Auto-Generated</Text>
+                    <Metric className="text-gray-900 text-lg">
                       {filteredOrders.filter(order => order.status === 'template_generated').length}
                     </Metric>
                   </div>
