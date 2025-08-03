@@ -14,6 +14,10 @@ export default {
 			center: true,
 			padding: '2rem',
 			screens: {
+				'sm': '640px',
+				'md': '768px',   // iPad portrait and up
+				'lg': '1024px',  // iPad landscape and desktop
+				'xl': '1280px',
 				'2xl': '1400px'
 			}
 		},

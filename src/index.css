@@ -101,5 +101,31 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    /* iPad-optimized base font size */
+    font-size: 16px;
+    line-height: 1.5;
   }
+
+  /* iPad-optimized touch targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* iPad-optimized spacing */
+  .touch-spacing {
+    gap: 8px;
+  }
+
+  /* iPad-optimized form inputs */
+  .ipad-input {
+    min-height: 48px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* iPad-optimized headings */
+  h1 { font-size: 32px; line-height: 1.2; }
+  h2 { font-size: 24px; line-height: 1.3; }
+  h3 { font-size: 20px; line-height: 1.4; }
+  h4 { font-size: 18px; line-height: 1.4; }
 }

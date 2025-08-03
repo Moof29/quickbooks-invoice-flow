@@ -65,15 +65,15 @@ export function AppSidebar() {
   return (
     <Sidebar 
       collapsible="icon" 
-      className={isCollapsed ? "w-16" : "w-52"}
+      className={isCollapsed ? "w-16 md:w-20" : "w-64 md:w-72 lg:w-80"}
     >
       <SidebarHeader className="border-b">
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex items-center gap-2 px-4 py-4 md:px-6 md:py-5">
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="h-8 w-8"
+            className="h-10 w-10 md:h-12 md:w-12 touch-target"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -92,31 +92,31 @@ export function AppSidebar() {
             </svg>
           </Button>
           {!isCollapsed && (
-            <span className="text-sm font-semibold">Batchly</span>
+            <span className="text-lg md:text-xl font-semibold">Batchly</span>
           )}
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="mt-4">
+      <SidebarContent className="mt-6 md:mt-8">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-2 md:space-y-3">
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.href}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                        `flex items-center gap-4 px-4 py-3 md:px-6 md:py-4 rounded-lg transition-colors touch-target ${
                           isActive 
                             ? "bg-accent text-accent-foreground" 
                             : "hover:bg-accent/50"
                         }`
                       }
                     >
-                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <item.icon className="h-5 w-5 md:h-6 md:w-6 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="text-sm font-medium">{item.name}</span>
+                        <span className="text-base md:text-lg font-medium">{item.name}</span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
@@ -127,19 +127,19 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       
-      <SidebarFooter>
+      <SidebarFooter className="mt-auto">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Button 
                 variant="ghost" 
-                className={`w-full transition-all ${
-                  isCollapsed ? "justify-center px-2" : "justify-start px-3 gap-3"
-                }`}
+                className={`w-full transition-all touch-target ${
+                  isCollapsed ? "justify-center px-2" : "justify-start px-4 md:px-6 gap-4"
+                } h-12 md:h-14`}
                 onClick={handleSignOut}
               >
-                <LogOut className="h-4 w-4 flex-shrink-0" />
-                {!isCollapsed && <span className="text-sm">Sign Out</span>}
+                <LogOut className="h-5 w-5 md:h-6 md:w-6 flex-shrink-0" />
+                {!isCollapsed && <span className="text-base md:text-lg">Sign Out</span>}
               </Button>
             </SidebarMenuButton>
           </SidebarMenuItem>
