@@ -65,20 +65,20 @@ export function AppSidebar() {
   return (
     <Sidebar 
       collapsible="icon" 
-      className={`${isCollapsed ? "w-20" : "w-80"} border-r-2 border-border/50 bg-sidebar backdrop-blur-sm transition-all duration-300`}
+      className={isCollapsed ? "w-16" : "w-52"}
     >
-      <SidebarHeader className="border-b-2 border-border/50 bg-sidebar/50">
-        <div className="flex items-center gap-4 px-6 py-6">
+      <SidebarHeader className="border-b">
+        <div className="flex items-center gap-2 px-3 py-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="h-12 w-12 hover:bg-sidebar-accent transition-all duration-200"
+            className="h-8 w-8"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
+              width="16"
+              height="16"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -92,34 +92,31 @@ export function AppSidebar() {
             </svg>
           </Button>
           {!isCollapsed && (
-            <div className="animate-fade-in">
-              <span className="text-2xl font-bold text-sidebar-primary">Batchly</span>
-              <div className="text-sm text-sidebar-foreground/70 font-medium">Enterprise ERP</div>
-            </div>
+            <span className="text-sm font-semibold">Batchly</span>
           )}
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="mt-8">
+      <SidebarContent className="mt-4">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-3">
+            <SidebarMenu>
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.href}
                       className={({ isActive }) =>
-                        `flex items-center gap-4 px-6 py-4 rounded-xl transition-all duration-200 touch-target group ${
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                           isActive 
-                            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg transform scale-105" 
-                            : "hover:bg-sidebar-accent/70 hover:scale-102 hover:shadow-md"
+                            ? "bg-accent text-accent-foreground" 
+                            : "hover:bg-accent/50"
                         }`
                       }
                     >
-                      <item.icon className="h-6 w-6 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="text-lg font-semibold transition-all duration-200">{item.name}</span>
+                        <span className="text-sm font-medium">{item.name}</span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
@@ -130,19 +127,19 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       
-      <SidebarFooter className="mt-auto border-t-2 border-border/50 bg-sidebar/50">
+      <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Button 
                 variant="ghost" 
-                className={`w-full transition-all duration-200 touch-target hover:bg-destructive/10 hover:text-destructive ${
-                  isCollapsed ? "justify-center px-2" : "justify-start px-6 gap-4"
-                } h-16`}
+                className={`w-full transition-all ${
+                  isCollapsed ? "justify-center px-2" : "justify-start px-3 gap-3"
+                }`}
                 onClick={handleSignOut}
               >
-                <LogOut className="h-6 w-6 flex-shrink-0" />
-                {!isCollapsed && <span className="text-lg font-semibold">Sign Out</span>}
+                <LogOut className="h-4 w-4 flex-shrink-0" />
+                {!isCollapsed && <span className="text-sm">Sign Out</span>}
               </Button>
             </SidebarMenuButton>
           </SidebarMenuItem>

@@ -46,11 +46,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-muted/30">
+      <div className="min-h-screen flex w-full">
         <AppSidebar />
         <ContextualSidebar />
         <SidebarInset className="flex-1">
-          <main className="flex-1 p-6 md:p-8 lg:p-10 transition-all duration-300 animate-fade-in">
+          <main className="flex-1 p-6">
             {children}
           </main>
         </SidebarInset>
