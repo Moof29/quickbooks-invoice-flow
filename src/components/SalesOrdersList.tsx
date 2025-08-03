@@ -2,13 +2,27 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Search, FileText, DollarSign, Plus } from 'lucide-react';
+import { 
+  Card, 
+  Table, 
+  TableHead, 
+  TableHeaderCell, 
+  TableBody, 
+  TableRow, 
+  TableCell,
+  Badge,
+  Button,
+  TextInput,
+  Select,
+  SelectItem,
+  Title,
+  Text,
+  Flex,
+  Grid,
+  Metric,
+  Icon
+} from '@tremor/react';
+import { CalendarIcon, MagnifyingGlassIcon, DocumentTextIcon, CurrencyDollarIcon, PlusIcon, PencilIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
 
@@ -27,6 +41,7 @@ interface SalesOrder {
 export function SalesOrdersList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -79,26 +94,26 @@ export function SalesOrdersList() {
     return matchesSearch && matchesStatus;
   }) || [];
 
-  const getStatusVariant = (status: string) => {
+  const getStatusColor = (status: string): "gray" | "red" | "yellow" | "green" | "blue" | "indigo" | "purple" | "pink" => {
     switch (status) {
       case 'template_generated':
-        return 'secondary';
+        return 'blue';
       case 'draft':
-        return 'outline';
+        return 'gray';
       case 'open':
-        return 'default';
+        return 'yellow';
       case 'approved':
-        return 'default';
+        return 'indigo';
       case 'shipped':
-        return 'default';
+        return 'purple';
       case 'invoiced':
-        return 'default';
+        return 'green';
       case 'closed':
-        return 'secondary';
+        return 'gray';
       case 'canceled':
-        return 'destructive';
+        return 'red';
       default:
-        return 'outline';
+        return 'gray';
     }
   };
 
@@ -127,184 +142,235 @@ export function SalesOrdersList() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Sales Orders</CardTitle>
-          <CardDescription>Loading sales orders...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
+      <Card className="mx-auto max-w-full">
+        <Flex alignItems="center" justifyContent="center" className="h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </Flex>
       </Card>
     );
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Sales Orders</CardTitle>
-          <CardDescription>Error loading sales orders</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center text-muted-foreground">
-            <p>Failed to load sales orders. Please try again.</p>
-          </div>
-        </CardContent>
+      <Card className="mx-auto max-w-full">
+        <div className="text-center p-8">
+          <Text className="text-red-600">Failed to load sales orders. Please try again.</Text>
+        </div>
       </Card>
     );
   }
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Sales Orders
-            </div>
-            <Button onClick={handleCreateSalesOrder} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Create Sales Order
-            </Button>
-          </CardTitle>
-          <CardDescription>
-            View and manage sales orders generated from customer templates
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search by order number, customer, or memo..."
+    <div className="space-y-6">
+      {/* Header Section */}
+      <Card className="shadow-sm border-0 bg-white">
+        <Flex alignItems="center" justifyContent="between" className="p-6 border-b border-gray-100">
+          <div>
+            <Title className="text-xl font-semibold text-gray-900">Sales Orders</Title>
+            <Text className="text-gray-600 mt-1">View and manage sales orders generated from customer templates</Text>
+          </div>
+          <Button
+            onClick={handleCreateSalesOrder}
+            icon={PlusIcon}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg shadow-sm"
+          >
+            Create Sales Order
+          </Button>
+        </Flex>
+
+        {/* Filters & Search */}
+        <div className="p-6 border-b border-gray-100">
+          <Flex alignItems="center" justifyContent="start" className="gap-4">
+            <div className="flex-1 max-w-md">
+              <TextInput
+                icon={MagnifyingGlassIcon}
+                placeholder="Search orders, customers, or notes..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                onValueChange={setSearchTerm}
+                className="bg-gray-50 border-gray-200"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="template_generated">Auto-Generated</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="shipped">Shipped</SelectItem>
-                <SelectItem value="invoiced">Invoiced</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="canceled">Canceled</SelectItem>
-              </SelectContent>
+            <Select value={statusFilter} onValueChange={setStatusFilter} className="w-48">
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="template_generated">Auto-Generated</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="shipped">Shipped</SelectItem>
+              <SelectItem value="invoiced">Invoiced</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+              <SelectItem value="canceled">Canceled</SelectItem>
             </Select>
+          </Flex>
+        </div>
+
+        {/* Summary Metrics */}
+        {filteredOrders.length > 0 && (
+          <div className="p-6 border-b border-gray-100">
+            <Grid numItems={1} numItemsSm={3} className="gap-4">
+              <Card className="bg-blue-50 border border-blue-100">
+                <Flex alignItems="center" justifyContent="start" className="space-x-3 p-4">
+                  <Icon icon={DocumentTextIcon} className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <Text className="text-blue-600 font-medium text-sm">Total Orders</Text>
+                    <Metric className="text-blue-900">{filteredOrders.length}</Metric>
+                  </div>
+                </Flex>
+              </Card>
+              <Card className="bg-green-50 border border-green-100">
+                <Flex alignItems="center" justifyContent="start" className="space-x-3 p-4">
+                  <Icon icon={CurrencyDollarIcon} className="h-8 w-8 text-green-600" />
+                  <div>
+                    <Text className="text-green-600 font-medium text-sm">Total Value</Text>
+                    <Metric className="text-green-900">
+                      ${filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Metric>
+                  </div>
+                </Flex>
+              </Card>
+              <Card className="bg-purple-50 border border-purple-100">
+                <Flex alignItems="center" justifyContent="start" className="space-x-3 p-4">
+                  <Icon icon={CalendarIcon} className="h-8 w-8 text-purple-600" />
+                  <div>
+                    <Text className="text-purple-600 font-medium text-sm">Auto-Generated</Text>
+                    <Metric className="text-purple-900">
+                      {filteredOrders.filter(order => order.status === 'template_generated').length}
+                    </Metric>
+                  </div>
+                </Flex>
+              </Card>
+            </Grid>
           </div>
+        )}
+      </Card>
 
-          {/* Summary Stats */}
-          {filteredOrders.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Total Orders</span>
-                </div>
-                <p className="text-2xl font-bold">{filteredOrders.length}</p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Total Value</span>
-                </div>
-                <p className="text-2xl font-bold">
-                  ${filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0).toFixed(2)}
-                </p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Auto-Generated</span>
-                </div>
-                <p className="text-2xl font-bold">
-                  {filteredOrders.filter(order => order.status === 'template_generated').length}
-                </p>
-              </div>
-            </div>
-          )}
+      {/* Main Data Table */}
+      <Card className="shadow-sm border-0 bg-white">
+        {filteredOrders.length === 0 ? (
+          <div className="text-center py-12">
+            <Icon icon={DocumentTextIcon} className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+            <Title className="text-gray-900 mb-2">No sales orders found</Title>
+            <Text className="text-gray-600">
+              {searchTerm || statusFilter !== 'all' 
+                ? 'Try adjusting your search criteria'
+                : 'Create customer templates to automatically generate sales orders'
+              }
+            </Text>
+          </div>
+        ) : (
+          <Table className="min-h-96">
+            <TableHead>
+              <TableRow className="border-b border-gray-200 bg-gray-50">
+                <TableHeaderCell className="py-3 px-4">
+                  <input 
+                    type="checkbox" 
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedOrders(filteredOrders.map(o => o.id));
+                      } else {
+                        setSelectedOrders([]);
+                      }
+                    }}
+                    checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
+                  />
+                </TableHeaderCell>
+                <TableHeaderCell className="text-left font-semibold text-gray-900">Order Number</TableHeaderCell>
+                <TableHeaderCell className="text-left font-semibold text-gray-900">Customer</TableHeaderCell>
+                <TableHeaderCell className="text-left font-semibold text-gray-900">Date</TableHeaderCell>
+                <TableHeaderCell className="text-left font-semibold text-gray-900">Status</TableHeaderCell>
+                <TableHeaderCell className="text-right font-semibold text-gray-900">Total</TableHeaderCell>
+                <TableHeaderCell className="text-left font-semibold text-gray-900">Notes</TableHeaderCell>
+                <TableHeaderCell className="text-center font-semibold text-gray-900">Actions</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredOrders.map((order) => (
+                <TableRow key={order.id} className="hover:bg-gray-50 border-b border-gray-100">
+                  <TableCell className="py-4 px-4">
+                    <input 
+                      type="checkbox" 
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      checked={selectedOrders.includes(order.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedOrders([...selectedOrders, order.id]);
+                        } else {
+                          setSelectedOrders(selectedOrders.filter(id => id !== order.id));
+                        }
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell className="font-mono font-medium text-gray-900">
+                    {order.order_number}
+                  </TableCell>
+                  <TableCell className="text-gray-900 font-medium">
+                    {order.customer_name}
+                  </TableCell>
+                  <TableCell className="text-gray-600">
+                    {format(new Date(order.order_date), 'MMM dd, yyyy')}
+                  </TableCell>
+                  <TableCell>
+                    <Badge color={getStatusColor(order.status)} size="sm" className="font-medium">
+                      {getStatusLabel(order.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-gray-900">
+                    ${(order.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate text-gray-600 text-sm">
+                    {order.memo || '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Flex alignItems="center" justifyContent="center" className="gap-2">
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        icon={EyeIcon}
+                        onClick={() => navigate(`/sales-orders/${order.id}`)}
+                        className="px-3 py-1.5 text-xs"
+                      >
+                        View
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        icon={PencilIcon}
+                        onClick={() => navigate(`/sales-orders/${order.id}/edit`)}
+                        className="px-3 py-1.5 text-xs"
+                      >
+                        Edit
+                      </Button>
+                    </Flex>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
-          {/* Orders Table */}
-          {filteredOrders.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">No sales orders found</p>
-              <p className="text-sm">
-                {searchTerm || statusFilter !== 'all' 
-                  ? 'Try adjusting your search criteria'
-                  : 'Create customer templates to automatically generate sales orders'
-                }
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order Number</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-medium">
-                        {order.order_number}
-                      </TableCell>
-                      <TableCell>{order.customer_name}</TableCell>
-                      <TableCell>
-                        {format(new Date(order.order_date), 'MMM dd, yyyy')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusVariant(order.status)}>
-                          {getStatusLabel(order.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        ${order.total?.toFixed(2) || '0.00'}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate text-muted-foreground">
-                        {order.memo || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => navigate(`/sales-orders/${order.id}`)}
-                        >
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
+        {/* Pagination Footer */}
+        {filteredOrders.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <Flex alignItems="center" justifyContent="between">
+              <Text className="text-sm text-gray-600">
+                Showing {filteredOrders.length} of {salesOrders?.length || 0} orders
+                {selectedOrders.length > 0 && ` • ${selectedOrders.length} selected`}
+              </Text>
+              <div className="flex items-center space-x-2">
+                <Button variant="light" size="xs" className="px-3 py-1.5 text-xs">Previous</Button>
+                <Button variant="light" size="xs" className="px-3 py-1.5 text-xs bg-blue-600 text-white">1</Button>
+                <Button variant="light" size="xs" className="px-3 py-1.5 text-xs">Next</Button>
+              </div>
+            </Flex>
+          </div>
+        )}
       </Card>
 
       <CreateSalesOrderDialog 
         open={createDialogOpen} 
         onOpenChange={setCreateDialogOpen}
       />
-    </>
+    </div>
   );
 }
