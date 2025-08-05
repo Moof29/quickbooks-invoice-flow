@@ -45,7 +45,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const hideSidebar = location.pathname.startsWith('/sales-orders');
+  const hideSidebar = location.pathname.startsWith('/sales-orders') || location.pathname.startsWith('/invoices');
   
   return (
     <SidebarProvider>
