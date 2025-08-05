@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
   DollarSign, 
   FileText, 
@@ -11,7 +12,13 @@ import {
   Plus,
   Eye,
   Edit,
-  Trash2
+  Trash2,
+  ArrowUpRight,
+  ArrowDownRight,
+  ShoppingCart,
+  Calendar,
+  Clock,
+  Download
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +30,9 @@ interface DashboardStats {
   totalInvoices: number;
   totalCustomers: number;
   pendingInvoices: number;
+  monthlyGrowth: number;
+  salesCount: number;
+  returningRate: number;
 }
 
 interface Invoice {
@@ -42,7 +52,10 @@ const Dashboard = () => {
     totalRevenue: 0,
     totalInvoices: 0,
     totalCustomers: 0,
-    pendingInvoices: 0
+    pendingInvoices: 0,
+    monthlyGrowth: 12,
+    salesCount: 0,
+    returningRate: 85
   });
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +98,10 @@ const Dashboard = () => {
           totalRevenue,
           totalInvoices: invoicesResult.data.length,
           totalCustomers: customersResult.data?.length || 0,
-          pendingInvoices
+          pendingInvoices,
+          monthlyGrowth: 12,
+          salesCount: invoicesResult.data.filter(inv => inv.status === 'paid').length,
+          returningRate: 85
         });
       }
 
@@ -131,81 +147,217 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-600 mt-1">Welcome back! Here's what's happening with your business.</p>
-            </div>
-            <div className="flex space-x-3">
-              <Button onClick={() => setShowCustomerDialog(true)} variant="outline">
-                <Users className="w-4 h-4 mr-2" />
-                Add Customer
-              </Button>
-              <Button onClick={() => setShowInvoiceDialog(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Invoice
-              </Button>
-            </div>
+      <div className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex h-16 items-center justify-between px-6">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-foreground">Business Dashboard</h1>
+            <Badge variant="secondary" className="text-xs">
+              09 Jul 2025 - 05 Aug 2025
+            </Badge>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+            <Button onClick={() => setShowCustomerDialog(true)} variant="outline" size="sm">
+              <Users className="w-4 h-4 mr-2" />
+              Add Customer
+            </Button>
+            <Button onClick={() => setShowInvoiceDialog(true)} size="sm">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Invoice
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="p-6 space-y-6">
+        {/* Hero Stats Section */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {/* Congratulations Card */}
+          <Card className="md:col-span-2 lg:col-span-1 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <div className="text-2xl">🎉</div>
+                <div>
+                  <CardTitle className="text-lg">Congratulations!</CardTitle>
+                  <p className="text-sm text-muted-foreground">Best seller of the month</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold mb-2">${stats.totalRevenue.toLocaleString()}</div>
+              <p className="text-sm text-muted-foreground mb-3">+{stats.monthlyGrowth}% from last month</p>
+              <Button variant="outline" size="sm" className="h-8">
+                View Sales
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Revenue Card */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
+                <div className="flex items-center text-sm text-green-600">
+                  <ArrowUpRight className="h-4 w-4" />
+                  <span>+{stats.monthlyGrowth}%</span>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                +12% from last month
-              </p>
+              <div className="h-8 flex items-end space-x-1 mt-2">
+                {[4, 8, 6, 10, 7, 12, 9, 15, 11, 8, 14, 16].map((height, i) => (
+                  <div
+                    key={i}
+                    className="bg-primary/20 rounded-sm flex-1"
+                    style={{ height: `${height}px` }}
+                  />
+                ))}
+              </div>
             </CardContent>
           </Card>
 
+          {/* Sales Card */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Invoices</CardTitle>
-              <FileText className="h-4 w-4 text-blue-600" />
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Sales</CardTitle>
+                <div className="flex items-center text-sm text-red-600">
+                  <ArrowDownRight className="h-4 w-4" />
+                  <span>-17%</span>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalInvoices}</div>
-              <p className="text-xs text-muted-foreground">
-                +3 new this week
-              </p>
+              <div className="text-2xl font-bold">{stats.salesCount}K</div>
+              <div className="h-8 flex items-end space-x-1 mt-2">
+                {[12, 8, 6, 14, 7, 4, 9, 6, 11, 8, 5, 3].map((height, i) => (
+                  <div
+                    key={i}
+                    className="bg-muted rounded-sm flex-1"
+                    style={{ height: `${height}px` }}
+                  />
+                ))}
+              </div>
             </CardContent>
           </Card>
 
+          {/* New Customers Card */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Customers</CardTitle>
-              <Users className="h-4 w-4 text-purple-600" />
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">New Customers</CardTitle>
+                <div className="flex items-center text-sm text-green-600">
+                  <ArrowUpRight className="h-4 w-4" />
+                  <span>+36.5%</span>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalCustomers}</div>
-              <p className="text-xs text-muted-foreground">
-                +2 new this month
-              </p>
+              <div className="h-8 flex items-end space-x-1 mt-2">
+                {[6, 10, 8, 12, 14, 16, 11, 18, 15, 12, 20, 22].map((height, i) => (
+                  <div
+                    key={i}
+                    className="bg-green-200 rounded-sm flex-1"
+                    style={{ height: `${height}px` }}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Secondary Stats Row */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Total Revenue Detailed */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+              <p className="text-xs text-muted-foreground">Income in the last 28 days</p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Desktop</span>
+                  <span className="font-medium">24,828</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Mobile</span>
+                  <span className="font-medium">25,010</span>
+                </div>
+              </div>
+              <div className="mt-4 h-32 bg-gradient-to-t from-primary/20 to-primary/5 rounded-md flex items-end p-2">
+                <div className="w-full grid grid-cols-6 gap-1 h-full items-end">
+                  {[40, 60, 45, 80, 55, 95].map((height, i) => (
+                    <div
+                      key={i}
+                      className="bg-primary rounded-sm"
+                      style={{ height: `${height}%` }}
+                    />
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
+          {/* Returning Rate */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Invoices</CardTitle>
-              <TrendingUp className="h-4 w-4 text-orange-600" />
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Returning Rate</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingInvoices}</div>
-              <p className="text-xs text-muted-foreground">
-                Awaiting payment
-              </p>
+              <div className="text-3xl font-bold mb-1">${(stats.totalRevenue * 0.42).toLocaleString()}</div>
+              <div className="flex items-center text-sm text-green-600 mb-4">
+                <span>+2.5%</span>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-primary"></div>
+                  <span className="text-sm">February</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-muted"></div>
+                  <span className="text-sm">March</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-primary/60"></div>
+                  <span className="text-sm">April</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Card */}
+          <Card className="flex flex-col">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
+                <Button variant="ghost" size="sm">
+                  Export
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1">
+              <div className="space-y-3">
+                <Button variant="outline" className="w-full justify-start" onClick={() => setShowInvoiceDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Invoice
+                </Button>
+                <Button variant="outline" className="w-full justify-start" onClick={() => setShowCustomerDialog(true)}>
+                  <Users className="h-4 w-4 mr-2" />
+                  Add Customer
+                </Button>
+                <Button variant="outline" className="w-full justify-start">
+                  <FileText className="h-4 w-4 mr-2" />
+                  View Reports
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -213,47 +365,57 @@ const Dashboard = () => {
         {/* Recent Invoices */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Invoices</CardTitle>
-            <CardDescription>
-              Your latest invoice activity
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Recent Invoice Activity</CardTitle>
+                <CardDescription>
+                  Your latest business transactions and payments
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="sm">
+                View All →
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentInvoices.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No invoices yet. Create your first invoice to get started!</p>
-                  <Button onClick={() => setShowInvoiceDialog(true)} className="mt-4">
+                <div className="text-center py-12">
+                  <div className="bg-muted/50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                    <FileText className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">No invoices yet</h3>
+                  <p className="text-muted-foreground mb-4">Create your first invoice to get started with your business!</p>
+                  <Button onClick={() => setShowInvoiceDialog(true)}>
                     <Plus className="w-4 h-4 mr-2" />
                     Create Invoice
                   </Button>
                 </div>
               ) : (
                 recentInvoices.map((invoice) => (
-                  <div key={invoice.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                    <div className="flex items-center space-x-4">
-                      <div className="bg-blue-100 p-2 rounded-lg">
-                        <FileText className="h-5 w-5 text-blue-600" />
+                  <div key={invoice.id} className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-primary/10 p-2 rounded-lg">
+                        <FileText className="h-5 w-5 text-primary" />
                       </div>
                       <div>
                         <p className="font-medium">{invoice.invoice_number}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {invoice.customer_profile?.display_name || 'Unknown Customer'}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="font-medium">${invoice.total?.toLocaleString()}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="font-semibold">${invoice.total?.toLocaleString()}</p>
+                        <p className="text-sm text-muted-foreground">
                           Due: {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>
-                      <Badge className={getStatusColor(invoice.status)}>
+                      <Badge variant={invoice.status === 'paid' ? 'default' : invoice.status === 'pending' ? 'secondary' : 'outline'}>
                         {invoice.status || 'draft'}
                       </Badge>
-                      <div className="flex space-x-1">
+                      <div className="flex gap-1">
                         <Button variant="ghost" size="sm">
                           <Eye className="h-4 w-4" />
                         </Button>
