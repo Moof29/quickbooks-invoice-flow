@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -7,7 +8,9 @@ import {
   Settings,
   LogOut,
   ShoppingCart,
-  Package
+  Package,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { useAuthProfile } from "@/hooks/useAuthProfile";
 import { useToast } from "@/hooks/use-toast";
@@ -29,12 +32,18 @@ import { Button } from "@/components/ui/button";
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Invoices', href: '/invoices', icon: FileText },
   { name: 'Sales Orders', href: '/sales-orders', icon: ShoppingCart },
-  { name: 'Items', href: '/items', icon: Package },
+  { name: 'Invoices', href: '/invoices', icon: FileText },
   { name: 'Customers', href: '/customers', icon: Users },
-  { name: 'QuickBooks', href: '/quickbooks', icon: Zap },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Products', href: '/items', icon: Package },
+  { 
+    name: 'Settings', 
+    href: '/settings', 
+    icon: Settings,
+    subItems: [
+      { name: 'QuickBooks', href: '/quickbooks', icon: Zap },
+    ]
+  },
 ];
 
 export function AppSidebar() {
@@ -44,6 +53,7 @@ export function AppSidebar() {
   const { signOut } = useAuthProfile();
   const { toast } = useToast();
   const isCollapsed = state === "collapsed";
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Settings']);
 
   const handleSignOut = async () => {
     try {
@@ -103,23 +113,74 @@ export function AppSidebar() {
             <SidebarMenu>
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.href}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                          isActive 
-                            ? "bg-accent text-accent-foreground" 
-                            : "hover:bg-accent/50"
-                        }`
-                      }
-                    >
-                      <item.icon className="h-4 w-4 flex-shrink-0" />
-                      {!isCollapsed && (
-                        <span className="text-sm font-medium">{item.name}</span>
+                  {item.subItems ? (
+                    <div>
+                      <SidebarMenuButton
+                        onClick={() => {
+                          const isExpanded = expandedItems.includes(item.name);
+                          setExpandedItems(prev => 
+                            isExpanded 
+                              ? prev.filter(name => name !== item.name)
+                              : [...prev, item.name]
+                          );
+                        }}
+                        className="w-full"
+                      >
+                        <div className="flex items-center gap-3 px-3 py-2 w-full">
+                          <item.icon className="h-4 w-4 flex-shrink-0" />
+                          {!isCollapsed && (
+                            <>
+                              <span className="text-sm font-medium flex-1">{item.name}</span>
+                              {expandedItems.includes(item.name) ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </SidebarMenuButton>
+                      {!isCollapsed && expandedItems.includes(item.name) && (
+                        <div className="ml-6 mt-1">
+                          {item.subItems.map((subItem) => (
+                            <SidebarMenuButton key={subItem.name} asChild>
+                              <NavLink
+                                to={subItem.href}
+                                className={({ isActive }) =>
+                                  `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                                    isActive 
+                                      ? "bg-accent text-accent-foreground" 
+                                      : "hover:bg-accent/50"
+                                  }`
+                                }
+                              >
+                                <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                                <span className="text-sm font-medium">{subItem.name}</span>
+                              </NavLink>
+                            </SidebarMenuButton>
+                          ))}
+                        </div>
                       )}
-                    </NavLink>
-                  </SidebarMenuButton>
+                    </div>
+                  ) : (
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.href}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                            isActive 
+                              ? "bg-accent text-accent-foreground" 
+                              : "hover:bg-accent/50"
+                          }`
+                        }
+                      >
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        {!isCollapsed && (
+                          <span className="text-sm font-medium">{item.name}</span>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
