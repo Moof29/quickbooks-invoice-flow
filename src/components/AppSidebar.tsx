@@ -115,33 +115,55 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.name}>
                   {item.subItems ? (
                     <div>
-                      <SidebarMenuButton
-                        onClick={() => {
-                          const isExpanded = expandedItems.includes(item.name);
-                          setExpandedItems(prev => 
-                            isExpanded 
-                              ? prev.filter(name => name !== item.name)
-                              : [...prev, item.name]
-                          );
-                        }}
-                        className="w-full"
-                      >
-                        <div className="flex items-center gap-3 px-3 py-2 w-full">
+                      {/* Main settings link */}
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.href}
+                          className={({ isActive }) =>
+                            `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                              isActive 
+                                ? "bg-accent text-accent-foreground" 
+                                : "hover:bg-accent/50"
+                            }`
+                          }
+                        >
                           <item.icon className="h-4 w-4 flex-shrink-0" />
                           {!isCollapsed && (
-                            <>
-                              <span className="text-sm font-medium flex-1">{item.name}</span>
-                              {expandedItems.includes(item.name) ? (
-                                <ChevronDown className="h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4" />
-                              )}
-                            </>
+                            <span className="text-sm font-medium flex-1">{item.name}</span>
                           )}
-                        </div>
+                        </NavLink>
                       </SidebarMenuButton>
+                      
+                      {/* Expandable toggle for sub-items */}
+                      {!isCollapsed && (
+                        <SidebarMenuButton
+                          onClick={() => {
+                            const isExpanded = expandedItems.includes(item.name);
+                            setExpandedItems(prev => 
+                              isExpanded 
+                                ? prev.filter(name => name !== item.name)
+                                : [...prev, item.name]
+                            );
+                          }}
+                          className="w-full mt-1"
+                        >
+                          <div className="flex items-center gap-3 px-3 py-1 w-full">
+                            <div className="h-4 w-4"></div> {/* Spacer for alignment */}
+                            <span className="text-xs text-muted-foreground flex-1">
+                              {expandedItems.includes(item.name) ? 'Hide' : 'Show'} sub-items
+                            </span>
+                            {expandedItems.includes(item.name) ? (
+                              <ChevronDown className="h-3 w-3" />
+                            ) : (
+                              <ChevronRight className="h-3 w-3" />
+                            )}
+                          </div>
+                        </SidebarMenuButton>
+                      )}
+                      
+                      {/* Sub-items */}
                       {!isCollapsed && expandedItems.includes(item.name) && (
-                        <div className="ml-6 mt-1">
+                        <div className="ml-6 mt-1 space-y-1">
                           {item.subItems.map((subItem) => (
                             <SidebarMenuButton key={subItem.name} asChild>
                               <NavLink
