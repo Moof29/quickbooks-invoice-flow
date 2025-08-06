@@ -18,12 +18,16 @@ import {
   ShoppingCart,
   Calendar,
   Clock,
-  Download
+  Download,
+  Activity,
+  CreditCard,
+  Target
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceDialog } from '@/components/InvoiceDialog';
 import { CustomerDialog } from '@/components/CustomerDialog';
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 interface DashboardStats {
   totalRevenue: number;
@@ -33,7 +37,36 @@ interface DashboardStats {
   monthlyGrowth: number;
   salesCount: number;
   returningRate: number;
+  avgOrderValue: number;
+  conversionRate: number;
 }
+
+// Sample data for charts
+const revenueData = [
+  { month: 'Jan', revenue: 45000, target: 40000 },
+  { month: 'Feb', revenue: 52000, target: 45000 },
+  { month: 'Mar', revenue: 48000, target: 50000 },
+  { month: 'Apr', revenue: 61000, target: 55000 },
+  { month: 'May', revenue: 55000, target: 58000 },
+  { month: 'Jun', revenue: 67000, target: 62000 },
+];
+
+const salesChannelData = [
+  { name: 'Direct Sales', value: 45, color: 'hsl(var(--primary))' },
+  { name: 'Online Store', value: 30, color: 'hsl(var(--secondary))' },
+  { name: 'Partners', value: 15, color: 'hsl(var(--accent))' },
+  { name: 'Referrals', value: 10, color: 'hsl(var(--muted))' },
+];
+
+const customerActivityData = [
+  { day: 'Mon', active: 120, new: 12 },
+  { day: 'Tue', active: 132, new: 8 },
+  { day: 'Wed', active: 145, new: 15 },
+  { day: 'Thu', active: 138, new: 18 },
+  { day: 'Fri', active: 156, new: 22 },
+  { day: 'Sat', active: 89, new: 5 },
+  { day: 'Sun', active: 78, new: 3 },
+];
 
 interface Invoice {
   id: string;
@@ -55,7 +88,9 @@ const Dashboard = () => {
     pendingInvoices: 0,
     monthlyGrowth: 12,
     salesCount: 0,
-    returningRate: 85
+    returningRate: 85,
+    avgOrderValue: 0,
+    conversionRate: 3.2
   });
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +136,9 @@ const Dashboard = () => {
           pendingInvoices,
           monthlyGrowth: 12,
           salesCount: invoicesResult.data.filter(inv => inv.status === 'paid').length,
-          returningRate: 85
+          returningRate: 85,
+          avgOrderValue: totalRevenue / Math.max(invoicesResult.data.length, 1),
+          conversionRate: 3.2
         });
       }
 
@@ -175,189 +212,336 @@ const Dashboard = () => {
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Hero Stats Section */}
+        {/* Enhanced Hero Stats Section */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* Congratulations Card */}
-          <Card className="md:col-span-2 lg:col-span-1 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <div className="text-2xl">🎉</div>
-                <div>
-                  <CardTitle className="text-lg">Congratulations!</CardTitle>
-                  <p className="text-sm text-muted-foreground">Best seller of the month</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-2">${stats.totalRevenue.toLocaleString()}</div>
-              <p className="text-sm text-muted-foreground mb-3">+{stats.monthlyGrowth}% from last month</p>
-              <Button variant="outline" size="sm" className="h-8">
-                View Sales
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Revenue Card */}
-          <Card>
+          {/* Revenue Card with Trend */}
+          <Card className="relative overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-green-100 rounded-lg dark:bg-green-900/20">
+                    <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+                </div>
                 <div className="flex items-center text-sm text-green-600">
-                  <ArrowUpRight className="h-4 w-4" />
+                  <TrendingUp className="h-4 w-4" />
                   <span>+{stats.monthlyGrowth}%</span>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
-              <div className="h-8 flex items-end space-x-1 mt-2">
-                {[4, 8, 6, 10, 7, 12, 9, 15, 11, 8, 14, 16].map((height, i) => (
-                  <div
-                    key={i}
-                    className="bg-primary/20 rounded-sm flex-1"
-                    style={{ height: `${height}px` }}
-                  />
-                ))}
+              <div className="text-3xl font-bold mb-1">${stats.totalRevenue.toLocaleString()}</div>
+              <p className="text-sm text-muted-foreground">vs ${(stats.totalRevenue * 0.88).toLocaleString()} last month</p>
+              <div className="mt-4 h-16">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={revenueData.slice(-4)}>
+                    <defs>
+                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#revenueGradient)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
-          {/* Sales Card */}
+          {/* Orders Card */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Sales</CardTitle>
-                <div className="flex items-center text-sm text-red-600">
-                  <ArrowDownRight className="h-4 w-4" />
-                  <span>-17%</span>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900/20">
+                    <ShoppingCart className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.salesCount}K</div>
-              <div className="h-8 flex items-end space-x-1 mt-2">
-                {[12, 8, 6, 14, 7, 4, 9, 6, 11, 8, 5, 3].map((height, i) => (
-                  <div
-                    key={i}
-                    className="bg-muted rounded-sm flex-1"
-                    style={{ height: `${height}px` }}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* New Customers Card */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">New Customers</CardTitle>
                 <div className="flex items-center text-sm text-green-600">
                   <ArrowUpRight className="h-4 w-4" />
-                  <span>+36.5%</span>
+                  <span>+18%</span>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalCustomers}</div>
-              <div className="h-8 flex items-end space-x-1 mt-2">
-                {[6, 10, 8, 12, 14, 16, 11, 18, 15, 12, 20, 22].map((height, i) => (
-                  <div
-                    key={i}
-                    className="bg-green-200 rounded-sm flex-1"
-                    style={{ height: `${height}px` }}
-                  />
+              <div className="text-3xl font-bold mb-1">{stats.totalInvoices}</div>
+              <p className="text-sm text-muted-foreground">{stats.pendingInvoices} pending</p>
+              <div className="flex items-center gap-2 mt-4">
+                <Progress value={(stats.salesCount / stats.totalInvoices) * 100} className="flex-1" />
+                <span className="text-xs text-muted-foreground">{Math.round((stats.salesCount / stats.totalInvoices) * 100)}%</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Customers Card */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-purple-100 rounded-lg dark:bg-purple-900/20">
+                    <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Customers</CardTitle>
+                </div>
+                <div className="flex items-center text-sm text-green-600">
+                  <ArrowUpRight className="h-4 w-4" />
+                  <span>+12%</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold mb-1">{stats.totalCustomers}</div>
+              <p className="text-sm text-muted-foreground">Active customers</p>
+              <div className="mt-4 h-16">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={customerActivityData}>
+                    <Bar dataKey="new" fill="hsl(var(--primary))" radius={2} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Average Order Value */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-orange-100 rounded-lg dark:bg-orange-900/20">
+                    <Target className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Avg Order</CardTitle>
+                </div>
+                <div className="flex items-center text-sm text-green-600">
+                  <ArrowUpRight className="h-4 w-4" />
+                  <span>+{stats.conversionRate}%</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold mb-1">${Math.round(stats.avgOrderValue).toLocaleString()}</div>
+              <p className="text-sm text-muted-foreground">Per transaction</p>
+              <div className="flex items-center gap-2 mt-4">
+                <div className="flex-1 bg-muted rounded-full h-2">
+                  <div className="bg-primary h-2 rounded-full" style={{ width: `${Math.min((stats.avgOrderValue / 10000) * 100, 100)}%` }}></div>
+                </div>
+                <span className="text-xs text-muted-foreground">Target: $10K</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Advanced Analytics Section */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Revenue Trend Chart */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Revenue vs Target</CardTitle>
+                  <CardDescription>Monthly performance comparison</CardDescription>
+                </div>
+                <Badge variant="secondary">Last 6 months</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={revenueData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="month" 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickFormatter={(value) => `$${value/1000}K`}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                      formatter={(value: any) => [`$${value.toLocaleString()}`, '']}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={3}
+                      dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 6 }}
+                      activeDot={{ r: 8, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="target" 
+                      stroke="hsl(var(--muted-foreground))" 
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={{ fill: 'hsl(var(--muted-foreground))', strokeWidth: 2, r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sales Channel Distribution */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Sales Channels</CardTitle>
+              <CardDescription>Revenue distribution by source</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={salesChannelData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {salesChannelData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: any) => [`${value}%`, 'Share']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-2 mt-4">
+                {salesChannelData.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: item.color }}
+                      ></div>
+                      <span>{item.name}</span>
+                    </div>
+                    <span className="font-medium">{item.value}%</span>
+                  </div>
                 ))}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Secondary Stats Row */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {/* Total Revenue Detailed */}
+        {/* Customer Activity & Quick Actions */}
+        <div className="grid gap-6 md:grid-cols-3">
+          {/* Customer Activity */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Customer Activity</CardTitle>
+              <CardDescription>Daily active users and new signups</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={customerActivityData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="day" 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="active" 
+                      fill="hsl(var(--primary))" 
+                      radius={[4, 4, 0, 0]}
+                      name="Active Users"
+                    />
+                    <Bar 
+                      dataKey="new" 
+                      fill="hsl(var(--secondary))" 
+                      radius={[4, 4, 0, 0]}
+                      name="New Users"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Enhanced Quick Actions */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
-              <p className="text-xs text-muted-foreground">Income in the last 28 days</p>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Common business tasks</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Desktop</span>
-                  <span className="font-medium">24,828</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Mobile</span>
-                  <span className="font-medium">25,010</span>
-                </div>
-              </div>
-              <div className="mt-4 h-32 bg-gradient-to-t from-primary/20 to-primary/5 rounded-md flex items-end p-2">
-                <div className="w-full grid grid-cols-6 gap-1 h-full items-end">
-                  {[40, 60, 45, 80, 55, 95].map((height, i) => (
-                    <div
-                      key={i}
-                      className="bg-primary rounded-sm"
-                      style={{ height: `${height}%` }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Returning Rate */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Returning Rate</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-1">${(stats.totalRevenue * 0.42).toLocaleString()}</div>
-              <div className="flex items-center text-sm text-green-600 mb-4">
-                <span>+2.5%</span>
-              </div>
-              <div className="space-y-3">
+            <CardContent className="space-y-3">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start h-12" 
+                onClick={() => setShowInvoiceDialog(true)}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-primary"></div>
-                  <span className="text-sm">February</span>
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Plus className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Create Invoice</div>
+                    <div className="text-xs text-muted-foreground">Bill a customer</div>
+                  </div>
                 </div>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start h-12" 
+                onClick={() => setShowCustomerDialog(true)}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-muted"></div>
-                  <span className="text-sm">March</span>
+                  <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900/20">
+                    <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Add Customer</div>
+                    <div className="text-xs text-muted-foreground">New client profile</div>
+                  </div>
                 </div>
+              </Button>
+              <Button variant="outline" className="w-full justify-start h-12">
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-primary/60"></div>
-                  <span className="text-sm">April</span>
+                  <div className="p-2 bg-green-100 rounded-lg dark:bg-green-900/20">
+                    <FileText className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">View Reports</div>
+                    <div className="text-xs text-muted-foreground">Analytics & insights</div>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Action Card */}
-          <Card className="flex flex-col">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-                <Button variant="ghost" size="sm">
-                  Export
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1">
-              <div className="space-y-3">
-                <Button variant="outline" className="w-full justify-start" onClick={() => setShowInvoiceDialog(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Invoice
-                </Button>
-                <Button variant="outline" className="w-full justify-start" onClick={() => setShowCustomerDialog(true)}>
-                  <Users className="h-4 w-4 mr-2" />
-                  Add Customer
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <FileText className="h-4 w-4 mr-2" />
-                  View Reports
-                </Button>
-              </div>
+              </Button>
+              <Button variant="outline" className="w-full justify-start h-12">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg dark:bg-purple-900/20">
+                    <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Monitor Performance</div>
+                    <div className="text-xs text-muted-foreground">Real-time metrics</div>
+                  </div>
+                </div>
+              </Button>
             </CardContent>
           </Card>
         </div>
