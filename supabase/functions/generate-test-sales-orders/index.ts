@@ -233,10 +233,14 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error generating test sales orders:', error)
+    console.error('Error details:', error.details || error.hint || 'No additional details')
+    console.error('Error code:', error.code || 'No error code')
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error.message,
+        details: error.details || error.hint,
+        code: error.code
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
