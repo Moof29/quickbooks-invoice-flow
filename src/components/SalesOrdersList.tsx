@@ -71,7 +71,7 @@ export function SalesOrdersList() {
   // Filter sales orders based on search and status
   const filteredOrders = salesOrders?.filter(order => {
     const matchesSearch = 
-      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
       order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (order.memo && order.memo.toLowerCase().includes(searchTerm.toLowerCase()));
     
