@@ -142,8 +142,8 @@ Deno.serve(async (req) => {
         orderTotal += amount
       }
       
-      // Use simple order number to avoid formatting issues
-      const simpleOrderNumber = `TST-${new Date().getFullYear()}-${String(i).padStart(3, '0')}`
+      // Use simple order number without any complex formatting
+      const simpleOrderNumber = 'TST-2025-' + String(i).padStart(3, '0')
       
       salesOrders.push({
         id: salesOrderId,
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
         status,
         subtotal: Math.round(orderTotal * 100) / 100,
         total: Math.round(orderTotal * 100) / 100,
-        memo: `Test sales order ${i} - Generated for testing purposes`
+        memo: 'Test sales order ' + i + ' - Generated for testing'
       })
     }
 
