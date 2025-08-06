@@ -3320,6 +3320,8 @@ export type Database = {
       }
       sales_order: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string | null
           created_by: string | null
           currency_id: string | null
@@ -3360,6 +3362,8 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
@@ -3400,6 +3404,8 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
@@ -4652,6 +4658,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_sales_order: {
+        Args: { p_sales_order_id: string; p_approved_by: string }
+        Returns: undefined
+      }
       generate_sales_order_number: {
         Args: { org_id: string }
         Returns: string

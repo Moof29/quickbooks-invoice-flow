@@ -81,12 +81,8 @@ export function SalesOrdersList() {
 
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'template_generated':
+      case 'pending':
         return 'secondary';
-      case 'draft':
-        return 'outline';
-      case 'open':
-        return 'default';
       case 'approved':
         return 'default';
       case 'shipped':
@@ -97,6 +93,8 @@ export function SalesOrdersList() {
         return 'secondary';
       case 'canceled':
         return 'destructive';
+      case 'template_generated':
+        return 'outline';
       default:
         return 'outline';
     }
@@ -104,12 +102,8 @@ export function SalesOrdersList() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'template_generated':
-        return 'Auto-Generated';
-      case 'draft':
-        return 'Draft';
-      case 'open':
-        return 'Open';
+      case 'pending':
+        return 'Pending';
       case 'approved':
         return 'Approved';
       case 'shipped':
@@ -120,6 +114,8 @@ export function SalesOrdersList() {
         return 'Closed';
       case 'canceled':
         return 'Canceled';
+      case 'template_generated':
+        return 'Auto-Generated';
       default:
         return status;
     }
@@ -193,14 +189,13 @@ export function SalesOrdersList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="template_generated">Auto-Generated</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="shipped">Shipped</SelectItem>
                 <SelectItem value="invoiced">Invoiced</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
                 <SelectItem value="canceled">Canceled</SelectItem>
+                <SelectItem value="template_generated">Auto-Generated</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -227,10 +222,10 @@ export function SalesOrdersList() {
               <div className="bg-muted/50 rounded-lg p-4">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Auto-Generated</span>
+                  <span className="text-sm font-medium">Pending vs Approved</span>
                 </div>
                 <p className="text-2xl font-bold">
-                  {filteredOrders.filter(order => order.status === 'template_generated').length}
+                  {filteredOrders.filter(order => order.status === 'pending').length} / {filteredOrders.filter(order => order.status === 'approved').length}
                 </p>
               </div>
             </div>

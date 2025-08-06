@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Calendar, Package, DollarSign, Truck, FileText, AlertCircle, Check, X, Edit2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSalesOrderEdit } from '@/hooks/useSalesOrderEdit';
+import { SalesOrderApprovalButton } from '@/components/SalesOrderApprovalButton';
 
 interface SalesOrderDetails {
   id: string;
@@ -236,9 +237,15 @@ export default function SalesOrderDetails() {
                 </Button>
               </div>
             ) : (
-              <Button onClick={() => setEditMode(true)}>
-                Edit
-              </Button>
+              <div className="flex gap-2">
+                <SalesOrderApprovalButton 
+                  salesOrderId={salesOrderId} 
+                  currentStatus={salesOrder?.status || ''} 
+                />
+                <Button onClick={() => setEditMode(true)}>
+                  Edit
+                </Button>
+              </div>
             )}
           </div>
         </div>
