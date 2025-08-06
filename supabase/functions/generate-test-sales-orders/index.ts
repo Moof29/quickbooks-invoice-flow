@@ -142,17 +142,39 @@ Deno.serve(async (req) => {
         orderTotal += amount
       }
       
-      salesOrders.push({
-        id: salesOrderId,
-        organization_id: organizationId,
-        customer_id: customerId,
-        order_date: orderDate.toISOString().split('T')[0],
-        order_number: `SO-${new Date().getFullYear()}-${String(i).padStart(3, '0')}`,
-        status,
-        subtotal: Math.round(orderTotal * 100) / 100,
-        total: Math.round(orderTotal * 100) / 100,
-        memo: `Test sales order #${i} - Generated for testing purposes`
-      })
+      // Generate order number using the database function
+      const { data: orderNumber, error: orderNumberError } = await supabaseClient
+        .rpc('generate_sales_order_number', { org_id: organizationId })
+      
+      if (orderNumberError) {
+        console.error('Error generating order number:', orderNumberError)
+        // Fallback to manual generation
+        const fallbackOrderNumber = `TST-${new Date().getFullYear()}-${String(i).padStart(3, '0')}`
+        
+        salesOrders.push({
+          id: salesOrderId,
+          organization_id: organizationId,
+          customer_id: customerId,
+          order_date: orderDate.toISOString().split('T')[0],
+          order_number: fallbackOrderNumber,
+          status,
+          subtotal: Math.round(orderTotal * 100) / 100,
+          total: Math.round(orderTotal * 100) / 100,
+          memo: `Test sales order #${i} - Generated for testing purposes`
+        })
+      } else {
+        salesOrders.push({
+          id: salesOrderId,
+          organization_id: organizationId,
+          customer_id: customerId,
+          order_date: orderDate.toISOString().split('T')[0],
+          order_number: orderNumber,
+          status,
+          subtotal: Math.round(orderTotal * 100) / 100,
+          total: Math.round(orderTotal * 100) / 100,
+          memo: `Test sales order #${i} - Generated for testing purposes`
+        })
+      }
     }
 
     console.log(`Generated ${salesOrders.length} sales orders with ${lineItems.length} line items`)
