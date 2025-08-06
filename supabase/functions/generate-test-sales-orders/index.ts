@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
 
     const { data: items, error: itemsError } = await supabaseClient
       .from('item_record')
-      .select('id, name, unit_price')
+      .select('id, name, purchase_cost')
       .eq('organization_id', organizationId)
       .limit(20)
 
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
       for (let j = 0; j < numLineItems; j++) {
         const item = items[Math.floor(Math.random() * items.length)]
         const quantity = Math.floor(Math.random() * 10) + 1
-        const unitPrice = item.unit_price || (Math.random() * 100 + 10)
+        const unitPrice = item.purchase_cost || (Math.random() * 100 + 10)
         const amount = quantity * unitPrice
         
         lineItems.push({
