@@ -179,12 +179,12 @@ export function SalesOrdersList() {
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="invoiced">Invoiced</SelectItem>
-              </SelectContent>
+               <SelectContent>
+                 <SelectItem value="all">All Status</SelectItem>
+                 <SelectItem value="pending">Pending</SelectItem>
+                 <SelectItem value="approved">Approved</SelectItem>
+                 <SelectItem value="invoiced">Invoiced</SelectItem>
+               </SelectContent>
             </Select>
           </div>
 

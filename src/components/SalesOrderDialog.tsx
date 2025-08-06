@@ -418,15 +418,11 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="open">Open</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                          <SelectItem value="shipped">Shipped</SelectItem>
-                          <SelectItem value="invoiced">Invoiced</SelectItem>
-                          <SelectItem value="closed">Closed</SelectItem>
-                          <SelectItem value="canceled">Canceled</SelectItem>
-                        </SelectContent>
+                         <SelectContent>
+                           <SelectItem value="pending">Pending</SelectItem>
+                           <SelectItem value="approved">Approved</SelectItem>
+                           <SelectItem value="invoiced">Invoiced</SelectItem>
+                         </SelectContent>
                       </Select>
                     ) : (
                       <div className="mt-1">
