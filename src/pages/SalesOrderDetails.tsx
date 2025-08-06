@@ -15,6 +15,7 @@ import { Calendar, Package, DollarSign, Truck, FileText, AlertCircle, Check, X, 
 import { format } from 'date-fns';
 import { useSalesOrderEdit } from '@/hooks/useSalesOrderEdit';
 import { SalesOrderApprovalButton } from '@/components/SalesOrderApprovalButton';
+import { SalesOrderConvertToInvoiceButton } from '@/components/SalesOrderConvertToInvoiceButton';
 
 interface SalesOrderDetails {
   id: string;
@@ -137,19 +138,14 @@ export default function SalesOrderDetails() {
 
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'template_generated':
+      case 'pending':
         return 'secondary';
-      case 'draft':
-        return 'outline';
-      case 'open':
       case 'approved':
-      case 'shipped':
+        return 'default';
       case 'invoiced':
         return 'default';
-      case 'closed':
-        return 'secondary';
-      case 'canceled':
-        return 'destructive';
+      case 'template_generated':
+        return 'outline';
       default:
         return 'outline';
     }
@@ -157,22 +153,14 @@ export default function SalesOrderDetails() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'template_generated':
-        return 'Auto-Generated';
-      case 'draft':
-        return 'Draft';
-      case 'open':
-        return 'Open';
+      case 'pending':
+        return 'Pending';
       case 'approved':
         return 'Approved';
-      case 'shipped':
-        return 'Shipped';
       case 'invoiced':
         return 'Invoiced';
-      case 'closed':
-        return 'Closed';
-      case 'canceled':
-        return 'Canceled';
+      case 'template_generated':
+        return 'Auto-Generated';
       default:
         return status;
     }
@@ -239,7 +227,11 @@ export default function SalesOrderDetails() {
             ) : (
               <div className="flex gap-2">
                 <SalesOrderApprovalButton 
-                  salesOrderId={salesOrderId} 
+                  salesOrderId={salesOrderId!} 
+                  currentStatus={salesOrder?.status || ''} 
+                />
+                <SalesOrderConvertToInvoiceButton 
+                  salesOrderId={salesOrderId!} 
                   currentStatus={salesOrder?.status || ''} 
                 />
                 <Button onClick={() => setEditMode(true)}>
@@ -440,13 +432,9 @@ export default function SalesOrderDetails() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="draft">Draft</SelectItem>
-                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="shipped">Shipped</SelectItem>
                         <SelectItem value="invoiced">Invoiced</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                        <SelectItem value="canceled">Canceled</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (

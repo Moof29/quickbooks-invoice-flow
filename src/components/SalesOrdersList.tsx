@@ -85,14 +85,8 @@ export function SalesOrdersList() {
         return 'secondary';
       case 'approved':
         return 'default';
-      case 'shipped':
-        return 'default';
       case 'invoiced':
         return 'default';
-      case 'closed':
-        return 'secondary';
-      case 'canceled':
-        return 'destructive';
       case 'template_generated':
         return 'outline';
       default:
@@ -106,16 +100,10 @@ export function SalesOrdersList() {
         return 'Pending';
       case 'approved':
         return 'Approved';
-      case 'shipped':
-        return 'Shipped';
       case 'invoiced':
         return 'Invoiced';
-      case 'closed':
-        return 'Closed';
-      case 'canceled':
-        return 'Canceled';
       case 'template_generated':
-        return 'Auto-Generated';
+        return 'Auto Generated';
       default:
         return status;
     }
@@ -191,11 +179,7 @@ export function SalesOrdersList() {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="shipped">Shipped</SelectItem>
                 <SelectItem value="invoiced">Invoiced</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="canceled">Canceled</SelectItem>
-                <SelectItem value="template_generated">Auto-Generated</SelectItem>
               </SelectContent>
             </Select>
           </div>
