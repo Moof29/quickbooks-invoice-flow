@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar, Search, FileText, DollarSign, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
+import { GenerateTestDataButton } from '@/components/GenerateTestDataButton';
 
 interface SalesOrder {
   id: string;
@@ -150,10 +151,13 @@ export function SalesOrdersList() {
               <FileText className="h-5 w-5" />
               Sales Orders
             </div>
-            <Button onClick={handleCreateSalesOrder} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Create Sales Order
-            </Button>
+            <div className="flex gap-2">
+              <GenerateTestDataButton />
+              <Button onClick={handleCreateSalesOrder} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Create Sales Order
+              </Button>
+            </div>
           </CardTitle>
           <CardDescription>
             View and manage sales orders generated from customer templates
