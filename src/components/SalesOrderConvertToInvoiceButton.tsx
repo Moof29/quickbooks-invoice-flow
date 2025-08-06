@@ -34,17 +34,105 @@ export function SalesOrderConvertToInvoiceButton({
 
   const convertMutation = useMutation({
     mutationFn: async () => {
-      if (!profile?.id) {
-        throw new Error('User not authenticated');
+      if (!profile?.id || !profile?.organization_id) {
+        throw new Error('User not authenticated or missing organization');
       }
 
-      // For now, we'll manually handle the conversion since the function doesn't exist yet
-      const { error } = await supabase
+      // First, get the sales order details
+      const { data: salesOrder, error: salesOrderError } = await supabase
+        .from('sales_order')
+        .select(`
+          *,
+          customer_profile:customer_id(*)
+        `)
+        .eq('id', salesOrderId)
+        .single();
+
+      if (salesOrderError || !salesOrder) {
+        throw new Error('Sales order not found');
+      }
+
+      // Create the invoice record
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoice_record')
+        .insert({
+          organization_id: profile.organization_id,
+          customer_id: salesOrder.customer_id,
+          invoice_date: new Date().toISOString().split('T')[0],
+          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+          subtotal: salesOrder.subtotal || 0,
+          tax_total: salesOrder.tax_total || 0,
+          total: salesOrder.total || 0,
+          status: 'sent',
+          memo: `Converted from Sales Order ${salesOrder.order_number}`,
+          created_by: profile.id
+        })
+        .select()
+        .single();
+
+      if (invoiceError || !invoice) {
+        throw new Error('Failed to create invoice');
+      }
+
+      // Get sales order line items
+      const { data: lineItems, error: lineItemsError } = await supabase
+        .from('sales_order_line_item')
+        .select(`
+          *,
+          item_record:item_id(*)
+        `)
+        .eq('sales_order_id', salesOrderId);
+
+      if (lineItemsError) {
+        throw new Error('Failed to fetch line items');
+      }
+
+      // Create invoice line items
+      if (lineItems && lineItems.length > 0) {
+        const invoiceLineItems = lineItems.map(item => ({
+          organization_id: profile.organization_id,
+          invoice_id: invoice.id,
+          item_id: item.item_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          amount: item.amount,
+          description: item.item_record?.name || 'Item'
+        }));
+
+        const { error: lineItemError } = await supabase
+          .from('invoice_line_item')
+          .insert(invoiceLineItems);
+
+        if (lineItemError) {
+          throw new Error('Failed to create invoice line items');
+        }
+      }
+
+      // Create the sales order to invoice link
+      const { error: linkError } = await supabase
+        .from('sales_order_invoice_link')
+        .insert({
+          organization_id: profile.organization_id,
+          sales_order_id: salesOrderId,
+          invoice_id: invoice.id,
+          created_by: profile.id
+        });
+
+      if (linkError) {
+        throw new Error('Failed to link sales order to invoice');
+      }
+
+      // Finally, update the sales order status to 'invoiced'
+      const { error: updateError } = await supabase
         .from('sales_order')
         .update({ status: 'invoiced' })
         .eq('id', salesOrderId);
 
-      if (error) throw error;
+      if (updateError) {
+        throw new Error('Failed to update sales order status');
+      }
+
+      return invoice;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
