@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
         continue
       }
 
-      // Create template if none exists
+      // Create template if none exists (inactive to avoid auto-generation)
       if (!existingTemplates || existingTemplates.length === 0) {
         const { error: templateError } = await supabaseClient
           .from('customer_templates')
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
             customer_id: customer.id,
             name: `Template for ${customer.company_name}`,
             description: 'Auto-generated template for test data',
-            is_active: true
+            is_active: false  // Keep inactive to prevent auto-generation
           })
 
         if (templateError) {
