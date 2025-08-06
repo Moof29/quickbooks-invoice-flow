@@ -142,59 +142,49 @@ Deno.serve(async (req) => {
         orderTotal += amount
       }
       
-      // Generate order number using the database function
-      const { data: orderNumber, error: orderNumberError } = await supabaseClient
-        .rpc('generate_sales_order_number', { org_id: organizationId })
+      // Use simple order number to avoid formatting issues
+      const simpleOrderNumber = `TST-${new Date().getFullYear()}-${String(i).padStart(3, '0')}`
       
-      if (orderNumberError) {
-        console.error('Error generating order number:', orderNumberError)
-        // Fallback to manual generation
-        const fallbackOrderNumber = `TST-${new Date().getFullYear()}-${String(i).padStart(3, '0')}`
-        
-        salesOrders.push({
-          id: salesOrderId,
-          organization_id: organizationId,
-          customer_id: customerId,
-          order_date: orderDate.toISOString().split('T')[0],
-          order_number: fallbackOrderNumber,
-          status,
-          subtotal: Math.round(orderTotal * 100) / 100,
-          total: Math.round(orderTotal * 100) / 100,
-          memo: `Test sales order #${i} - Generated for testing purposes`
-        })
-      } else {
-        salesOrders.push({
-          id: salesOrderId,
-          organization_id: organizationId,
-          customer_id: customerId,
-          order_date: orderDate.toISOString().split('T')[0],
-          order_number: orderNumber,
-          status,
-          subtotal: Math.round(orderTotal * 100) / 100,
-          total: Math.round(orderTotal * 100) / 100,
-          memo: `Test sales order #${i} - Generated for testing purposes`
-        })
-      }
+      salesOrders.push({
+        id: salesOrderId,
+        organization_id: organizationId,
+        customer_id: customerId,
+        order_date: orderDate.toISOString().split('T')[0],
+        order_number: simpleOrderNumber,
+        status,
+        subtotal: Math.round(orderTotal * 100) / 100,
+        total: Math.round(orderTotal * 100) / 100,
+        memo: `Test sales order ${i} - Generated for testing purposes`
+      })
     }
 
     console.log(`Generated ${salesOrders.length} sales orders with ${lineItems.length} line items`)
 
-    // Insert sales orders
-    const { error: ordersError } = await supabaseClient
-      .from('sales_order')
-      .insert(salesOrders)
+    // Insert sales orders in smaller batches to avoid issues
+    const batchSize = 5
+    for (let i = 0; i < salesOrders.length; i += batchSize) {
+      const batch = salesOrders.slice(i, i + batchSize)
+      const { error: ordersError } = await supabaseClient
+        .from('sales_order')
+        .insert(batch)
 
-    if (ordersError) {
-      throw new Error(`Error inserting sales orders: ${ordersError.message}`)
+      if (ordersError) {
+        console.error(`Error inserting sales order batch ${i}:`, ordersError)
+        throw new Error(`Error inserting sales orders: ${ordersError.message}`)
+      }
     }
 
-    // Insert line items
-    const { error: lineItemsError } = await supabaseClient
-      .from('sales_order_line_item')
-      .insert(lineItems)
+    // Insert line items in smaller batches
+    for (let i = 0; i < lineItems.length; i += batchSize) {
+      const batch = lineItems.slice(i, i + batchSize)
+      const { error: lineItemsError } = await supabaseClient
+        .from('sales_order_line_item')
+        .insert(batch)
 
-    if (lineItemsError) {
-      throw new Error(`Error inserting line items: ${lineItemsError.message}`)
+      if (lineItemsError) {
+        console.error(`Error inserting line item batch ${i}:`, lineItemsError)
+        throw new Error(`Error inserting line items: ${lineItemsError.message}`)
+      }
     }
 
     console.log('Successfully created test sales orders')
