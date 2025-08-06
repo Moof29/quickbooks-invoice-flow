@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
     }
     const salesOrders = []
     const lineItems = []
-    const statuses = ['pending', 'pending', 'pending', 'approved', 'invoiced'] // More pending orders
+    const statuses = ['pending', 'draft', 'approved'] // Use valid statuses
 
     for (let i = 1; i <= 20; i++) {
       const customerId = customers[Math.floor(Math.random() * customers.length)].id
