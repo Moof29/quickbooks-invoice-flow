@@ -104,8 +104,7 @@ export function SalesOrderConvertToInvoiceButton({
           item_id: item.item_id,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          amount: item.amount,
-          description: item.item_record?.name || 'Item'
+          amount: item.amount
         }));
 
         const { error: lineItemError } = await supabase
@@ -113,7 +112,8 @@ export function SalesOrderConvertToInvoiceButton({
           .insert(invoiceLineItems);
 
         if (lineItemError) {
-          throw new Error('Failed to create invoice line items');
+          console.error('Line item creation error:', lineItemError);
+          throw new Error(`Failed to create invoice line items: ${lineItemError.message}`);
         }
       }
 
