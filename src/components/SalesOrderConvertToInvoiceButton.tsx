@@ -53,16 +53,20 @@ export function SalesOrderConvertToInvoiceButton({
       }
 
       // Create the invoice record
+      const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+      
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoice_record')
         .insert({
           organization_id: profile.organization_id,
           customer_id: salesOrder.customer_id,
+          invoice_number: invoiceNumber,
           invoice_date: new Date().toISOString().split('T')[0],
           due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
           subtotal: salesOrder.subtotal || 0,
           tax_total: salesOrder.tax_total || 0,
           total: salesOrder.total || 0,
+          balance_due: salesOrder.total || 0,
           status: 'sent',
           memo: `Converted from Sales Order ${salesOrder.order_number}`,
           created_by: profile.id
@@ -70,8 +74,13 @@ export function SalesOrderConvertToInvoiceButton({
         .select()
         .single();
 
-      if (invoiceError || !invoice) {
-        throw new Error('Failed to create invoice');
+      if (invoiceError) {
+        console.error('Invoice creation error:', invoiceError);
+        throw new Error(`Failed to create invoice: ${invoiceError.message}`);
+      }
+
+      if (!invoice) {
+        throw new Error('Failed to create invoice: No data returned');
       }
 
       // Get sales order line items
