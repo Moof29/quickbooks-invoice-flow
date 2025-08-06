@@ -105,7 +105,40 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${customers.length} customers and ${items.length} items`)
 
-    // Generate fake sales orders
+    // First, create customer templates for all customers if they don't exist
+    console.log('Creating customer templates...')
+    for (const customer of customers) {
+      // Check if customer already has templates
+      const { data: existingTemplates, error: templateCheckError } = await supabaseClient
+        .from('customer_templates')
+        .select('id')
+        .eq('customer_id', customer.id)
+        .eq('organization_id', organizationId)
+
+      if (templateCheckError) {
+        console.error('Error checking existing templates:', templateCheckError)
+        continue
+      }
+
+      // Create template if none exists
+      if (!existingTemplates || existingTemplates.length === 0) {
+        const { error: templateError } = await supabaseClient
+          .from('customer_templates')
+          .insert({
+            organization_id: organizationId,
+            customer_id: customer.id,
+            name: `Template for ${customer.company_name}`,
+            description: 'Auto-generated template for test data',
+            is_active: true
+          })
+
+        if (templateError) {
+          console.error(`Error creating template for ${customer.company_name}:`, templateError)
+        } else {
+          console.log(`Created template for ${customer.company_name}`)
+        }
+      }
+    }
     const salesOrders = []
     const lineItems = []
     const statuses = ['pending', 'pending', 'pending', 'approved', 'invoiced'] // More pending orders
