@@ -142,15 +142,11 @@ Deno.serve(async (req) => {
         orderTotal += amount
       }
       
-      // Use simple order number without any complex formatting
-      const simpleOrderNumber = 'TST-2025-' + String(i).padStart(3, '0')
-      
       salesOrders.push({
         id: salesOrderId,
         organization_id: organizationId,
         customer_id: customerId,
         order_date: orderDate.toISOString().split('T')[0],
-        order_number: simpleOrderNumber,
         status,
         subtotal: Math.round(orderTotal * 100) / 100,
         total: Math.round(orderTotal * 100) / 100,
