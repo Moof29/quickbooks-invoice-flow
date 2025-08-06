@@ -68,8 +68,8 @@ export function SalesOrderConvertToInvoiceButton({
           total: salesOrder.total || 0,
           balance_due: salesOrder.total || 0,
           status: 'sent',
-          memo: `Converted from Sales Order ${salesOrder.order_number}`,
-          created_by: profile.id
+          memo: `Converted from Sales Order ${salesOrder.order_number}`
+          // Remove created_by since it's causing FK constraint issues
         })
         .select()
         .single();
