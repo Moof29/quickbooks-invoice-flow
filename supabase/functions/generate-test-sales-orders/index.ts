@@ -181,8 +181,7 @@ Deno.serve(async (req) => {
         customer_id: customerId,
         order_date: orderDate.toISOString().split('T')[0],
         status,
-        subtotal: Math.round(orderTotal * 100) / 100,
-        total: Math.round(orderTotal * 100) / 100,
+        // Don't set totals - let triggers calculate them after line items
         memo: 'Test sales order ' + i + ' - Generated for testing'
       })
     }
