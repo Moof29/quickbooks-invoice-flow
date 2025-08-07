@@ -19,6 +19,7 @@ import Customers from "./pages/Customers";
 import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
+import Analytics from "./pages/Analytics";
 
 const queryClient = new QueryClient();
 
@@ -143,16 +144,26 @@ const App = () => (
               }
             />
             <Route
-              path="/settings"
+               path="/settings"
+               element={
+                 <ProtectedRoute>
+                   <AppLayout>
+                     <Settings />
+                   </AppLayout>
+                 </ProtectedRoute>
+               }
+             />
+            <Route
+              path="/analytics"
               element={
                 <ProtectedRoute>
                   <AppLayout>
-                    <Settings />
+                    <Analytics />
                   </AppLayout>
                 </ProtectedRoute>
               }
             />
-            <Route path="*" element={<NotFound />} />
+             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
