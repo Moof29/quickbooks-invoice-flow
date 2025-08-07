@@ -86,11 +86,8 @@ export function SalesOrderConvertToInvoiceButton({
       // Get sales order line items
       const { data: lineItems, error: lineItemsError } = await supabase
         .from('sales_order_line_item')
-        .select(`
-          *,
-          item_record:item_id(*)
-        `)
-        .eq('sales_order_id', salesOrderId);
+        .select('*')
+        .eq('sales_order_id', salesOrder.id);
 
       if (lineItemsError) {
         throw new Error('Failed to fetch line items');
@@ -99,12 +96,15 @@ export function SalesOrderConvertToInvoiceButton({
       // Create invoice line items
       if (lineItems && lineItems.length > 0) {
         const invoiceLineItems = lineItems.map(item => ({
-          organization_id: profile.organization_id,
           invoice_id: invoice.id,
           item_id: item.item_id,
+          description: item.description,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          amount: item.amount
+          discount_amount: item.discount_amount || 0,
+          tax_rate: item.tax_rate || 0,
+          position: item.position,
+          organization_id: salesOrder.organization_id,
         }));
 
         const { error: lineItemError } = await supabase
@@ -147,7 +147,7 @@ export function SalesOrderConvertToInvoiceButton({
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Sales order converted to invoice successfully');
+      toast.success('Sales order converted to invoice and line items copied successfully');
       setOpen(false);
       onConversion?.();
     },
