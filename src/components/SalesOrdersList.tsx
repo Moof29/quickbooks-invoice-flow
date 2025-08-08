@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Search, FileText, DollarSign, Plus } from 'lucide-react';
+import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
 import { GenerateTestDataButton } from '@/components/GenerateTestDataButton';
@@ -35,6 +35,31 @@ export function SalesOrdersList() {
     setCreateDialogOpen(true);
   };
 
+  // Sorting and helpers
+  const [sortKey, setSortKey] = useState<keyof SalesOrder>('order_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (key: keyof SalesOrder) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
+
+  const isToday = (dateString: string) => {
+    const d = new Date(dateString);
+    const now = new Date();
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    );
+  };
   // Fetch sales orders with customer names
   const { data: salesOrders, isLoading, error } = useQuery({
     queryKey: ['sales-orders'],
@@ -80,6 +105,33 @@ export function SalesOrdersList() {
     return matchesSearch && matchesStatus;
   }) || [];
 
+  const sortedOrders = useMemo(() => {
+    const arr = [...filteredOrders];
+    arr.sort((a, b) => {
+      const dir = sortDirection === 'asc' ? 1 : -1;
+      let va: any;
+      let vb: any;
+
+      if (sortKey === 'order_date' || sortKey === 'created_at') {
+        va = new Date(a[sortKey] as string).getTime();
+        vb = new Date(b[sortKey] as string).getTime();
+      } else if (sortKey === 'total') {
+        va = Number(a[sortKey]) || 0;
+        vb = Number(b[sortKey]) || 0;
+      } else {
+        va = (a[sortKey] ?? '').toString().toLowerCase();
+        vb = (b[sortKey] ?? '').toString().toLowerCase();
+      }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+    return arr;
+  }, [filteredOrders, sortKey, sortDirection]);
+
+  const todaySalesTotal = filteredOrders
+    .filter(o => isToday(o.order_date))
+    .reduce((sum, o) => sum + (o.total || 0), 0);
   const getStatusVariant = (status: string) => {
     switch (status) {
       case 'pending':
@@ -164,30 +216,6 @@ export function SalesOrdersList() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search by order number, customer, or memo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="all">All Status</SelectItem>
-                 <SelectItem value="pending">Pending</SelectItem>
-                 <SelectItem value="approved">Approved</SelectItem>
-                 <SelectItem value="invoiced">Invoiced</SelectItem>
-               </SelectContent>
-            </Select>
-          </div>
-
           {/* Summary Stats */}
           {filteredOrders.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -233,21 +261,45 @@ export function SalesOrdersList() {
             </div>
           ) : (
             <div className="rounded-md border">
-              <Table>
+              <Table className="text-sm">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Order Number</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                  <TableRow className="h-10">
+                    <TableHead className="py-2">
+                      <button type="button" onClick={() => handleSort('order_number')} className="flex items-center gap-1">
+                        Order Number <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <button type="button" onClick={() => handleSort('customer_name')} className="flex items-center gap-1">
+                        Customer <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <button type="button" onClick={() => handleSort('order_date')} className="flex items-center gap-1">
+                        Date <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <button type="button" onClick={() => handleSort('status')} className="flex items-center gap-1">
+                        Status <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right py-2">
+                      <button type="button" onClick={() => handleSort('total')} className="flex items-center gap-1 ml-auto">
+                        Total <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="py-2">
+                      <button type="button" onClick={() => handleSort('memo')} className="flex items-center gap-1">
+                        Notes <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[100px] py-2">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
+                  {sortedOrders.map((order) => (
+                    <TableRow key={order.id} className="h-10">
                       <TableCell className="font-medium">
                         {order.order_number}
                       </TableCell>
@@ -261,7 +313,7 @@ export function SalesOrdersList() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        ${order.total?.toFixed(2) || '0.00'}
+                        {formatCurrency(order.total || 0)}
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-muted-foreground">
                         {order.memo || '-'}
