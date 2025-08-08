@@ -8,10 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
 import { GenerateTestDataButton } from '@/components/GenerateTestDataButton';
+import { SalesOrderConvertToInvoiceButton } from '@/components/SalesOrderConvertToInvoiceButton';
 
 interface SalesOrder {
   id: string;
@@ -29,10 +31,31 @@ export function SalesOrdersList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const navigate = useNavigate();
 
   const handleCreateSalesOrder = () => {
     setCreateDialogOpen(true);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedOrders(sortedOrders.map(order => order.id));
+    } else {
+      setSelectedOrders([]);
+    }
+  };
+
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedOrders(prev => [...prev, orderId]);
+    } else {
+      setSelectedOrders(prev => prev.filter(id => id !== orderId));
+    }
+  };
+
+  const handleRowClick = (orderId: string) => {
+    navigate(`/sales-orders/${orderId}`);
   };
 
   // Sorting and helpers
@@ -287,69 +310,84 @@ export function SalesOrdersList() {
             <div className="rounded-md border">
               <Table className="text-sm">
                 <TableHeader>
-                  <TableRow className="h-10">
-                    <TableHead className="py-2">
-                      <button type="button" onClick={() => handleSort('order_number')} className="flex items-center gap-1">
+                  <TableRow className="h-8">
+                    <TableHead className="w-12 py-1">
+                      <Checkbox
+                        checked={selectedOrders.length === sortedOrders.length && sortedOrders.length > 0}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Select all orders"
+                      />
+                    </TableHead>
+                    <TableHead className="py-1">
+                      <button type="button" onClick={() => handleSort('order_number')} className="flex items-center gap-1 hover:text-foreground">
                         Order Number <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
-                    <TableHead className="py-2">
-                      <button type="button" onClick={() => handleSort('customer_name')} className="flex items-center gap-1">
+                    <TableHead className="py-1">
+                      <button type="button" onClick={() => handleSort('customer_name')} className="flex items-center gap-1 hover:text-foreground">
                         Customer <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
-                    <TableHead className="py-2">
-                      <button type="button" onClick={() => handleSort('order_date')} className="flex items-center gap-1">
+                    <TableHead className="py-1">
+                      <button type="button" onClick={() => handleSort('order_date')} className="flex items-center gap-1 hover:text-foreground">
                         Date <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
-                    <TableHead className="py-2">
-                      <button type="button" onClick={() => handleSort('status')} className="flex items-center gap-1">
+                    <TableHead className="py-1">
+                      <button type="button" onClick={() => handleSort('status')} className="flex items-center gap-1 hover:text-foreground">
                         Status <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
-                    <TableHead className="text-right py-2">
-                      <button type="button" onClick={() => handleSort('total')} className="flex items-center gap-1 ml-auto">
+                    <TableHead className="text-right py-1">
+                      <button type="button" onClick={() => handleSort('total')} className="flex items-center gap-1 ml-auto hover:text-foreground">
                         Total <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
-                    <TableHead className="py-2">
-                      <button type="button" onClick={() => handleSort('memo')} className="flex items-center gap-1">
+                    <TableHead className="py-1">
+                      <button type="button" onClick={() => handleSort('memo')} className="flex items-center gap-1 hover:text-foreground">
                         Notes <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[100px] py-2">Actions</TableHead>
+                    <TableHead className="w-[140px] py-1">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedOrders.map((order) => (
-                    <TableRow key={order.id} className="h-10">
-                      <TableCell className="font-medium">
+                    <TableRow 
+                      key={order.id} 
+                      className="h-8 cursor-pointer hover:bg-muted/50" 
+                      onClick={() => handleRowClick(order.id)}
+                    >
+                      <TableCell className="py-1" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedOrders.includes(order.id)}
+                          onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)}
+                          aria-label={`Select order ${order.order_number}`}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium py-1">
                         {order.order_number}
                       </TableCell>
-                      <TableCell>{order.customer_name}</TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">{order.customer_name}</TableCell>
+                      <TableCell className="py-1">
                         {format(new Date(order.order_date), 'MMM dd, yyyy')}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-1">
                         <Badge variant={getStatusVariant(order.status)}>
                           {getStatusLabel(order.status)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-right font-medium py-1">
                         {formatCurrency(order.total || 0)}
                       </TableCell>
-                      <TableCell className="max-w-xs truncate text-muted-foreground">
+                      <TableCell className="max-w-xs truncate text-muted-foreground py-1">
                         {order.memo || '-'}
                       </TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => navigate(`/sales-orders/${order.id}`)}
-                        >
-                          View
-                        </Button>
+                      <TableCell className="py-1" onClick={(e) => e.stopPropagation()}>
+                        <SalesOrderConvertToInvoiceButton
+                          salesOrderId={order.id}
+                          currentStatus={order.status}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
