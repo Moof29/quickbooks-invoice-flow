@@ -166,11 +166,12 @@ export function SalesOrderConvertToInvoiceButton({
       <AlertDialogTrigger asChild>
         <Button 
           variant="outline" 
-          className="flex items-center gap-2"
+          size="sm"
+          className="flex items-center gap-1"
           disabled={convertMutation.isPending}
         >
-          <FileText className="h-4 w-4" />
-          {convertMutation.isPending ? 'Converting...' : 'Convert to Invoice'}
+          <FileText className="h-3 w-3" />
+          {convertMutation.isPending ? 'Converting...' : 'To Invoice'}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
