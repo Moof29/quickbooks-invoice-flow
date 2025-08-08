@@ -218,7 +218,7 @@ export function SalesOrdersList() {
         <CardContent>
           {/* Summary Stats */}
           {filteredOrders.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div className="bg-muted/50 rounded-lg p-4">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
@@ -229,10 +229,10 @@ export function SalesOrdersList() {
               <div className="bg-muted/50 rounded-lg p-4">
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Total Value</span>
+                  <span className="text-sm font-medium">Total Sales Today</span>
                 </div>
                 <p className="text-2xl font-bold">
-                  ${filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0).toFixed(2)}
+                  {formatCurrency(todaySalesTotal)}
                 </p>
               </div>
               <div className="bg-muted/50 rounded-lg p-4">
@@ -246,6 +246,30 @@ export function SalesOrdersList() {
               </div>
             </div>
           )}
+
+          {/* Filters - moved below summary */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search by order number, customer, or memo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="invoiced">Invoiced</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Orders Table */}
           {filteredOrders.length === 0 ? (
