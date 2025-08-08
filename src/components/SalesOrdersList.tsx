@@ -343,11 +343,6 @@ export function SalesOrdersList() {
                         Total <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
-                    <TableHead className="py-1">
-                      <button type="button" onClick={() => handleSort('memo')} className="flex items-center gap-1 hover:text-foreground">
-                        Notes <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                    </TableHead>
                     <TableHead className="w-[140px] py-1">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -379,9 +374,6 @@ export function SalesOrdersList() {
                       </TableCell>
                       <TableCell className="text-right font-medium py-1">
                         {formatCurrency(order.total || 0)}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate text-muted-foreground py-1">
-                        {order.memo || '-'}
                       </TableCell>
                       <TableCell className="py-1" onClick={(e) => e.stopPropagation()}>
                         <SalesOrderConvertToInvoiceButton
