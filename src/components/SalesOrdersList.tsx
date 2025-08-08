@@ -350,36 +350,38 @@ export function SalesOrdersList() {
                   {sortedOrders.map((order) => (
                     <TableRow 
                       key={order.id} 
-                      className="h-8 cursor-pointer hover:bg-muted/50" 
+                      className="h-10 cursor-pointer hover:bg-muted/50" 
                       onClick={() => handleRowClick(order.id)}
                     >
-                      <TableCell className="py-1" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedOrders.includes(order.id)}
                           onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)}
                           aria-label={`Select order ${order.order_number}`}
                         />
                       </TableCell>
-                      <TableCell className="font-medium py-1">
+                      <TableCell className="font-medium py-2">
                         {order.order_number}
                       </TableCell>
-                      <TableCell className="py-1">{order.customer_name}</TableCell>
-                      <TableCell className="py-1">
+                      <TableCell className="py-2">{order.customer_name}</TableCell>
+                      <TableCell className="py-2">
                         {format(new Date(order.order_date), 'MMM dd, yyyy')}
                       </TableCell>
-                      <TableCell className="py-1">
+                      <TableCell className="py-2">
                         <Badge variant={getStatusVariant(order.status)}>
                           {getStatusLabel(order.status)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium py-1">
+                      <TableCell className="text-right font-medium py-2">
                         {formatCurrency(order.total || 0)}
                       </TableCell>
-                      <TableCell className="py-1" onClick={(e) => e.stopPropagation()}>
-                        <SalesOrderConvertToInvoiceButton
-                          salesOrderId={order.id}
-                          currentStatus={order.status}
-                        />
+                      <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="min-h-[32px] flex items-center">
+                          <SalesOrderConvertToInvoiceButton
+                            salesOrderId={order.id}
+                            currentStatus={order.status}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
