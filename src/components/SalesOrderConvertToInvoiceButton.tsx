@@ -123,8 +123,7 @@ export function SalesOrderConvertToInvoiceButton({
         .insert({
           organization_id: profile.organization_id,
           sales_order_id: salesOrderId,
-          invoice_id: invoice.id,
-          created_by: profile.id
+          invoice_id: invoice.id
         });
 
       if (linkError) {
@@ -171,7 +170,7 @@ export function SalesOrderConvertToInvoiceButton({
           disabled={convertMutation.isPending}
         >
           <FileText className="h-3 w-3" />
-          {convertMutation.isPending ? 'Converting...' : 'To Invoice'}
+          {convertMutation.isPending ? 'Converting...' : 'Convert to Invoice'}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
