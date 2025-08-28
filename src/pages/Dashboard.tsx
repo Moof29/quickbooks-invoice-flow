@@ -333,7 +333,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Advanced Analytics Section */}
+        {/* Revenue Charts Section */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Revenue Trend Chart */}
           <Card className="lg:col-span-2">
@@ -517,17 +517,6 @@ const Dashboard = () => {
                   <div className="text-left">
                     <div className="font-medium">Add Customer</div>
                     <div className="text-xs text-muted-foreground">New client profile</div>
-                  </div>
-                </div>
-              </Button>
-              <Button variant="outline" className="w-full justify-start h-12">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg dark:bg-green-900/20">
-                    <FileText className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium">View Reports</div>
-                    <div className="text-xs text-muted-foreground">Analytics & insights</div>
                   </div>
                 </div>
               </Button>

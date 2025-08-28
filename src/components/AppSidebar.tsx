@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Analytics', href: '/analytics', icon: TrendingUp },
+  
   { name: 'Sales Orders', href: '/sales-orders', icon: ShoppingCart },
   { name: 'Invoices', href: '/invoices', icon: FileText },
   { name: 'Customers', href: '/customers', icon: Users },

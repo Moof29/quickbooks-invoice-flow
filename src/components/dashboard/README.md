@@ -4,11 +4,6 @@ This directory contains premium dashboard components from the Bundui Shadcn UI K
 
 ## Available Components
 
-### Analytics Dashboard
-- Revenue charts
-- Sales metrics
-- Customer analytics
-- Performance indicators
 
 ### Data Visualization
 - Line charts
@@ -19,7 +14,7 @@ This directory contains premium dashboard components from the Bundui Shadcn UI K
 
 ### Business Metrics
 - Revenue tracking
-- Order analytics
+- Order management
 - Customer insights
 - Inventory metrics
 
@@ -37,7 +32,7 @@ import { SalesOverview } from '@/components/dashboard/SalesOverview';
 
 These components are integrated with our Supabase backend to display:
 - Sales order metrics
-- Invoice analytics
+- Invoice tracking
 - Customer trends
 - QuickBooks sync status
 ```

@@ -39,11 +39,6 @@ const Index = () => {
       title: 'QuickBooks Integration',
       description: 'Seamlessly sync with QuickBooks Online for unified accounting'
     },
-    {
-      icon: BarChart3,
-      title: 'Business Analytics',
-      description: 'Get insights into your business performance and trends'
-    }
   ];
 
   const benefits = [
