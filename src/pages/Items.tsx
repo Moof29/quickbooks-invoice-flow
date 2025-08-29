@@ -97,37 +97,41 @@ export default function Items() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Items & Products</h1>
-          <p className="text-muted-foreground">
-            Manage your inventory items and sync with QuickBooks
-          </p>
+    <div className="page-container">
+      <div className="page-content">
+        <div className="page-header">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="page-title">Items & Products</h1>
+              <p className="page-description">
+                Manage your inventory items and sync with QuickBooks
+              </p>
+            </div>
+            <Button 
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="btn-text"
+            >
+              {syncMutation.isPending ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Sync from QuickBooks
+            </Button>
+          </div>
         </div>
-        <Button 
-          onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending}
-        >
-          {syncMutation.isPending ? (
-            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="mr-2 h-4 w-4" />
-          )}
-          Sync from QuickBooks
-        </Button>
-      </div>
 
-      {/* Search */}
-      <div className="flex items-center space-x-2">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search items by name, SKU, or description..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+        {/* Search */}
+        <div className="flex items-center space-x-3 mb-8">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search items by name, SKU, or description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-md text-body"
+          />
+        </div>
 
       {/* Items Grid */}
       {isLoading ? (
@@ -156,11 +160,13 @@ export default function Items() {
                       <Package className="h-5 w-5" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-semibold group-hover:text-primary transition-colors">
+                      <CardTitle className="text-title-sm group-hover:text-primary transition-colors">
                         {item.name}
                       </CardTitle>
                       {item.sku && (
-                        <CardDescription className="mt-1">SKU: {item.sku}</CardDescription>
+                        <CardDescription className="text-caption mt-1">
+                          SKU: {item.sku}
+                        </CardDescription>
                       )}
                     </div>
                   </div>
@@ -168,24 +174,24 @@ export default function Items() {
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="space-y-3">
+                <div className="spacing-tight">
                   {item.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                    <p className="text-body-sm line-clamp-2 leading-relaxed">
                       {item.description}
                     </p>
                   )}
-                  <div className="flex justify-between items-center pt-2 border-t border-border/50">
-                    <span className="text-sm font-medium text-muted-foreground">
+                  <div className="flex justify-between items-center pt-3 border-t border-border/50">
+                    <span className="text-caption">
                       {item.item_type || 'Not specified'}
                     </span>
                     {item.purchase_cost && (
-                      <span className="text-lg font-bold text-foreground">
+                      <span className="text-title-sm">
                         ${item.purchase_cost.toFixed(2)}
                       </span>
                     )}
                   </div>
                   {item.last_sync_at && (
-                    <p className="text-xs text-muted-foreground border-t border-border/30 pt-2">
+                    <p className="text-body-sm border-t border-border/30 pt-2">
                       Last synced: {new Date(item.last_sync_at).toLocaleDateString()}
                     </p>
                   )}
@@ -198,12 +204,12 @@ export default function Items() {
 
       {filteredItems.length === 0 && !isLoading && (
         <Card className="card-modern">
-          <CardContent className="flex flex-col items-center justify-center h-64 text-center">
+          <CardContent className="flex flex-col items-center justify-center h-64 text-center spacing-elements">
             <div className="icon-container info mb-4">
               <Package className="h-8 w-8" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No items found</h3>
-            <p className="text-muted-foreground max-w-md leading-relaxed">
+            <h3 className="text-title-sm">No items found</h3>
+            <p className="text-description max-w-md leading-relaxed">
               {searchTerm ? 
                 'No items match your search criteria. Try adjusting your search terms.' :
                 'Get started by syncing items from QuickBooks or adding them manually.'
@@ -211,7 +217,7 @@ export default function Items() {
             </p>
             {!searchTerm && (
               <Button 
-                className="mt-4"
+                className="mt-6 btn-text"
                 onClick={() => syncMutation.mutate()}
                 disabled={syncMutation.isPending}
               >
@@ -226,6 +232,7 @@ export default function Items() {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }

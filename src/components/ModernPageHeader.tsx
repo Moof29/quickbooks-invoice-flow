@@ -39,13 +39,13 @@ export function ModernPageHeader({
         {/* Left side - Title and description */}
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+            <h1 className="page-title">{title}</h1>
             {description && (
-              <p className="text-sm text-muted-foreground">{description}</p>
+              <p className="page-description">{description}</p>
             )}
           </div>
           {showDateRange && dateRangeText && (
-            <Badge variant="secondary" className="text-xs font-normal">
+            <Badge variant="secondary" className="btn-text-sm">
               <Calendar className="w-3 h-3 mr-1" />
               {dateRangeText}
             </Badge>

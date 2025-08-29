@@ -185,33 +185,33 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-container">
       <ModernPageHeader
         title="Dashboard"
         description="Business overview and key metrics"
         showDateRange
         dateRangeText="Jul 9 - Aug 5, 2025"
       >
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="btn-text-sm">
           <Download className="h-4 w-4 mr-2" />
           Download
         </Button>
-        <Button onClick={() => setShowCustomerDialog(true)} variant="outline" size="sm">
+        <Button onClick={() => setShowCustomerDialog(true)} variant="outline" size="sm" className="btn-text-sm">
           <Users className="w-4 h-4 mr-2" />
           Add Customer
         </Button>
-        <Button onClick={() => setShowInvoiceDialog(true)} size="sm">
+        <Button onClick={() => setShowInvoiceDialog(true)} size="sm" className="btn-text">
           <Plus className="w-4 h-4 mr-2" />
           Create Invoice
         </Button>
       </ModernPageHeader>
 
-      <div className="p-6 space-y-8">
+      <div className="page-content">
         {/* Enhanced KPI Cards Section */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {/* Revenue Card with Modern Styling */}
           <Card className="card-kpi overflow-hidden">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="icon-container success">
@@ -227,9 +227,9 @@ const Dashboard = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="kpi-value mb-2">${stats.totalRevenue.toLocaleString()}</div>
-              <p className="text-sm text-muted-foreground mb-4">
+            <CardContent className="pt-0 space-y-4">
+              <div className="kpi-value">${stats.totalRevenue.toLocaleString()}</div>
+              <p className="text-description">
                 vs ${(stats.totalRevenue * 0.88).toLocaleString()} last month
               </p>
               <div className="h-12 -mx-6 -mb-6">

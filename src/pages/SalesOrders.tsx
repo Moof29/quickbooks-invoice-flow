@@ -6,24 +6,24 @@ import { ModernPageHeader } from "@/components/ModernPageHeader";
 
 export default function SalesOrders() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-container">
       <ModernPageHeader
         title="Sales Orders"
         description="Manage sales orders and customer templates"
       />
 
-      <div className="p-6">
+      <div className="page-content">
         <Tabs defaultValue="orders" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-            <TabsTrigger value="orders">Sales Orders</TabsTrigger>
-            <TabsTrigger value="templates">Customer Templates</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 lg:w-[400px] btn-text">
+            <TabsTrigger value="orders" className="nav-item">Sales Orders</TabsTrigger>
+            <TabsTrigger value="templates" className="nav-item">Customer Templates</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="templates" className="mt-6">
+          <TabsContent value="templates" className="mt-8">
             <CustomerTemplates />
           </TabsContent>
           
-          <TabsContent value="orders" className="mt-6">
+          <TabsContent value="orders" className="mt-8">
             <SalesOrdersList />
           </TabsContent>
         </Tabs>

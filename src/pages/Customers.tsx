@@ -108,7 +108,7 @@ const Customers = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-container">
       <ModernPageHeader
         title="Customers"
         description="Manage your customer relationships"
@@ -117,24 +117,24 @@ const Customers = () => {
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
       >
-        <Button onClick={() => setShowCustomerDialog(true)}>
+        <Button onClick={() => setShowCustomerDialog(true)} className="btn-text">
           <Plus className="w-4 h-4 mr-2" />
           Add Customer
         </Button>
       </ModernPageHeader>
 
-      <div className="p-6">
+      <div className="page-content">
         {/* Customers List */}
         <Card className="card-data-table">
-          <CardHeader className="border-b border-border/50 bg-muted/20">
+          <CardHeader className="card-header-modern">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-lg font-semibold">All Customers</CardTitle>
-                <CardDescription className="mt-1">
+                <CardTitle className="card-title">All Customers</CardTitle>
+                <CardDescription className="card-description">
                   {customers.length} customer{customers.length !== 1 ? 's' : ''} found
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="btn-text-sm">
                 {customers.length} Total
               </Badge>
             </div>

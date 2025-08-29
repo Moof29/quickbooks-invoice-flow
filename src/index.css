@@ -122,6 +122,105 @@ All colors MUST be HSL.
 }
 
 @layer components {
+  /* Typography Scale - Professional SaaS Hierarchy */
+  .text-display {
+    @apply text-4xl font-bold tracking-tight leading-tight text-foreground;
+  }
+  
+  .text-title-xl {
+    @apply text-3xl font-bold tracking-tight leading-tight text-foreground;
+  }
+  
+  .text-title-lg {
+    @apply text-2xl font-semibold tracking-tight leading-snug text-foreground;
+  }
+  
+  .text-title-md {
+    @apply text-xl font-semibold tracking-tight leading-snug text-foreground;
+  }
+  
+  .text-title-sm {
+    @apply text-lg font-semibold tracking-tight leading-snug text-foreground;
+  }
+  
+  .text-heading {
+    @apply text-base font-semibold tracking-normal leading-relaxed text-foreground;
+  }
+  
+  .text-subheading {
+    @apply text-sm font-medium tracking-wide uppercase text-muted-foreground;
+  }
+  
+  .text-body-lg {
+    @apply text-base font-normal leading-relaxed text-foreground;
+  }
+  
+  .text-body {
+    @apply text-sm font-normal leading-relaxed text-foreground;
+  }
+  
+  .text-body-sm {
+    @apply text-xs font-normal leading-relaxed text-muted-foreground;
+  }
+  
+  .text-caption {
+    @apply text-xs font-medium leading-tight text-muted-foreground;
+  }
+  
+  .text-label {
+    @apply text-sm font-medium leading-normal text-foreground;
+  }
+  
+  .text-description {
+    @apply text-sm font-normal leading-relaxed text-muted-foreground;
+  }
+  
+  /* Professional Spacing System */
+  .spacing-section {
+    @apply space-y-8;
+  }
+  
+  .spacing-content {
+    @apply space-y-6;
+  }
+  
+  .spacing-elements {
+    @apply space-y-4;
+  }
+  
+  .spacing-tight {
+    @apply space-y-3;
+  }
+  
+  .spacing-compact {
+    @apply space-y-2;
+  }
+  
+  .spacing-minimal {
+    @apply space-y-1;
+  }
+  
+  /* Page Layout Classes */
+  .page-container {
+    @apply min-h-screen bg-background;
+  }
+  
+  .page-content {
+    @apply p-6 spacing-section max-w-none;
+  }
+  
+  .page-header {
+    @apply mb-8;
+  }
+  
+  .page-title {
+    @apply text-title-lg mb-2;
+  }
+  
+  .page-description {
+    @apply text-description;
+  }
+  
   /* Enhanced modern card variants */
   .card-modern {
     @apply bg-card border border-border/60 rounded-xl shadow-[var(--card-shadow)] transition-all duration-200 backdrop-blur-sm;
@@ -158,13 +257,30 @@ All colors MUST be HSL.
     background-color: hsl(var(--card) / 0.98);
   }
   
-  /* KPI metric styling */
+  /* Card Content Typography */
+  .card-title {
+    @apply text-title-sm mb-2;
+  }
+  
+  .card-description {
+    @apply text-description;
+  }
+  
+  .card-header-modern {
+    @apply p-6 pb-4 border-b border-border/50 bg-muted/20;
+  }
+  
+  .card-content-modern {
+    @apply p-6 spacing-elements;
+  }
+  
+  /* KPI specific styling */
   .kpi-value {
-    @apply text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent;
+    @apply text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent leading-none;
   }
   
   .kpi-label {
-    @apply text-sm font-medium text-muted-foreground tracking-wide uppercase;
+    @apply text-subheading mb-3;
   }
   
   .kpi-change {
@@ -200,6 +316,27 @@ All colors MUST be HSL.
     @apply bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/50 dark:text-purple-400 dark:border-purple-800;
   }
   
+  /* Form Elements */
+  .form-section {
+    @apply spacing-elements;
+  }
+  
+  .form-group {
+    @apply spacing-compact;
+  }
+  
+  .form-label {
+    @apply text-label mb-2 block;
+  }
+  
+  .form-description {
+    @apply text-body-sm mt-1;
+  }
+  
+  .form-error {
+    @apply text-xs font-medium text-destructive mt-1;
+  }
+  
   /* Table enhancements */
   .data-table-header {
     @apply border-b border-border/50 bg-muted/30 px-6 py-4;
@@ -210,6 +347,45 @@ All colors MUST be HSL.
   }
   
   .data-table-cell {
-    @apply px-6 py-4 text-sm;
+    @apply px-6 py-4 text-body;
+  }
+  
+  .data-table-header-cell {
+    @apply px-6 py-3 text-caption font-semibold uppercase tracking-wider;
+  }
+  
+  /* Button text styling */
+  .btn-text {
+    @apply text-sm font-medium tracking-normal;
+  }
+  
+  .btn-text-sm {
+    @apply text-xs font-medium tracking-normal;
+  }
+  
+  /* Navigation styling */
+  .nav-item {
+    @apply text-sm font-medium tracking-normal;
+  }
+  
+  .nav-item-active {
+    @apply text-sm font-semibold tracking-normal;
+  }
+  
+  /* Professional spacing utilities */
+  .section-padding {
+    @apply py-8 px-6;
+  }
+  
+  .content-padding {
+    @apply py-6 px-6;
+  }
+  
+  .element-padding {
+    @apply py-4 px-6;
+  }
+  
+  .compact-padding {
+    @apply py-3 px-4;
   }
 }
