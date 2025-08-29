@@ -2,29 +2,32 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CustomerTemplates } from "@/components/CustomerTemplates";
 import { SalesOrdersList } from "@/components/SalesOrdersList";
+import { ModernPageHeader } from "@/components/ModernPageHeader";
 
 export default function SalesOrders() {
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Sales Orders</h1>
-        <p className="text-muted-foreground">Manage sales orders and customer templates</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <ModernPageHeader
+        title="Sales Orders"
+        description="Manage sales orders and customer templates"
+      />
 
-      <Tabs defaultValue="orders" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="orders">Sales Orders</TabsTrigger>
-          <TabsTrigger value="templates">Customer Templates</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="templates" className="mt-6">
-          <CustomerTemplates />
-        </TabsContent>
-        
-        <TabsContent value="orders" className="mt-6">
-          <SalesOrdersList />
-        </TabsContent>
-      </Tabs>
+      <div className="p-6">
+        <Tabs defaultValue="orders" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+            <TabsTrigger value="orders">Sales Orders</TabsTrigger>
+            <TabsTrigger value="templates">Customer Templates</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="templates" className="mt-6">
+            <CustomerTemplates />
+          </TabsContent>
+          
+          <TabsContent value="orders" className="mt-6">
+            <SalesOrdersList />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }

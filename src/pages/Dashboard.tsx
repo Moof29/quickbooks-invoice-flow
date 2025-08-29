@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceDialog } from '@/components/InvoiceDialog';
 import { CustomerDialog } from '@/components/CustomerDialog';
+import { ModernPageHeader } from '@/components/ModernPageHeader';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 interface DashboardStats {
@@ -185,31 +186,25 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-foreground">Business Dashboard</h1>
-            <Badge variant="secondary" className="text-xs">
-              09 Jul 2025 - 05 Aug 2025
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-            <Button onClick={() => setShowCustomerDialog(true)} variant="outline" size="sm">
-              <Users className="w-4 h-4 mr-2" />
-              Add Customer
-            </Button>
-            <Button onClick={() => setShowInvoiceDialog(true)} size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Invoice
-            </Button>
-          </div>
-        </div>
-      </div>
+      <ModernPageHeader
+        title="Dashboard"
+        description="Business overview and key metrics"
+        showDateRange
+        dateRangeText="Jul 9 - Aug 5, 2025"
+      >
+        <Button variant="outline" size="sm">
+          <Download className="h-4 w-4 mr-2" />
+          Download
+        </Button>
+        <Button onClick={() => setShowCustomerDialog(true)} variant="outline" size="sm">
+          <Users className="w-4 h-4 mr-2" />
+          Add Customer
+        </Button>
+        <Button onClick={() => setShowInvoiceDialog(true)} size="sm">
+          <Plus className="w-4 h-4 mr-2" />
+          Create Invoice
+        </Button>
+      </ModernPageHeader>
 
       <div className="p-6 space-y-6">
         {/* Enhanced Hero Stats Section */}
