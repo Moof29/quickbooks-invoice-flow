@@ -124,22 +124,57 @@ const Customers = () => {
       </ModernPageHeader>
 
       <div className="page-content">
-        {/* Customers List */}
-        <Card className="card-data-table">
-          <CardHeader className="card-header-modern">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="card-title">All Customers</CardTitle>
-                <CardDescription className="card-description">
-                  {customers.length} customer{customers.length !== 1 ? 's' : ''} found
-                </CardDescription>
-              </div>
-              <Badge variant="outline" className="btn-text-sm">
-                {customers.length} Total
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
+        <div className="layout-grid-auto">
+          {customers.map((customer) => (
+            <Card key={customer.id} className="card-product">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="h-12 w-12 bg-gradient-to-br from-primary/20 to-primary/30 rounded-lg flex items-center justify-center ring-1 ring-primary/20">
+                      <Building2 className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground text-lg">{customer.company_name}</h3>
+                      <p className="text-sm text-muted-foreground">{customer.display_name}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                    <Mail className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{customer.email}</span>
+                  </div>
+                  {customer.phone && (
+                    <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4 flex-shrink-0" />
+                      <span>{customer.phone}</span>
+                    </div>
+                  )}
+                  {customer.address && (
+                    <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{customer.address}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                    <div className="text-xs text-muted-foreground">
+                      Created {format(new Date(customer.created_at), 'MMM dd, yyyy')}
+                    </div>
+                    <Badge variant={customer.is_active ? "default" : "secondary"} className="text-xs">
+                      {customer.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
             {customers.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">

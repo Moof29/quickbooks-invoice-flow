@@ -200,24 +200,82 @@ All colors MUST be HSL.
     @apply space-y-1;
   }
   
-  /* Page Layout Classes */
-  .page-container {
-    @apply min-h-screen bg-background;
-  }
-  
-  .page-content {
-    @apply p-6 spacing-section max-w-none;
-  }
-  
-  .page-header {
-    @apply mb-8;
-  }
-  
-  .page-title {
-    @apply text-title-lg mb-2;
-  }
-  
-  .page-description {
+/* =====================================
+   Page Layout & Components 
+   ===================================== */
+
+.page-container {
+  @apply min-h-screen bg-background;
+}
+
+.page-content {
+  @apply px-6 py-8;
+}
+
+.page-title {
+  @apply text-2xl font-bold tracking-tight text-foreground;
+}
+
+.page-description {
+  @apply text-sm text-muted-foreground mt-1;
+}
+
+/* Layout Grid Systems */
+.layout-grid-auto {
+  @apply grid gap-6;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.layout-grid-2 {
+  @apply grid grid-cols-1 lg:grid-cols-2 gap-6;
+}
+
+.layout-grid-3 {
+  @apply grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6;
+}
+
+.layout-grid-4 {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6;
+}
+
+/* Content Sections */
+.content-section {
+  @apply space-y-6;
+}
+
+.content-section-tight {
+  @apply space-y-4;
+}
+
+.content-section-loose {
+  @apply space-y-8;
+}
+
+/* Table Layouts */
+.table-container {
+  @apply rounded-lg border border-border/50 overflow-hidden bg-card;
+}
+
+.table-header-enhanced {
+  @apply bg-muted/30 border-b border-border/50 px-6 py-4;
+}
+
+/* Dashboard Specific */
+.dashboard-kpi-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8;
+}
+
+.dashboard-content-grid {
+  @apply grid grid-cols-1 xl:grid-cols-3 gap-6;
+}
+
+.dashboard-main-content {
+  @apply xl:col-span-2 space-y-6;
+}
+
+.dashboard-sidebar-content {
+  @apply space-y-6;
+}
     @apply text-description;
   }
   

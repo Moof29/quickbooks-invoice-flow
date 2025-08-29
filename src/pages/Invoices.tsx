@@ -154,33 +154,35 @@ const Invoices = () => {
         </Button>
       </ModernPageHeader>
 
-      <div className="p-6">
+      <div className="page-content">
         {/* Invoices List */}
         <Card className="card-data-table">
-          <CardHeader className="border-b border-border/50 bg-muted/20">
+          <CardHeader className="table-header-enhanced">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg font-semibold">All Invoices</CardTitle>
-                <CardDescription className="mt-1">
+                <CardDescription className="text-sm text-muted-foreground mt-1">
                   {invoices.length} invoice{invoices.length !== 1 ? 's' : ''} found
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs font-medium">
                 {invoices.length} Total
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="p-0">
             {invoices.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+              <div className="text-center py-16">
+                <div className="flex justify-center mb-4">
+                  <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
+                    <svg className="h-8 w-8 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No invoices found</h3>
-                <p className="text-gray-500 mb-6">
-                  {searchTerm ? 'Try adjusting your search criteria' : 'Get started by creating your first invoice'}
+                <h3 className="text-lg font-medium text-foreground mb-2">No invoices found</h3>
+                <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
+                  {searchTerm ? 'Try adjusting your search criteria to find what you\'re looking for' : 'Get started by creating your first invoice to track payments'}
                 </p>
                 <Button onClick={() => setShowInvoiceDialog(true)}>
                   <Plus className="w-4 h-4 mr-2" />

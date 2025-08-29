@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Edit, Trash2, Copy } from 'lucide-react';
+import { Plus, Edit, Trash2, Copy, FileText } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -155,13 +155,13 @@ export function CustomerTemplates() {
   );
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
+    <div className="content-section">
+      <Card className="card-data-table">
+        <CardHeader className="table-header-enhanced">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Customer Templates</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-lg font-semibold">Customer Templates</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground mt-1">
                 Create and manage ordering templates for your customers (Batchly-only feature)
               </CardDescription>
             </div>
@@ -178,17 +178,18 @@ export function CustomerTemplates() {
           </div>
         </CardHeader>
         
-        <CardContent>
-          <div className="flex gap-4 mb-6">
+        <CardContent className="p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <Input
                 placeholder="Search templates..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-10"
               />
             </div>
             <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px] h-10">
                 <SelectValue placeholder="Filter by customer" />
               </SelectTrigger>
               <SelectContent>
@@ -202,7 +203,7 @@ export function CustomerTemplates() {
             </Select>
           </div>
 
-          <div className="rounded-md border">
+          <div className="table-container">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -217,8 +218,16 @@ export function CustomerTemplates() {
               <TableBody>
                 {filteredTemplates.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      No templates found. Create your first template to get started.
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <div className="flex flex-col items-center space-y-3">
+                        <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
+                          <FileText className="h-8 w-8 text-muted-foreground/50" />
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="text-lg font-medium text-foreground">No templates found</h3>
+                          <p className="text-sm text-muted-foreground">Create your first template to get started</p>
+                        </div>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (

@@ -135,9 +135,104 @@ export default function Items() {
 
       {/* Items Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="layout-grid-auto">
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="card-modern animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-6 bg-muted rounded mb-4"></div>
+                <div className="h-4 bg-muted rounded mb-2"></div>
+                <div className="h-4 bg-muted rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="flex justify-center mb-4">
+            <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
+              <Package className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+          </div>
+          <h3 className="text-lg font-medium text-foreground mb-2">No items found</h3>
+          <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
+            {searchTerm ? 'Try adjusting your search criteria to find what you\'re looking for' : 'Sync with QuickBooks to load your inventory items or add items manually'}
+          </p>
+          <Button 
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+          >
+            {syncMutation.isPending ? (
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Sync from QuickBooks
+          </Button>
+        </div>
+      ) : (
+        <div className="page-content">
+          <div className="layout-grid-auto">
+            {filteredItems.map((item) => (
+              <Card key={item.id} className="card-product">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground text-lg mb-2 truncate">{item.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{item.description || 'No description available'}</p>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-muted-foreground">SKU:</span>
+                          <Badge variant="outline" className="text-xs font-mono">
+                            {item.sku || 'N/A'}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm text-muted-foreground mb-1">Price</div>
+                            <span className="text-xl font-bold text-foreground">
+                              ${(item.unit_price || 0).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-muted-foreground mb-1">Stock</div>
+                            <div className={`text-lg font-bold ${
+                              (item.quantity_on_hand || 0) > 10 
+                                ? 'text-green-600' 
+                                : (item.quantity_on_hand || 0) > 0 
+                                  ? 'text-orange-600' 
+                                  : 'text-red-600'
+                            }`}>
+                              {item.quantity_on_hand || 0}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Button variant="ghost" size="sm" className="ml-3 flex-shrink-0">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
+                        {item.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                      {getStatusBadge(item)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Updated {format(new Date(item.updated_at), 'MMM dd')}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
               <CardHeader>
                 <div className="h-4 bg-muted rounded w-3/4"></div>
                 <div className="h-3 bg-muted rounded w-1/2"></div>

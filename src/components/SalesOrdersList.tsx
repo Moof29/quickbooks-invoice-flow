@@ -238,40 +238,60 @@ export function SalesOrdersList() {
             View and manage sales orders generated from customer templates
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6 space-y-6">
           {/* Summary Stats */}
           {filteredOrders.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Total Orders</span>
-                </div>
-                <p className="text-2xl font-bold">{filteredOrders.length}</p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Total Sales Today</span>
-                </div>
-                <p className="text-2xl font-bold">
-                  {formatCurrency(todaySalesTotal)}
-                </p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Pending vs Approved</span>
-                </div>
-                <p className="text-2xl font-bold">
-                  {filteredOrders.filter(order => order.status === 'pending').length} / {filteredOrders.filter(order => order.status === 'approved').length}
-                </p>
-              </div>
+            <div className="layout-grid-3">
+              <Card className="bg-muted/30 border-border/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+                      <p className="text-2xl font-bold text-foreground">{filteredOrders.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-muted/30 border-border/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-green-500/10 rounded-lg flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Sales Today</p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {formatCurrency(todaySalesTotal)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-muted/30 border-border/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                      <Calendar className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Pending / Approved</p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {filteredOrders.filter(order => order.status === 'pending').length} / {filteredOrders.filter(order => order.status === 'approved').length}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
-          {/* Filters - moved below summary */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
@@ -296,21 +316,25 @@ export function SalesOrdersList() {
 
           {/* Orders Table */}
           {filteredOrders.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">No sales orders found</p>
-              <p className="text-sm">
+            <div className="text-center text-muted-foreground py-12">
+              <div className="flex justify-center mb-4">
+                <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">No sales orders found</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 {searchTerm || statusFilter !== 'all' 
-                  ? 'Try adjusting your search criteria'
+                  ? 'Try adjusting your search criteria to find what you\'re looking for'
                   : 'Create customer templates to automatically generate sales orders'
                 }
               </p>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="table-container">
               <Table className="text-sm">
                 <TableHeader>
-                  <TableRow className="h-8">
+                  <TableRow className="h-12 bg-muted/20">
                     <TableHead className="w-12 py-1">
                       <Checkbox
                         checked={selectedOrders.length === sortedOrders.length && sortedOrders.length > 0}
