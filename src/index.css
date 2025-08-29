@@ -132,7 +132,8 @@ All colors MUST be HSL.
   }
   
   .card-kpi {
-    @apply card-modern bg-gradient-to-br from-card to-card/95 border-border/40;
+    @apply card-modern border-border/40;
+    background: linear-gradient(to bottom right, hsl(var(--card)), hsl(var(--card) / 0.95));
     position: relative;
     overflow: hidden;
   }
@@ -148,11 +149,13 @@ All colors MUST be HSL.
   }
   
   .card-chart {
-    @apply card-modern border-border/50 bg-card/95;
+    @apply card-modern border-border/50;
+    background-color: hsl(var(--card) / 0.95);
   }
   
   .card-data-table {
-    @apply card-modern border-border/50 overflow-hidden bg-card/98;
+    @apply card-modern border-border/50 overflow-hidden;
+    background-color: hsl(var(--card) / 0.98);
   }
   
   /* KPI metric styling */
