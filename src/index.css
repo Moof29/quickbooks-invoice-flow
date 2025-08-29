@@ -36,23 +36,28 @@ All colors MUST be HSL.
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Enhanced card shadows and styling */
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --card-shadow-lg: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --card-shadow-xl: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    
+    /* Chart colors */
+    --chart-1: 142 76% 36%;
+    --chart-2: 221 83% 53%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 197 37% 24%;
   }
 
   .dark {
@@ -91,6 +96,18 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Enhanced dark mode card shadows */
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+    --card-shadow-lg: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --card-shadow-xl: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+    
+    /* Dark mode chart colors */
+    --chart-1: 142 69% 58%;
+    --chart-2: 213 94% 68%;
+    --chart-3: 45 93% 47%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 197 37% 40%;
   }
 }
 
@@ -101,5 +118,95 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Enhanced modern card variants */
+  .card-modern {
+    @apply bg-card border border-border/60 rounded-xl shadow-[var(--card-shadow)] transition-all duration-200 backdrop-blur-sm;
+  }
+  
+  .card-modern:hover {
+    @apply shadow-[var(--card-shadow-lg)] border-border/80 transform translate-y-[-1px];
+  }
+  
+  .card-kpi {
+    @apply card-modern bg-gradient-to-br from-card to-card/95 border-border/40;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .card-kpi::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  }
+  
+  .card-chart {
+    @apply card-modern border-border/50 bg-card/95;
+  }
+  
+  .card-data-table {
+    @apply card-modern border-border/50 overflow-hidden bg-card/98;
+  }
+  
+  /* KPI metric styling */
+  .kpi-value {
+    @apply text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent;
+  }
+  
+  .kpi-label {
+    @apply text-sm font-medium text-muted-foreground tracking-wide uppercase;
+  }
+  
+  .kpi-change {
+    @apply text-xs font-semibold flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border;
+  }
+  
+  .kpi-change.positive {
+    @apply text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-950/50 dark:border-emerald-800;
+  }
+  
+  .kpi-change.negative {
+    @apply text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/50 dark:border-red-800;
+  }
+  
+  /* Icon containers with modern styling */
+  .icon-container {
+    @apply p-3 rounded-xl shadow-sm border transition-colors;
+  }
+  
+  .icon-container.success {
+    @apply bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800;
+  }
+  
+  .icon-container.info {
+    @apply bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800;
+  }
+  
+  .icon-container.warning {
+    @apply bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800;
+  }
+  
+  .icon-container.purple {
+    @apply bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/50 dark:text-purple-400 dark:border-purple-800;
+  }
+  
+  /* Table enhancements */
+  .data-table-header {
+    @apply border-b border-border/50 bg-muted/30 px-6 py-4;
+  }
+  
+  .data-table-row {
+    @apply border-b border-border/30 hover:bg-muted/50 transition-colors;
+  }
+  
+  .data-table-cell {
+    @apply px-6 py-4 text-sm;
   }
 }

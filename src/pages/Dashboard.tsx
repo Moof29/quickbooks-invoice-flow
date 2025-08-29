@@ -206,66 +206,79 @@ const Dashboard = () => {
         </Button>
       </ModernPageHeader>
 
-      <div className="p-6 space-y-6">
-        {/* Enhanced Hero Stats Section */}
+      <div className="p-6 space-y-8">
+        {/* Enhanced KPI Cards Section */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* Revenue Card with Trend */}
-          <Card className="relative overflow-hidden">
-            <CardHeader className="pb-2">
+          {/* Revenue Card with Modern Styling */}
+          <Card className="card-kpi overflow-hidden">
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-green-100 rounded-lg dark:bg-green-900/20">
-                    <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <div className="flex items-center gap-3">
+                  <div className="icon-container success">
+                    <DollarSign className="h-5 w-5" />
                   </div>
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+                  <div>
+                    <CardTitle className="kpi-label">Total Revenue</CardTitle>
+                  </div>
                 </div>
-                <div className="flex items-center text-sm text-green-600">
-                  <TrendingUp className="h-4 w-4" />
+                <div className="kpi-change positive">
+                  <TrendingUp className="h-3 w-3" />
                   <span>+{stats.monthlyGrowth}%</span>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-1">${stats.totalRevenue.toLocaleString()}</div>
-              <p className="text-sm text-muted-foreground">vs ${(stats.totalRevenue * 0.88).toLocaleString()} last month</p>
-              <div className="mt-4 h-16">
+            <CardContent className="pt-0">
+              <div className="kpi-value mb-2">${stats.totalRevenue.toLocaleString()}</div>
+              <p className="text-sm text-muted-foreground mb-4">
+                vs ${(stats.totalRevenue * 0.88).toLocaleString()} last month
+              </p>
+              <div className="h-12 -mx-6 -mb-6">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={revenueData.slice(-4)}>
                     <defs>
                       <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#revenueGradient)" strokeWidth={2} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="hsl(var(--chart-1))" 
+                      fillOpacity={1} 
+                      fill="url(#revenueGradient)" 
+                      strokeWidth={2} 
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
-          {/* Orders Card */}
-          <Card>
-            <CardHeader className="pb-2">
+          {/* Orders Card with Modern Styling */}
+          <Card className="card-kpi">
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900/20">
-                    <ShoppingCart className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <div className="flex items-center gap-3">
+                  <div className="icon-container info">
+                    <ShoppingCart className="h-5 w-5" />
                   </div>
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
+                  <CardTitle className="kpi-label">Total Orders</CardTitle>
                 </div>
-                <div className="flex items-center text-sm text-green-600">
-                  <ArrowUpRight className="h-4 w-4" />
+                <div className="kpi-change positive">
+                  <ArrowUpRight className="h-3 w-3" />
                   <span>+18%</span>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-1">{stats.totalInvoices}</div>
-              <p className="text-sm text-muted-foreground">{stats.pendingInvoices} pending</p>
-              <div className="flex items-center gap-2 mt-4">
-                <Progress value={(stats.salesCount / stats.totalInvoices) * 100} className="flex-1" />
-                <span className="text-xs text-muted-foreground">{Math.round((stats.salesCount / stats.totalInvoices) * 100)}%</span>
+            <CardContent className="pt-0">
+              <div className="kpi-value mb-2">{stats.totalInvoices}</div>
+              <p className="text-sm text-muted-foreground mb-4">{stats.pendingInvoices} pending</p>
+              <div className="flex items-center gap-3">
+                <Progress value={(stats.salesCount / stats.totalInvoices) * 100} className="flex-1 h-2" />
+                <span className="text-xs font-medium text-muted-foreground">
+                  {Math.round((stats.salesCount / stats.totalInvoices) * 100)}%
+                </span>
               </div>
             </CardContent>
           </Card>

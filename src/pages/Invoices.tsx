@@ -156,14 +156,21 @@ const Invoices = () => {
 
       <div className="p-6">
         {/* Invoices List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Invoices</CardTitle>
-            <CardDescription>
-              {invoices.length} invoice{invoices.length !== 1 ? 's' : ''} found
-            </CardDescription>
+        <Card className="card-data-table">
+          <CardHeader className="border-b border-border/50 bg-muted/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-semibold">All Invoices</CardTitle>
+                <CardDescription className="mt-1">
+                  {invoices.length} invoice{invoices.length !== 1 ? 's' : ''} found
+                </CardDescription>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {invoices.length} Total
+              </Badge>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {invoices.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">

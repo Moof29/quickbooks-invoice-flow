@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { 
   Search,
@@ -124,14 +125,21 @@ const Customers = () => {
 
       <div className="p-6">
         {/* Customers List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Customers</CardTitle>
-            <CardDescription>
-              {customers.length} customer{customers.length !== 1 ? 's' : ''} found
-            </CardDescription>
+        <Card className="card-data-table">
+          <CardHeader className="border-b border-border/50 bg-muted/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-semibold">All Customers</CardTitle>
+                <CardDescription className="mt-1">
+                  {customers.length} customer{customers.length !== 1 ? 's' : ''} found
+                </CardDescription>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {customers.length} Total
+              </Badge>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {customers.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">

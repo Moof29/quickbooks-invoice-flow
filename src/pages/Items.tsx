@@ -131,55 +131,61 @@ export default function Items() {
 
       {/* Items Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
+            <Card key={i} className="card-modern animate-pulse">
               <CardHeader>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-muted rounded w-3/4"></div>
+                <div className="h-3 bg-muted rounded w-1/2"></div>
               </CardHeader>
               <CardContent>
-                <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                <div className="h-3 bg-muted rounded w-full mb-2"></div>
+                <div className="h-3 bg-muted rounded w-2/3"></div>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
+            <Card key={item.id} className="card-modern group">
+              <CardHeader className="pb-4">
                 <div className="flex justify-between items-start">
-                  <div className="flex items-center space-x-2">
-                    <Package className="h-5 w-5 text-muted-foreground" />
-                    <CardTitle className="text-lg">{item.name}</CardTitle>
+                  <div className="flex items-center space-x-3">
+                    <div className="icon-container info">
+                      <Package className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold group-hover:text-primary transition-colors">
+                        {item.name}
+                      </CardTitle>
+                      {item.sku && (
+                        <CardDescription className="mt-1">SKU: {item.sku}</CardDescription>
+                      )}
+                    </div>
                   </div>
                   {getStatusBadge(item)}
                 </div>
-                {item.sku && (
-                  <CardDescription>SKU: {item.sku}</CardDescription>
-                )}
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
+              <CardContent className="pt-0">
+                <div className="space-y-3">
                   {item.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">
+                    <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
                       {item.description}
                     </p>
                   )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">
-                      Type: {item.item_type || 'Not specified'}
+                  <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {item.item_type || 'Not specified'}
                     </span>
                     {item.purchase_cost && (
-                      <span className="text-sm font-semibold">
+                      <span className="text-lg font-bold text-foreground">
                         ${item.purchase_cost.toFixed(2)}
                       </span>
                     )}
                   </div>
                   {item.last_sync_at && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground border-t border-border/30 pt-2">
                       Last synced: {new Date(item.last_sync_at).toLocaleDateString()}
                     </p>
                   )}
@@ -191,11 +197,13 @@ export default function Items() {
       )}
 
       {filteredItems.length === 0 && !isLoading && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center h-64">
-            <Package className="h-12 w-12 text-muted-foreground mb-4" />
+        <Card className="card-modern">
+          <CardContent className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="icon-container info mb-4">
+              <Package className="h-8 w-8" />
+            </div>
             <h3 className="text-lg font-semibold mb-2">No items found</h3>
-            <p className="text-muted-foreground text-center">
+            <p className="text-muted-foreground max-w-md leading-relaxed">
               {searchTerm ? 
                 'No items match your search criteria. Try adjusting your search terms.' :
                 'Get started by syncing items from QuickBooks or adding them manually.'
