@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { 
   LayoutDashboard, 
   FileText, 
-  Users, 
-  TrendingUp,
+  Users,
   Zap,
   Settings,
   LogOut,
@@ -30,22 +29,41 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  
-  { name: 'Sales Orders', href: '/sales-orders', icon: ShoppingCart },
-  { name: 'Invoices', href: '/invoices', icon: FileText },
-  { name: 'Customers', href: '/customers', icon: Users },
-  { name: 'Products', href: '/items', icon: Package },
-  { 
-    name: 'Settings', 
-    href: '/settings', 
-    icon: Settings,
-    subItems: [
+const navigationGroups = [
+  {
+    label: "General",
+    items: [
+      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    ]
+  },
+  {
+    label: "Sales",
+    items: [
+      { name: 'Sales Orders', href: '/sales-orders', icon: ShoppingCart },
+      { name: 'Invoices', href: '/invoices', icon: FileText },
+      { name: 'Customers', href: '/customers', icon: Users },
+    ]
+  },
+  {
+    label: "Inventory",
+    items: [
+      { name: 'Products', href: '/items', icon: Package },
+    ]
+  },
+  {
+    label: "Integration",
+    items: [
       { name: 'QuickBooks', href: '/quickbooks', icon: Zap },
     ]
   },
+  {
+    label: "Other",
+    items: [
+      { name: 'Settings', href: '/settings', icon: Settings },
+    ]
+  }
 ];
 
 export function AppSidebar() {
@@ -55,7 +73,7 @@ export function AppSidebar() {
   const { signOut } = useAuthProfile();
   const { toast } = useToast();
   const isCollapsed = state === "collapsed";
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Settings']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['General', 'Sales']);
 
   const handleSignOut = async () => {
     try {
@@ -72,6 +90,14 @@ export function AppSidebar() {
         variant: "destructive",
       });
     }
+  };
+
+  const toggleGroup = (groupLabel: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupLabel)
+        ? prev.filter(label => label !== groupLabel)
+        : [...prev, groupLabel]
+    );
   };
 
   return (
@@ -109,110 +135,88 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="mt-4">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navigation.map((item) => (
-                <SidebarMenuItem key={item.name}>
-                  {item.subItems ? (
-                    <div>
-                      {/* Main settings link */}
-                      <SidebarMenuButton asChild>
-                        <NavLink
-                          to={item.href}
-                          className={({ isActive }) =>
-                            `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                              isActive 
-                                ? "bg-accent text-accent-foreground" 
-                                : "hover:bg-accent/50"
-                            }`
-                          }
-                        >
-                          <item.icon className="h-4 w-4 flex-shrink-0" />
-                          {!isCollapsed && (
-                            <span className="text-sm font-medium flex-1">{item.name}</span>
-                          )}
-                        </NavLink>
-                      </SidebarMenuButton>
-                      
-                      {/* Expandable toggle for sub-items */}
-                      {!isCollapsed && (
-                        <SidebarMenuButton
-                          onClick={() => {
-                            const isExpanded = expandedItems.includes(item.name);
-                            setExpandedItems(prev => 
-                              isExpanded 
-                                ? prev.filter(name => name !== item.name)
-                                : [...prev, item.name]
-                            );
-                          }}
-                          className="w-full mt-1"
-                        >
-                          <div className="flex items-center gap-3 px-3 py-1 w-full">
-                            <div className="h-4 w-4"></div> {/* Spacer for alignment */}
-                            <span className="text-xs text-muted-foreground flex-1">
-                              {expandedItems.includes(item.name) ? 'Hide' : 'Show'} sub-items
-                            </span>
-                            {expandedItems.includes(item.name) ? (
-                              <ChevronDown className="h-3 w-3" />
-                            ) : (
-                              <ChevronRight className="h-3 w-3" />
-                            )}
-                          </div>
-                        </SidebarMenuButton>
-                      )}
-                      
-                      {/* Sub-items */}
-                      {!isCollapsed && expandedItems.includes(item.name) && (
-                        <div className="ml-6 mt-1 space-y-1">
-                          {item.subItems.map((subItem) => (
-                            <SidebarMenuButton key={subItem.name} asChild>
+      <SidebarContent className="px-2 py-2">
+        {navigationGroups.map((group, groupIndex) => (
+          <div key={group.label} className={groupIndex > 0 ? "mt-6" : ""}>
+            {!isCollapsed && (
+              <Collapsible
+                open={expandedGroups.includes(group.label)}
+                onOpenChange={() => toggleGroup(group.label)}
+              >
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-between px-2 py-1 h-auto text-xs font-medium text-muted-foreground hover:text-foreground mb-1"
+                  >
+                    {group.label}
+                    {expandedGroups.includes(group.label) ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarGroup>
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {group.items.map((item) => (
+                          <SidebarMenuItem key={item.name}>
+                            <SidebarMenuButton asChild>
                               <NavLink
-                                to={subItem.href}
+                                to={item.href}
                                 className={({ isActive }) =>
-                                  `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                                  `flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm ${
                                     isActive 
-                                      ? "bg-accent text-accent-foreground" 
-                                      : "hover:bg-accent/50"
+                                      ? "bg-accent text-accent-foreground font-medium" 
+                                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                                   }`
                                 }
                               >
-                                <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                                <span className="text-sm font-medium">{subItem.name}</span>
+                                <item.icon className="h-4 w-4 flex-shrink-0" />
+                                <span>{item.name}</span>
                               </NavLink>
                             </SidebarMenuButton>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.href}
-                        className={({ isActive }) =>
-                          `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                            isActive 
-                              ? "bg-accent text-accent-foreground" 
-                              : "hover:bg-accent/50"
-                          }`
-                        }
-                      >
-                        <item.icon className="h-4 w-4 flex-shrink-0" />
-                        {!isCollapsed && (
-                          <span className="text-sm font-medium">{item.name}</span>
-                        )}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  )}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                          </SidebarMenuItem>
+                        ))}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            
+            {isCollapsed && (
+              <SidebarGroup>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {group.items.map((item) => (
+                      <SidebarMenuItem key={item.name}>
+                        <SidebarMenuButton asChild>
+                          <NavLink
+                            to={item.href}
+                            className={({ isActive }) =>
+                              `flex items-center justify-center p-2 rounded-md transition-colors ${
+                                isActive 
+                                  ? "bg-accent text-accent-foreground" 
+                                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                              }`
+                            }
+                          >
+                            <item.icon className="h-4 w-4" />
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+          </div>
+        ))}
       </SidebarContent>
       
-      <SidebarFooter>
+      <SidebarFooter className="border-t mt-auto">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
