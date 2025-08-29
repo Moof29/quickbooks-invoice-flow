@@ -21,7 +21,8 @@ import {
   Download,
   Activity,
   CreditCard,
-  Target
+  Target,
+  Search
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -264,7 +265,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="h-12 w-12 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="h-6 w-6 text-orange-600" />
+                  <Search className="h-6 w-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>

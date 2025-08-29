@@ -5,7 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Download, Package, Search } from "lucide-react";
+import { RefreshCw, Download, Package, Search, MoreHorizontal } from "lucide-react";
+import { format } from 'date-fns';
 import { Input } from "@/components/ui/input";
 
 interface Item {
@@ -19,6 +20,9 @@ interface Item {
   qbo_id?: string;
   sync_status: string;
   last_sync_at?: string;
+  unit_price?: number;
+  quantity_on_hand?: number;
+  updated_at?: string;
 }
 
 export default function Items() {
@@ -224,7 +228,7 @@ export default function Items() {
                       {getStatusBadge(item)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Updated {format(new Date(item.updated_at), 'MMM dd')}
+                      {item.updated_at ? `Updated ${format(new Date(item.updated_at), 'MMM dd')}` : 'No update date'}
                     </div>
                   </div>
                 </CardContent>
@@ -233,99 +237,35 @@ export default function Items() {
           </div>
         </div>
       )}
-              <CardHeader>
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-3 bg-muted rounded w-1/2"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-3 bg-muted rounded w-full mb-2"></div>
-                <div className="h-3 bg-muted rounded w-2/3"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item) => (
-            <Card key={item.id} className="card-modern group">
-              <CardHeader className="pb-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center space-x-3">
-                    <div className="icon-container info">
-                      <Package className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-title-sm group-hover:text-primary transition-colors">
-                        {item.name}
-                      </CardTitle>
-                      {item.sku && (
-                        <CardDescription className="text-caption mt-1">
-                          SKU: {item.sku}
-                        </CardDescription>
-                      )}
-                    </div>
-                  </div>
-                  {getStatusBadge(item)}
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="spacing-tight">
-                  {item.description && (
-                    <p className="text-body-sm line-clamp-2 leading-relaxed">
-                      {item.description}
-                    </p>
-                  )}
-                  <div className="flex justify-between items-center pt-3 border-t border-border/50">
-                    <span className="text-caption">
-                      {item.item_type || 'Not specified'}
-                    </span>
-                    {item.purchase_cost && (
-                      <span className="text-title-sm">
-                        ${item.purchase_cost.toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                  {item.last_sync_at && (
-                    <p className="text-body-sm border-t border-border/30 pt-2">
-                      Last synced: {new Date(item.last_sync_at).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
 
       {filteredItems.length === 0 && !isLoading && (
-        <Card className="card-modern">
-          <CardContent className="flex flex-col items-center justify-center h-64 text-center spacing-elements">
-            <div className="icon-container info mb-4">
-              <Package className="h-8 w-8" />
+        <div className="text-center py-16">
+          <div className="flex justify-center mb-4">
+            <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
+              <Package className="h-8 w-8 text-muted-foreground/50" />
             </div>
-            <h3 className="text-title-sm">No items found</h3>
-            <p className="text-description max-w-md leading-relaxed">
-              {searchTerm ? 
-                'No items match your search criteria. Try adjusting your search terms.' :
-                'Get started by syncing items from QuickBooks or adding them manually.'
-              }
-            </p>
-            {!searchTerm && (
-              <Button 
-                className="mt-6 btn-text"
-                onClick={() => syncMutation.mutate()}
-                disabled={syncMutation.isPending}
-              >
-                {syncMutation.isPending ? (
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="mr-2 h-4 w-4" />
-                )}
-                Sync from QuickBooks
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+          <h3 className="text-lg font-medium text-foreground mb-2">No items found</h3>
+          <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
+            {searchTerm ? 
+              'No items match your search criteria. Try adjusting your search terms.' :
+              'Get started by syncing items from QuickBooks or adding them manually.'
+            }
+          </p>
+          {!searchTerm && (
+            <Button 
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+            >
+              {syncMutation.isPending ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Sync from QuickBooks
+            </Button>
+          )}
+        </div>
       )}
       </div>
     </div>

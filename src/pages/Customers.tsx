@@ -12,8 +12,12 @@ import {
   Edit,
   Trash2,
   Mail,
-  Phone
+  Phone,
+  Building2,
+  MoreHorizontal,
+  MapPin
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CustomerDialog } from '@/components/CustomerDialog';
@@ -28,6 +32,8 @@ interface Customer {
   billing_city: string;
   billing_state: string;
   created_at: string;
+  address?: string;
+  is_active: boolean;
 }
 
 const Customers = () => {
@@ -45,7 +51,7 @@ const Customers = () => {
     try {
       let query = supabase
         .from('customer_profile')
-        .select('id, display_name, company_name, email, phone, billing_city, billing_state, created_at')
+        .select('id, display_name, company_name, email, phone, billing_city, billing_state, created_at, is_active')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -174,93 +180,26 @@ const Customers = () => {
             </Card>
           ))}
         </div>
-      </div>
-            {customers.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No customers found</h3>
-                <p className="text-gray-500 mb-6">
-                  {searchTerm ? 'Try adjusting your search criteria' : 'Get started by adding your first customer'}
-                </p>
-                <Button onClick={() => setShowCustomerDialog(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Customer
-                </Button>
+        
+        {customers.length === 0 && (
+          <div className="text-center py-16">
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
+                <svg className="h-8 w-8 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                </svg>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {customers.map((customer) => (
-                  <Card key={customer.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">{customer.display_name}</CardTitle>
-                          {customer.company_name && (
-                            <CardDescription className="text-sm font-medium text-blue-600">
-                              {customer.company_name}
-                            </CardDescription>
-                          )}
-                        </div>
-                        <div className="flex space-x-1">
-                          <Button variant="ghost" size="sm" title="View">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" title="Edit">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            title="Delete"
-                            onClick={() => handleDeleteCustomer(customer.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-2">
-                        {customer.email && (
-                          <div className="flex items-center text-sm text-gray-600">
-                            <Mail className="h-4 w-4 mr-2" />
-                            <a href={`mailto:${customer.email}`} className="hover:text-blue-600">
-                              {customer.email}
-                            </a>
-                          </div>
-                        )}
-                        {customer.phone && (
-                          <div className="flex items-center text-sm text-gray-600">
-                            <Phone className="h-4 w-4 mr-2" />
-                            <a href={`tel:${customer.phone}`} className="hover:text-blue-600">
-                              {customer.phone}
-                            </a>
-                          </div>
-                        )}
-                        {(customer.billing_city || customer.billing_state) && (
-                          <div className="flex items-center text-sm text-gray-600">
-                            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            {[customer.billing_city, customer.billing_state].filter(Boolean).join(', ')}
-                          </div>
-                        )}
-                        <div className="text-xs text-gray-500">
-                          Added {new Date(customer.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+            <h3 className="text-lg font-medium text-foreground mb-2">No customers found</h3>
+            <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
+              {searchTerm ? 'Try adjusting your search criteria to find what you\'re looking for' : 'Get started by adding your first customer to manage relationships'}
+            </p>
+            <Button onClick={() => setShowCustomerDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Customer
+            </Button>
+          </div>
+        )}
       </div>
 
       <CustomerDialog 
