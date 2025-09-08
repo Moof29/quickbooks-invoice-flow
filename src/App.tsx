@@ -108,7 +108,7 @@ function AppLayout() {
           </div>
           
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
+          <nav className="flex-1 space-y-1 px-6 py-4">
             <Link
               to="/dashboard"
               className={cn(
@@ -177,7 +177,7 @@ function AppLayout() {
           </nav>
           
           {/* User section at bottom */}
-          <div className="border-t p-4">
+          <div className="border-t px-6 py-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="w-full justify-start gap-2 px-3 py-2 h-auto">
