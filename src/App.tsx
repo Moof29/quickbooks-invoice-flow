@@ -115,6 +115,7 @@ function AppLayout() {
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive("/dashboard") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
+              style={{ borderLeft: '1px solid blue' }}
             >
               <Home className="h-4 w-4" />
               Dashboard
@@ -224,9 +225,10 @@ function AppLayout() {
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header bar */}
         <header className="border-b bg-background">
-          <div className="flex h-16 items-center gap-4 px-6">
-            <div className="flex-1">
+          <div className="flex h-16 items-center gap-4 px-6" style={{ borderLeft: '3px solid red' }}>
+            <div className="flex-1" style={{ borderLeft: '1px solid blue' }}>
               {/* Page-specific header content will go here */}
+              <div className="text-sm text-muted-foreground">Debug: Header content area</div>
             </div>
             
             {/* Header actions */}
