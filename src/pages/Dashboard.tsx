@@ -186,21 +186,27 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="page-container">
-      <ModernPageHeader
-        title="Dashboard"
-        description="Overview of your business performance"
-      />
+    <div className="flex-1 space-y-4 p-8">
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground">
+            Overview of your business performance
+          </p>
+        </div>
+      </div>
 
-      <div className="page-content content-section-loose">
+      {/* Page content */}
+      <div className="space-y-6">
         {/* KPI Cards */}
-        <div className="dashboard-kpi-grid">
-          <Card className="card-kpi">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Total Revenue</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">${stats.totalRevenue.toLocaleString()}</p>
+                  <p className="text-3xl font-bold mt-2">${stats.totalRevenue.toLocaleString()}</p>
                   <div className="flex items-center mt-2 text-sm">
                     <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                     <span className="text-green-600 font-medium">+{stats.monthlyGrowth}%</span>
@@ -214,12 +220,12 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="card-kpi">
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Sales Orders</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{stats.totalInvoices}</p>
+                  <p className="text-3xl font-bold mt-2">{stats.totalInvoices}</p>
                   <div className="flex items-center mt-2 text-sm">
                     <TrendingUp className="h-4 w-4 text-blue-500 mr-1" />
                     <span className="text-blue-600 font-medium">+8.2%</span>
@@ -233,12 +239,12 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="card-kpi">
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Customers</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{stats.totalCustomers}</p>
+                  <p className="text-3xl font-bold mt-2">{stats.totalCustomers}</p>
                   <div className="flex items-center mt-2 text-sm">
                     <TrendingUp className="h-4 w-4 text-purple-500 mr-1" />
                     <span className="text-purple-600 font-medium">+23.1%</span>
@@ -252,12 +258,12 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="card-kpi">
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Avg Order Value</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">${Math.round(stats.avgOrderValue)}</p>
+                  <p className="text-3xl font-bold mt-2">${Math.round(stats.avgOrderValue)}</p>
                   <div className="flex items-center mt-2 text-sm">
                     <TrendingUp className="h-4 w-4 text-orange-500 mr-1" />
                     <span className="text-orange-600 font-medium">+{stats.conversionRate}%</span>
@@ -265,7 +271,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="h-12 w-12 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                  <Search className="h-6 w-6 text-orange-600" />
+                  <Target className="h-6 w-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>
@@ -273,10 +279,10 @@ const Dashboard = () => {
         </div>
 
         {/* Recent Activity */}
-        <Card className="card-stats">
-          <CardHeader className="table-header-enhanced">
-            <CardTitle className="text-lg font-semibold">Recent Activity</CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>
               Latest updates and transactions
             </CardDescription>
           </CardHeader>
