@@ -101,8 +101,8 @@ function AppLayout() {
         <div className="flex h-full flex-col">
           {/* Logo/Brand */}
           <div className="border-b px-6 py-4">
-            <Link to="/dashboard" className="flex items-center gap-2">
-              <Package2 className="h-6 w-6" />
+            <Link to="/dashboard" className="flex items-center gap-3">
+              <Package2 className="h-4 w-4" />
               <span className="text-lg font-semibold">Batchly</span>
             </Link>
           </div>
