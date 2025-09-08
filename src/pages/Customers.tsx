@@ -114,75 +114,93 @@ const Customers = () => {
   }
 
   return (
-    <div className="page-container">
-      <ModernPageHeader
-        title="Customers"
-        description="Manage your customer relationships"
-        showSearch
-        searchPlaceholder="Search customers by name, company, or email..."
-        searchValue={searchTerm}
-        onSearchChange={setSearchTerm}
-      >
-        <Button onClick={() => setShowCustomerDialog(true)} className="btn-text">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Customer
-        </Button>
-      </ModernPageHeader>
-
-      <div className="page-content">
-        <div className="layout-grid-auto">
-          {customers.map((customer) => (
-            <Card key={customer.id} className="card-product">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="h-12 w-12 bg-gradient-to-br from-primary/20 to-primary/30 rounded-lg flex items-center justify-center ring-1 ring-primary/20">
-                      <Building2 className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground text-lg">{customer.company_name}</h3>
-                      <p className="text-sm text-muted-foreground">{customer.display_name}</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                    <Mail className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{customer.email}</span>
-                  </div>
-                  {customer.phone && (
-                    <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                      <Phone className="h-4 w-4 flex-shrink-0" />
-                      <span>{customer.phone}</span>
-                    </div>
-                  )}
-                  {customer.address && (
-                    <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                      <MapPin className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">{customer.address}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center justify-between pt-4 border-t border-border/50">
-                    <div className="text-xs text-muted-foreground">
-                      Created {format(new Date(customer.created_at), 'MMM dd, yyyy')}
-                    </div>
-                    <Badge variant={customer.is_active ? "default" : "secondary"} className="text-xs">
-                      {customer.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+    <div className="flex-1 space-y-6 p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
+          <p className="text-muted-foreground">
+            Manage your customer relationships
+          </p>
         </div>
-        
-        {customers.length === 0 && (
-          <div className="text-center py-16">
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search customers by name, company, or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full sm:w-80"
+            />
+          </div>
+          <Button onClick={() => setShowCustomerDialog(true)} className="shrink-0">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Customer
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {customers.map((customer) => (
+          <Card key={customer.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="h-12 w-12 bg-gradient-to-br from-primary/20 to-primary/30 rounded-lg flex items-center justify-center ring-1 ring-primary/20 shrink-0">
+                    <Building2 className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-foreground text-lg truncate" title={customer.company_name}>
+                      {customer.company_name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground truncate" title={customer.display_name}>
+                      {customer.display_name}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" className="shrink-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground min-w-0">
+                  <Mail className="h-4 w-4 shrink-0" />
+                  <span className="truncate flex-1" title={customer.email}>
+                    {customer.email}
+                  </span>
+                </div>
+                {customer.phone && (
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <Phone className="h-4 w-4 shrink-0" />
+                    <span>{customer.phone}</span>
+                  </div>
+                )}
+                {customer.billing_city && customer.billing_state && (
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground min-w-0">
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    <span className="truncate flex-1" title={`${customer.billing_city}, ${customer.billing_state}`}>
+                      {customer.billing_city}, {customer.billing_state}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                  <div className="text-xs text-muted-foreground">
+                    Created {format(new Date(customer.created_at), 'MMM dd, yyyy')}
+                  </div>
+                  <Badge variant={customer.is_active ? "default" : "secondary"} className="text-xs shrink-0">
+                    {customer.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      
+      {customers.length === 0 && (
+        <Card className="border-0 shadow-sm">
+          <CardContent className="text-center py-16">
             <div className="flex justify-center mb-4">
               <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
                 <svg className="h-8 w-8 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -198,9 +216,9 @@ const Customers = () => {
               <Plus className="w-4 h-4 mr-2" />
               Add Customer
             </Button>
-          </div>
-        )}
-      </div>
+          </CardContent>
+        </Card>
+      )}
 
       <CustomerDialog 
         open={showCustomerDialog} 
