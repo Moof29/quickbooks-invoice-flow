@@ -3,33 +3,23 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
   DollarSign, 
   FileText, 
   Users, 
   TrendingUp,
-  Plus,
   Eye,
   Edit,
-  Trash2,
-  ArrowUpRight,
-  ArrowDownRight,
   ShoppingCart,
-  Calendar,
-  Clock,
-  Download,
-  Activity,
-  CreditCard,
   Target,
-  Search
+  MoreHorizontal
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 import { InvoiceDialog } from '@/components/InvoiceDialog';
 import { CustomerDialog } from '@/components/CustomerDialog';
-import { ModernPageHeader } from '@/components/ModernPageHeader';
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 interface DashboardStats {
   totalRevenue: number;
@@ -83,6 +73,7 @@ interface Invoice {
 }
 
 const Dashboard = () => {
+  const { user, profile, organization, loading: authLoading } = useAuthProfile();
   const [stats, setStats] = useState<DashboardStats>({
     totalRevenue: 0,
     totalInvoices: 0,
@@ -174,104 +165,137 @@ const Dashboard = () => {
     }
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 space-y-4 p-8">
+    <div className="flex-1 space-y-6 p-8 pt-8 pb-8">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground text-lg">
             Overview of your business performance
           </p>
         </div>
+        
+        {/* User Profile Section */}
+        {user && (
+          <div className="bg-muted/5 rounded-lg p-4 flex items-center gap-3 min-w-0">
+            <Avatar className="h-10 w-10 shrink-0">
+              <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                {profile?.first_name?.[0]}{profile?.last_name?.[0] || user.email?.[0]?.toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-sm truncate" title={user.email}>
+                {user.email}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{profile?.role || 'User'}</span>
+                {organization?.name && (
+                  <>
+                    <span>•</span>
+                    <span className="truncate">{organization.name}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Page content */}
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-0 shadow-sm">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="border-0 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground font-medium">Total Revenue</p>
-                  <p className="text-3xl font-bold mt-2">${stats.totalRevenue.toLocaleString()}</p>
-                  <div className="flex items-center mt-2 text-sm">
-                    <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
-                    <span className="text-green-600 font-medium">+{stats.monthlyGrowth}%</span>
-                    <span className="text-muted-foreground ml-1">from last month</span>
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                  <div className="space-y-2">
+                    <p className="text-3xl font-bold tracking-tight">${stats.totalRevenue.toLocaleString()}</p>
+                    <div className="flex items-center gap-1 text-sm">
+                      <TrendingUp className="h-4 w-4 text-emerald-600" />
+                      <span className="text-emerald-600 font-medium">+{stats.monthlyGrowth}%</span>
+                      <span className="text-muted-foreground">from last month</span>
+                    </div>
                   </div>
                 </div>
-                <div className="h-12 w-12 bg-green-500/10 rounded-lg flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-green-600" />
+                <div className="h-12 w-12 rounded-xl bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
+                  <DollarSign className="h-6 w-6 text-emerald-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground font-medium">Sales Orders</p>
-                  <p className="text-3xl font-bold mt-2">{stats.totalInvoices}</p>
-                  <div className="flex items-center mt-2 text-sm">
-                    <TrendingUp className="h-4 w-4 text-blue-500 mr-1" />
-                    <span className="text-blue-600 font-medium">+8.2%</span>
-                    <span className="text-muted-foreground ml-1">from last month</span>
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Sales Orders</p>
+                  <div className="space-y-2">
+                    <p className="text-3xl font-bold tracking-tight">{stats.totalInvoices}</p>
+                    <div className="flex items-center gap-1 text-sm">
+                      <TrendingUp className="h-4 w-4 text-blue-600" />
+                      <span className="text-blue-600 font-medium">+8.2%</span>
+                      <span className="text-muted-foreground">from last month</span>
+                    </div>
                   </div>
                 </div>
-                <div className="h-12 w-12 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
                   <ShoppingCart className="h-6 w-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground font-medium">Customers</p>
-                  <p className="text-3xl font-bold mt-2">{stats.totalCustomers}</p>
-                  <div className="flex items-center mt-2 text-sm">
-                    <TrendingUp className="h-4 w-4 text-purple-500 mr-1" />
-                    <span className="text-purple-600 font-medium">+23.1%</span>
-                    <span className="text-muted-foreground ml-1">from last month</span>
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Customers</p>
+                  <div className="space-y-2">
+                    <p className="text-3xl font-bold tracking-tight">{stats.totalCustomers}</p>
+                    <div className="flex items-center gap-1 text-sm">
+                      <TrendingUp className="h-4 w-4 text-purple-600" />
+                      <span className="text-purple-600 font-medium">+23.1%</span>
+                      <span className="text-muted-foreground">from last month</span>
+                    </div>
                   </div>
                 </div>
-                <div className="h-12 w-12 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
                   <Users className="h-6 w-6 text-purple-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm">
+          <Card className="border-0 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground font-medium">Avg Order Value</p>
-                  <p className="text-3xl font-bold mt-2">${Math.round(stats.avgOrderValue)}</p>
-                  <div className="flex items-center mt-2 text-sm">
-                    <TrendingUp className="h-4 w-4 text-orange-500 mr-1" />
-                    <span className="text-orange-600 font-medium">+{stats.conversionRate}%</span>
-                    <span className="text-muted-foreground ml-1">from last month</span>
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Avg Order Value</p>
+                  <div className="space-y-2">
+                    <p className="text-3xl font-bold tracking-tight">${Math.round(stats.avgOrderValue)}</p>
+                    <div className="flex items-center gap-1 text-sm">
+                      <TrendingUp className="h-4 w-4 text-amber-600" />
+                      <span className="text-amber-600 font-medium">+{stats.conversionRate}%</span>
+                      <span className="text-muted-foreground">from last month</span>
+                    </div>
                   </div>
                 </div>
-                <div className="h-12 w-12 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                  <Target className="h-6 w-6 text-orange-600" />
+                <div className="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
+                  <Target className="h-6 w-6 text-amber-600" />
                 </div>
               </div>
             </CardContent>
@@ -280,33 +304,72 @@ const Dashboard = () => {
 
         {/* Recent Activity */}
         <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>
-              Latest updates and transactions
-            </CardDescription>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl">Recent Activity</CardTitle>
+                <CardDescription className="mt-1">
+                  Latest updates and transactions
+                </CardDescription>
+              </div>
+              <Button variant="outline" size="sm">
+                View All
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
+          <CardContent className="pt-0">
+            <div className="space-y-3">
               {recentInvoices.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No recent activity</p>
+                <div className="text-center py-12">
+                  <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-muted-foreground font-medium">No recent activity</p>
+                  <p className="text-sm text-muted-foreground/70 mt-1">Your recent invoices will appear here</p>
                 </div>
               ) : (
                 recentInvoices.map((invoice) => (
-                  <div key={invoice.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/30">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
-                        <FileText className="h-4 w-4 text-primary" />
+                  <div 
+                    key={invoice.id} 
+                    className="group flex items-center justify-between p-4 rounded-lg border border-border/50 hover:border-border hover:shadow-sm transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <FileText className="h-5 w-5 text-primary" />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{invoice.invoice_number}</p>
-                        <p className="text-xs text-muted-foreground">{invoice.customer_profile?.display_name}</p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{invoice.invoice_number}</p>
+                          <Badge 
+                            variant="secondary" 
+                            className={`text-xs px-2 py-0.5 ${getStatusColor(invoice.status)}`}
+                          >
+                            {invoice.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {invoice.customer_profile?.display_name || 'Unknown Customer'}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold">${invoice.total?.toLocaleString()}</p>
-                      <Badge variant="outline" className="text-xs">{invoice.status}</Badge>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">${invoice.total?.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(invoice.invoice_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))
