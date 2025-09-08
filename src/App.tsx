@@ -180,15 +180,17 @@ function AppLayout() {
           <div className="border-t p-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start gap-2 px-3">
-                  <Avatar className="h-8 w-8">
+                <Button variant="ghost" className="w-full justify-start gap-2 px-3 py-2 h-auto">
+                  <Avatar className="h-8 w-8 shrink-0">
                     <AvatarFallback>
                       {user?.email?.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col items-start text-sm">
-                    <span className="font-medium">{user?.email}</span>
-                    <span className="text-xs text-muted-foreground">
+                  <div className="flex flex-col items-start text-sm min-w-0 flex-1">
+                    <span className="font-medium truncate w-full" title={user?.email}>
+                      {user?.email}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate w-full">
                       {profile?.organization_id || "Organization"}
                     </span>
                   </div>

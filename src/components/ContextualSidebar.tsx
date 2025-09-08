@@ -175,7 +175,7 @@ export function ContextualSidebar() {
                     </Badge>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground truncate">
+                    <div className="text-xs text-muted-foreground truncate" title={order.customer_profile?.company_name}>
                       {order.customer_profile?.company_name}
                     </div>
                     <div className="flex items-center justify-between text-xs">
@@ -200,10 +200,10 @@ export function ContextualSidebar() {
                     location.pathname === `/customers/${customer.id}` ? 'bg-accent' : ''
                   }`}
                 >
-                  <div className="font-medium text-sm mb-1 truncate">
+                  <div className="font-medium text-sm mb-1 truncate" title={customer.company_name}>
                     {customer.company_name}
                   </div>
-                  <div className="text-xs text-muted-foreground truncate">
+                  <div className="text-xs text-muted-foreground truncate" title={customer.email}>
                     {customer.email}
                   </div>
                 </div>
@@ -221,7 +221,7 @@ export function ContextualSidebar() {
                     location.pathname === `/items/${item.id}` ? 'bg-accent' : ''
                   }`}
                 >
-                  <div className="font-medium text-sm mb-1 truncate">
+                  <div className="font-medium text-sm mb-1 truncate" title={item.name}>
                     {item.name}
                   </div>
                   <div className="flex items-center justify-between text-xs">

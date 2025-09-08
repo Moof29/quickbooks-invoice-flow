@@ -464,4 +464,46 @@ All colors MUST be HSL.
   .compact-padding {
     @apply py-3 px-4;
   }
+
+  /* Text handling and alignment fixes */
+  .text-truncate-safe {
+    @apply truncate;
+  }
+
+  /* Ensure proper text alignment in flex containers */
+  .flex-text-container {
+    @apply min-w-0 flex-1;
+  }
+
+  /* Fix button text alignment and prevent overflow */
+  .btn-content {
+    @apply flex items-center justify-start min-w-0 gap-2;
+  }
+
+  /* Page header alignment fixes */
+  .page-header-fixed {
+    @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4;
+  }
+
+  /* Table cell text alignment with proper truncation */
+  .table-cell-content {
+    @apply truncate max-w-[200px];
+  }
+
+  /* User profile section alignment */
+  .user-profile-container {
+    @apply flex items-center gap-3 min-w-0;
+  }
+
+  .user-profile-text {
+    @apply min-w-0 flex-1 flex flex-col items-start text-sm;
+  }
+
+  .user-profile-name {
+    @apply font-medium truncate w-full;
+  }
+
+  .user-profile-meta {
+    @apply text-xs text-muted-foreground truncate w-full;
+  }
 }
