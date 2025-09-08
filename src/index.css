@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Smooth transitions for ShadcnUIKit */
+* {
+  @apply transition-colors duration-200;
+}
+
+/* Consistent focus states for ShadcnUIKit */
+*:focus-visible {
+  @apply outline-none ring-2 ring-ring ring-offset-2;
+}
+
+/* Remove harsh borders for ShadcnUIKit */
+.card {
+  @apply border-0 shadow-sm;
+}
+
+/* Subtle hover states for ShadcnUIKit */
+.hoverable {
+  @apply hover:shadow-md transition-shadow;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
