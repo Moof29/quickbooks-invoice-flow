@@ -112,10 +112,9 @@ function AppLayout() {
             <Link
               to="/dashboard"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
                 isActive("/dashboard") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
-              style={{ borderLeft: '1px solid blue' }}
             >
               <Home className="h-4 w-4" />
               Dashboard
@@ -124,7 +123,7 @@ function AppLayout() {
             <Link
               to="/sales-orders"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
                 isActive("/sales-orders") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
@@ -135,7 +134,7 @@ function AppLayout() {
             <Link
               to="/invoices"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
                 isActive("/invoices") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
@@ -146,7 +145,7 @@ function AppLayout() {
             <Link
               to="/customers"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
                 isActive("/customers") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
@@ -157,7 +156,7 @@ function AppLayout() {
             <Link
               to="/items"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
                 isActive("/items") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
@@ -168,7 +167,7 @@ function AppLayout() {
             <Link
               to="/quickbooks"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
                 isActive("/quickbooks") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
@@ -225,10 +224,9 @@ function AppLayout() {
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header bar */}
         <header className="border-b bg-background">
-          <div className="flex h-16 items-center gap-4 px-6" style={{ borderLeft: '3px solid red' }}>
-            <div className="flex-1" style={{ borderLeft: '1px solid blue' }}>
+          <div className="flex h-16 items-center gap-4 px-6">
+            <div className="flex-1">
               {/* Page-specific header content will go here */}
-              <div className="text-sm text-muted-foreground">Debug: Header content area</div>
             </div>
             
             {/* Header actions */}
