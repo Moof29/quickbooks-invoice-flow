@@ -1,4 +1,4 @@
-
+import { useState } from 'react'
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, Link, Outlet } fro
 import { AuthProfileProvider, useAuthProfile } from "@/hooks/useAuthProfile";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,8 @@ import {
   Truck,
   User,
   Users,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
@@ -41,7 +44,6 @@ import Customers from "./pages/Customers";
 import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
-
 
 const queryClient = new QueryClient();
 
@@ -66,10 +68,26 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AppLayout() {
+function Sidebar({
+  isCollapsed,
+  setIsCollapsed,
+}: {
+  isCollapsed: boolean
+  setIsCollapsed: (collapsed: boolean) => void
+}) {
   const location = useLocation();
   const { user, profile, signOut } = useAuthProfile();
   const { toast } = useToast();
+
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: Home, path: "/dashboard" },
+    { id: "sales-orders", label: "Sales Orders", icon: ShoppingCart, path: "/sales-orders" },
+    { id: "invoices", label: "Invoices", icon: FileText, path: "/invoices" },
+    { id: "customers", label: "Customers", icon: Users, path: "/customers" },
+    { id: "items", label: "Items", icon: Package, path: "/items" },
+    { id: "quickbooks", label: "QuickBooks", icon: Truck, path: "/quickbooks" },
+    { id: "settings", label: "Settings", icon: SettingsIcon, path: "/settings" },
+  ]
 
   const handleSignOut = async () => {
     try {
@@ -95,97 +113,59 @@ function AppLayout() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="w-64 border-r bg-background">
-        <div className="flex h-full flex-col">
-          {/* Logo/Brand */}
-          <div className="border-b px-6 py-4">
-            <Link to="/dashboard" className="flex items-center gap-3">
-              <Package2 className="h-4 w-4" />
-              <span className="text-lg font-semibold">Batchly</span>
-            </Link>
+    <aside
+      className={cn("border-r bg-background transition-all duration-300 ease-in-out", isCollapsed ? "w-16" : "w-64")}
+    >
+      <div className="flex h-full flex-col">
+        {/* Logo/Brand with collapse toggle */}
+        <div className="border-b px-6 py-4 flex items-center justify-between">
+          <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
+            <Package2 className="h-6 w-6 shrink-0" />
+            {!isCollapsed && <span className="text-lg font-semibold">Batchly</span>}
           </div>
-          
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-6 py-4">
-            <Link
-              to="/dashboard"
-              className={cn(
-                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
-                isActive("/dashboard") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Home className="h-4 w-4" />
-              Dashboard
-            </Link>
-            
-            <Link
-              to="/sales-orders"
-              className={cn(
-                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
-                isActive("/sales-orders") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <ShoppingCart className="h-4 w-4" />
-              Sales Orders
-            </Link>
-            
-            <Link
-              to="/invoices"
-              className={cn(
-                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
-                isActive("/invoices") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <FileText className="h-4 w-4" />
-              Invoices
-            </Link>
-            
-            <Link
-              to="/customers"
-              className={cn(
-                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
-                isActive("/customers") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Users className="h-4 w-4" />
-              Customers
-            </Link>
-            
-            <Link
-              to="/items"
-              className={cn(
-                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
-                isActive("/items") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Package className="h-4 w-4" />
-              Items
-            </Link>
-            
-            <Link
-              to="/quickbooks"
-              className={cn(
-                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-colors",
-                isActive("/quickbooks") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Truck className="h-4 w-4" />
-              QuickBooks
-            </Link>
-          </nav>
-          
-          {/* User section at bottom */}
-          <div className="border-t px-6 py-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start gap-2 px-3 py-2 h-auto">
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback>
-                      {user?.email?.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+          <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className="h-8 w-8">
+            {isCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
+          </Button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1 px-6 py-4">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.id}
+                to={item.path}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive(item.path)
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  isCollapsed && "justify-center",
+                )}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {!isCollapsed && item.label}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* User section at bottom */}
+        <div className="border-t px-6 py-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn("w-full gap-2 px-3 py-2 h-auto", isCollapsed ? "justify-center" : "justify-start")}
+              >
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarFallback>
+                    {user?.email?.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                {!isCollapsed && (
                   <div className="flex flex-col items-start text-sm min-w-0 flex-1">
                     <span className="font-medium truncate w-full" title={user?.email}>
                       {user?.email}
@@ -194,61 +174,78 @@ function AppLayout() {
                       {profile?.organization_id || "Organization"}
                     </span>
                   </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem asChild>
-                  <Link to="/settings">
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/settings">
-                    <SettingsIcon className="mr-2 h-4 w-4" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem asChild>
+                <Link to="/settings">
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/settings">
+                  <SettingsIcon className="mr-2 h-4 w-4" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </aside>
-      
-      {/* Main content area */}
+      </div>
+    </aside>
+  )
+}
+
+function Header() {
+  const [searchQuery, setSearchQuery] = useState("")
+
+  return (
+    <header className="border-b bg-background">
+      <div className="flex h-16 items-center gap-4 px-6">
+        {/* Search bar */}
+        <div className="relative w-80 ml-auto">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Header actions */}
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="relative">
+            <Bell className="h-4 w-4" />
+            <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
+          </Button>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+function AppLayout() {
+  const [isCollapsed, setIsCollapsed] = useState(false)
+
+  return (
+    <div className="flex h-screen bg-background">
+      <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header bar */}
-        <header className="border-b bg-background">
-          <div className="flex h-16 items-center gap-4 px-6">
-            <div className="flex-1">
-              {/* Page-specific header content will go here */}
-            </div>
-            
-            {/* Header actions */}
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <Search className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-4 w-4" />
-                <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
-              </Button>
-            </div>
-          </div>
-        </header>
-        
-        {/* Page content */}
+        <Header />
         <main className="flex-1 overflow-y-auto bg-muted/40">
           <Outlet />
         </main>
       </div>
     </div>
-  );
+  )
 }
 
 const App = () => (
