@@ -50,24 +50,24 @@ function Header() {
 
   return (
     <header className="border-b bg-white">
-      <div className="flex h-16 items-center gap-4 px-6">
+      <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
         {/* Sidebar trigger */}
-        <SidebarTrigger className="h-8 w-8" />
+        <SidebarTrigger className="h-8 w-8 flex-shrink-0" />
         
-        {/* Search bar */}
-        <div className="relative w-80 ml-auto">
+        {/* Search bar - responsive width */}
+        <div className="relative flex-1 max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg ml-auto">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 text-sm"
           />
         </div>
 
         {/* Header actions */}
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="relative">
+        <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+          <Button variant="ghost" size="icon" className="relative h-8 w-8 md:h-10 md:w-10">
             <Bell className="h-4 w-4" />
             <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
           </Button>
@@ -79,12 +79,12 @@ function Header() {
 
 function AppLayout() {
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex h-screen w-full">
         <AppSidebar />
         <SidebarInset className="flex flex-1 flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-y-auto bg-muted/40">
+          <main className="flex-1 overflow-y-auto bg-muted/40 p-4 md:p-6 lg:p-8">
             <Outlet />
           </main>
         </SidebarInset>

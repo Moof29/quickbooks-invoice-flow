@@ -229,7 +229,7 @@ All colors MUST be HSL.
 }
 
 .page-content {
-  @apply px-6 py-8;
+  @apply px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8;
 }
 
 .page-title {
@@ -242,20 +242,56 @@ All colors MUST be HSL.
 
 /* Layout Grid Systems */
 .layout-grid-auto {
-  @apply grid gap-6;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  @apply grid gap-4 md:gap-6;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+@media (min-width: 768px) {
+  .layout-grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
 }
 
 .layout-grid-2 {
-  @apply grid grid-cols-1 lg:grid-cols-2 gap-6;
+  @apply grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6;
 }
 
 .layout-grid-3 {
-  @apply grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6;
+  @apply grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6;
 }
 
 .layout-grid-4 {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6;
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6;
+}
+
+/* Mobile-first responsive utilities */
+.container-mobile {
+  @apply px-4 mx-auto max-w-7xl;
+}
+
+@media (min-width: 640px) {
+  .container-mobile {
+    @apply px-6;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-mobile {
+    @apply px-8;
+  }
+}
+
+/* Responsive padding utilities */
+.padding-responsive {
+  @apply p-4 md:p-6 lg:p-8;
+}
+
+.padding-x-responsive {
+  @apply px-4 md:px-6 lg:px-8;
+}
+
+.padding-y-responsive {
+  @apply py-4 md:py-6 lg:py-8;
 }
 
 /* Content Sections */

@@ -60,33 +60,37 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <div className="flex items-center px-4 py-2">
-          <Package2 className="h-6 w-6 text-primary" />
-          <span className="ml-2 text-lg font-semibold group-data-[collapsible=icon]:hidden">
+    <Sidebar 
+      collapsible="icon" 
+      variant="inset"
+      className="border-r"
+    >
+      <SidebarHeader className="border-b border-sidebar-border">
+        <div className="flex items-center px-4 py-3">
+          <Package2 className="h-6 w-6 text-primary flex-shrink-0" />
+          <span className="ml-2 text-lg font-semibold group-data-[collapsible=icon]:hidden truncate">
             Batchly
           </span>
         </div>
       </SidebarHeader>
       
-      <SidebarContent>
-        <SidebarMenu>
+      <SidebarContent className="px-2 py-4">
+        <SidebarMenu className="space-y-1">
           {navigationItems.map((item) => (
             <SidebarMenuItem key={item.name}>
-              <SidebarMenuButton asChild>
+              <SidebarMenuButton asChild size="lg" tooltip={item.name}>
                 <NavLink
                   to={item.href}
                   className={({ isActive }) =>
-                    `flex items-center w-full ${
+                    `flex items-center w-full gap-3 rounded-md px-3 py-2 transition-colors ${
                       isActive 
                         ? "bg-accent text-accent-foreground font-medium" 
                         : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                     }`
                   }
                 >
-                  <item.icon className="h-4 w-4" />
-                  <span className="ml-2 group-data-[collapsible=icon]:hidden">
+                  <item.icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="group-data-[collapsible=icon]:hidden truncate">
                     {item.name}
                   </span>
                 </NavLink>
@@ -96,12 +100,17 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
       
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border px-2 py-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleSignOut}>
-              <LogOut className="h-4 w-4" />
-              <span className="ml-2 group-data-[collapsible=icon]:hidden">
+            <SidebarMenuButton 
+              onClick={handleSignOut}
+              size="lg"
+              tooltip="Sign Out"
+              className="text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            >
+              <LogOut className="h-4 w-4 flex-shrink-0" />
+              <span className="group-data-[collapsible=icon]:hidden">
                 Sign Out
               </span>
             </SidebarMenuButton>
