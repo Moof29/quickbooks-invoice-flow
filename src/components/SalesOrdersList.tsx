@@ -326,12 +326,12 @@ export function SalesOrdersList() {
                 <SelectItem value="invoiced">Invoiced</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={selectedDeliveryDate ? format(selectedDeliveryDate, 'yyyy-MM-dd') : ''} onValueChange={(value) => setSelectedDeliveryDate(value ? new Date(value) : null)}>
+            <Select value={selectedDeliveryDate ? format(selectedDeliveryDate, 'yyyy-MM-dd') : 'all'} onValueChange={(value) => setSelectedDeliveryDate(value === 'all' ? null : new Date(value))}>
               <SelectTrigger className="w-full sm:w-64">
                 <SelectValue placeholder="Filter by delivery date" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Delivery Dates</SelectItem>
+                <SelectItem value="all">All Delivery Dates</SelectItem>
                 {Array.from({ length: 14 }, (_, i) => {
                   const date = new Date();
                   date.setDate(date.getDate() + i - 2); // 2 days ago to 11 days ahead
