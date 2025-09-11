@@ -14,7 +14,7 @@ import { format, isToday, isPast, isTomorrow } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
 import { GenerateTestDataButton } from '@/components/GenerateTestDataButton';
 import { SalesOrderConvertToInvoiceButton } from '@/components/SalesOrderConvertToInvoiceButton';
-import { DeliveryCalendarWidget } from '@/components/DeliveryCalendarWidget';
+
 import { cn } from '@/lib/utils';
 
 interface SalesOrder {
@@ -326,30 +326,40 @@ export function SalesOrdersList() {
                 <SelectItem value="invoiced">Invoiced</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              onClick={() => setSelectedDeliveryDate(selectedDeliveryDate ? null : new Date())}
-              className="flex items-center gap-2"
-            >
-              <Calendar className="h-4 w-4" />
-              {selectedDeliveryDate ? 'Clear Filter' : 'Filter by Date'}
-            </Button>
+            <Select value={selectedDeliveryDate ? format(selectedDeliveryDate, 'yyyy-MM-dd') : ''} onValueChange={(value) => setSelectedDeliveryDate(value ? new Date(value) : null)}>
+              <SelectTrigger className="w-full sm:w-64">
+                <SelectValue placeholder="Filter by delivery date" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Delivery Dates</SelectItem>
+                {Array.from({ length: 14 }, (_, i) => {
+                  const date = new Date();
+                  date.setDate(date.getDate() + i - 2); // 2 days ago to 11 days ahead
+                  const dateStr = format(date, 'yyyy-MM-dd');
+                  const displayStr = format(date, 'EEEE, MMM dd, yyyy');
+                  const isToday = i === 2;
+                  const isTomorrow = i === 3;
+                  
+                  return (
+                    <SelectItem key={dateStr} value={dateStr}>
+                      {isToday ? `Today - ${displayStr}` : 
+                       isTomorrow ? `Tomorrow - ${displayStr}` : 
+                       displayStr}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
           
           {/* Active Filters */}
           {selectedDeliveryDate && (
             <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-primary" />
-                  <p className="text-sm font-medium">
-                    Showing orders for: {format(selectedDeliveryDate, 'EEEE, MMM dd, yyyy')}
-                  </p>
-                </div>
-                <DeliveryCalendarWidget
-                  onDateSelect={setSelectedDeliveryDate}
-                  selectedDate={selectedDeliveryDate}
-                />
+              <div className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-primary" />
+                <p className="text-sm font-medium">
+                  Showing orders for: {format(selectedDeliveryDate, 'EEEE, MMM dd, yyyy')}
+                </p>
               </div>
             </div>
           )}
