@@ -117,15 +117,16 @@ function Sidebar({
       className={cn("border-r bg-background transition-all duration-300 ease-in-out", isCollapsed ? "w-16" : "w-64")}
     >
       <div className="flex h-full flex-col">
-        {/* Logo/Brand with collapse toggle */}
-        <div className="border-b px-6 py-4 flex items-center justify-between">
+        {/* Logo/Brand */}
+        <div className="border-b px-6 py-4">
           <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
-            <Package2 className="h-6 w-6 shrink-0" />
-            {!isCollapsed && <span className="text-lg font-semibold">Batchly</span>}
+            <div className="flex items-center gap-2">
+              <Package2 className="h-6 w-6 shrink-0 text-primary" />
+              {!isCollapsed && (
+                <span className="text-lg font-semibold text-foreground">Batchly</span>
+              )}
+            </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className="h-8 w-8">
-            {isCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
-          </Button>
         </div>
 
         {/* Navigation */}
