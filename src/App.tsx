@@ -7,7 +7,7 @@ import { AuthProfileProvider, useAuthProfile } from "@/hooks/useAuthProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Bell } from "lucide-react";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -51,6 +51,9 @@ function Header() {
   return (
     <header className="border-b bg-white">
       <div className="flex h-16 items-center gap-4 px-6">
+        {/* Sidebar trigger */}
+        <SidebarTrigger className="h-8 w-8" />
+        
         {/* Search bar */}
         <div className="relative w-80 ml-auto">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

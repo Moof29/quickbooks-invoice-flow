@@ -19,15 +19,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
@@ -42,12 +38,9 @@ const navigationItems = [
 ];
 
 export function AppSidebar() {
-  const { state, toggleSidebar } = useSidebar();
-  const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuthProfile();
   const { toast } = useToast();
-  const isCollapsed = state === "collapsed";
 
   const handleSignOut = async () => {
     try {
