@@ -103,7 +103,6 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="*" element={<NotFound />} />
             <Route
               element={
                 <ProtectedRoute>
@@ -120,6 +119,7 @@ const App = () => (
               <Route path="/quickbooks" element={<QuickBooksIntegration />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
