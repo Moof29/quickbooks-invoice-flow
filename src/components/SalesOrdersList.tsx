@@ -9,16 +9,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown } from 'lucide-react';
-import { format } from 'date-fns';
+import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown, Truck } from 'lucide-react';
+import { format, isToday, isPast, isTomorrow } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
 import { GenerateTestDataButton } from '@/components/GenerateTestDataButton';
 import { SalesOrderConvertToInvoiceButton } from '@/components/SalesOrderConvertToInvoiceButton';
+import { DeliveryCalendarWidget } from '@/components/DeliveryCalendarWidget';
+import { cn } from '@/lib/utils';
 
 interface SalesOrder {
   id: string;
   order_number: string;
   order_date: string;
+  delivery_date: string;
   status: string;
   total: number;
   memo: string | null;
@@ -32,6 +35,7 @@ export function SalesOrdersList() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [selectedDeliveryDate, setSelectedDeliveryDate] = useState<Date | null>(null);
   const navigate = useNavigate();
 
   const handleCreateSalesOrder = () => {
@@ -58,9 +62,9 @@ export function SalesOrdersList() {
     navigate(`/sales-orders/${orderId}`);
   };
 
-  // Sorting and helpers
-  const [sortKey, setSortKey] = useState<keyof SalesOrder>('order_date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  // Sorting and helpers - default sort by delivery_date
+  const [sortKey, setSortKey] = useState<keyof SalesOrder>('delivery_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleSort = (key: keyof SalesOrder) => {
     if (sortKey === key) {
@@ -74,14 +78,20 @@ export function SalesOrdersList() {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
 
-  const isToday = (dateString: string) => {
-    const d = new Date(dateString);
-    const now = new Date();
-    return (
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    );
+  const getDeliveryRowClass = (deliveryDate: string) => {
+    const date = new Date(deliveryDate);
+    if (isTomorrow(date)) return 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500';
+    if (isToday(date)) return 'bg-yellow-50 hover:bg-yellow-100 border-l-4 border-l-yellow-500';
+    if (isPast(date)) return 'bg-gray-50 hover:bg-gray-100 border-l-4 border-l-gray-400 opacity-75';
+    return '';
+  };
+
+  const getDeliveryBadgeVariant = (deliveryDate: string) => {
+    const date = new Date(deliveryDate);
+    if (isTomorrow(date)) return 'default';
+    if (isToday(date)) return 'secondary';
+    if (isPast(date)) return 'outline';
+    return 'default';
   };
   // Fetch sales orders with customer names
   const { data: salesOrders, isLoading, error } = useQuery({
@@ -93,6 +103,7 @@ export function SalesOrdersList() {
           id,
           order_number,
           order_date,
+          delivery_date,
           status,
           total,
           memo,
@@ -102,7 +113,7 @@ export function SalesOrdersList() {
             company_name
           )
         `)
-        .order('created_at', { ascending: false });
+        .order('delivery_date', { ascending: true });
 
       if (error) {
         console.error('Error fetching sales orders:', error);
@@ -116,7 +127,7 @@ export function SalesOrdersList() {
     },
   });
 
-  // Filter sales orders based on search and status
+  // Filter sales orders based on search, status, and delivery date
   const filteredOrders = salesOrders?.filter(order => {
     const matchesSearch = 
       (order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
@@ -125,7 +136,10 @@ export function SalesOrdersList() {
     
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     
-    return matchesSearch && matchesStatus;
+    const matchesDeliveryDate = !selectedDeliveryDate || 
+      format(new Date(order.delivery_date), 'yyyy-MM-dd') === format(selectedDeliveryDate, 'yyyy-MM-dd');
+    
+    return matchesSearch && matchesStatus && matchesDeliveryDate;
   }) || [];
 
   const sortedOrders = useMemo(() => {
@@ -135,7 +149,7 @@ export function SalesOrdersList() {
       let va: any;
       let vb: any;
 
-      if (sortKey === 'order_date' || sortKey === 'created_at') {
+      if (sortKey === 'order_date' || sortKey === 'created_at' || sortKey === 'delivery_date') {
         va = new Date(a[sortKey] as string).getTime();
         vb = new Date(b[sortKey] as string).getTime();
       } else if (sortKey === 'total') {
@@ -290,28 +304,59 @@ export function SalesOrdersList() {
             </div>
           )}
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search by order number, customer, or memo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+          {/* Filters and Calendar */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Search by order number, customer, or memo..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-48">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="invoiced">Invoiced</SelectItem>
+                  </SelectContent>
+                </Select>
+                {selectedDeliveryDate && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedDeliveryDate(null)}
+                    className="whitespace-nowrap"
+                  >
+                    Clear Date Filter
+                  </Button>
+                )}
+              </div>
+              
+              {selectedDeliveryDate && (
+                <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium">
+                      Filtering by delivery date: {format(selectedDeliveryDate, 'EEEE, MMM dd, yyyy')}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="lg:col-span-1">
+              <DeliveryCalendarWidget
+                onDateSelect={setSelectedDeliveryDate}
+                selectedDate={selectedDeliveryDate}
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="invoiced">Invoiced</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Orders Table */}
@@ -353,8 +398,14 @@ export function SalesOrdersList() {
                       </button>
                     </TableHead>
                     <TableHead className="py-1">
+                      <button type="button" onClick={() => handleSort('delivery_date')} className="flex items-center gap-1 hover:text-foreground">
+                        <Truck className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+                        Delivery Date <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="py-1">
                       <button type="button" onClick={() => handleSort('order_date')} className="flex items-center gap-1 hover:text-foreground">
-                        Date <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                        Order Date <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
                     <TableHead className="py-1">
@@ -374,7 +425,10 @@ export function SalesOrdersList() {
                   {sortedOrders.map((order) => (
                     <TableRow 
                       key={order.id} 
-                      className="h-10 cursor-pointer hover:bg-muted/50" 
+                      className={cn(
+                        "h-10 cursor-pointer hover:bg-muted/50",
+                        getDeliveryRowClass(order.delivery_date)
+                      )}
                       onClick={() => handleRowClick(order.id)}
                     >
                       <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
@@ -389,6 +443,16 @@ export function SalesOrdersList() {
                       </TableCell>
                       <TableCell className="py-2">{order.customer_name}</TableCell>
                       <TableCell className="py-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={getDeliveryBadgeVariant(order.delivery_date)} className="text-xs">
+                            {format(new Date(order.delivery_date), 'MMM dd')}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(order.delivery_date), 'EEE')}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-2 text-sm text-muted-foreground">
                         {format(new Date(order.order_date), 'MMM dd, yyyy')}
                       </TableCell>
                       <TableCell className="py-2">

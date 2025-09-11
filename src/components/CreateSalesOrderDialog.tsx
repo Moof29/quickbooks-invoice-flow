@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
@@ -31,8 +31,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus, Trash2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { CalendarIcon, Plus, Trash2, Copy } from 'lucide-react';
+import { format, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -46,6 +46,7 @@ interface LineItem {
 interface CreateSalesOrderData {
   customer_id: string;
   order_date: string;
+  delivery_date: string;
   customer_po_number?: string;
   requested_ship_date?: string;
   promised_ship_date?: string;
@@ -62,6 +63,8 @@ interface CreateSalesOrderDialogProps {
 }
 
 export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderDialogProps) {
+  const tomorrow = addDays(new Date(), 1);
+  const [deliveryDate, setDeliveryDate] = useState<Date>(tomorrow);
   const [requestedShipDate, setRequestedShipDate] = useState<Date>();
   const [promisedShipDate, setPromisedShipDate] = useState<Date>();
   const [lineItems, setLineItems] = useState<LineItem[]>([{ item_id: '', quantity: 1, unit_price: 0 }]);
@@ -71,6 +74,7 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
   const form = useForm<CreateSalesOrderData>({
     defaultValues: {
       order_date: format(new Date(), 'yyyy-MM-dd'),
+      delivery_date: format(tomorrow, 'yyyy-MM-dd'),
       customer_po_number: '',
       shipping_method: '',
       shipping_terms: '',
@@ -79,6 +83,23 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
       terms: '',
     },
   });
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key === 'd') {
+        event.preventDefault();
+        const newDate = addDays(deliveryDate, 1);
+        setDeliveryDate(newDate);
+        form.setValue('delivery_date', format(newDate, 'yyyy-MM-dd'));
+      }
+    };
+
+    if (open) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [open, deliveryDate, form]);
 
   // Fetch customers for the dropdown
   const { data: customers } = useQuery({
@@ -109,6 +130,37 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
     },
   });
 
+  // Fetch yesterday's order for copy functionality
+  const { data: yesterdayOrder } = useQuery({
+    queryKey: ['yesterday-order', form.watch('customer_id')],
+    queryFn: async () => {
+      const customerId = form.watch('customer_id');
+      if (!customerId) return null;
+
+      const yesterday = addDays(new Date(), -1);
+      const { data, error } = await supabase
+        .from('sales_order')
+        .select(`
+          id,
+          sales_order_line_item (
+            item_id,
+            quantity,
+            unit_price,
+            description
+          )
+        `)
+        .eq('customer_id', customerId)
+        .eq('order_date', format(yesterday, 'yyyy-MM-dd'))
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) return null;
+      return data;
+    },
+    enabled: !!form.watch('customer_id'),
+  });
+
   // Create sales order mutation
   const createSalesOrderMutation = useMutation({
     mutationFn: async (data: CreateSalesOrderData) => {
@@ -129,6 +181,7 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
           organization_id: profile.organization_id,
           customer_id: data.customer_id,
           order_date: data.order_date,
+          delivery_date: data.delivery_date,
           customer_po_number: data.customer_po_number || null,
           requested_ship_date: data.requested_ship_date || null,
           promised_ship_date: data.promised_ship_date || null,
@@ -167,6 +220,7 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
       toast.success('Sales order created successfully');
       onOpenChange(false);
       form.reset();
+      setDeliveryDate(addDays(new Date(), 1));
       setRequestedShipDate(undefined);
       setPromisedShipDate(undefined);
       setLineItems([{ item_id: '', quantity: 1, unit_price: 0 }]);
@@ -198,13 +252,31 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
     }, 0);
   };
 
+  const copyFromYesterday = () => {
+    if (yesterdayOrder?.sales_order_line_item) {
+      const yesterdayItems = yesterdayOrder.sales_order_line_item.map((item: any) => ({
+        item_id: item.item_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        description: item.description || '',
+      }));
+      setLineItems(yesterdayItems);
+      toast.success('Copied line items from yesterday\'s order');
+    }
+  };
+
   const onSubmit = (data: CreateSalesOrderData) => {
     const submitData = {
       ...data,
+      delivery_date: format(deliveryDate, 'yyyy-MM-dd'),
       requested_ship_date: requestedShipDate ? format(requestedShipDate, 'yyyy-MM-dd') : undefined,
       promised_ship_date: promisedShipDate ? format(promisedShipDate, 'yyyy-MM-dd') : undefined,
     };
     createSalesOrderMutation.mutate(submitData);
+  };
+
+  const getDayName = (date: Date) => {
+    return format(date, 'EEEE');
   };
 
   return (
@@ -219,6 +291,46 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Delivery Date - Prominent at top */}
+            <div className="bg-primary/5 p-4 rounded-lg border-2 border-primary/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-lg font-semibold text-primary">Delivery Date *</label>
+                  <p className="text-sm text-muted-foreground">
+                    {getDayName(deliveryDate)} Delivery - {format(deliveryDate, 'MMM dd, yyyy')}
+                  </p>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-64 justify-start text-left font-normal bg-background"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(deliveryDate, 'PPP')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={deliveryDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setDeliveryDate(date);
+                          form.setValue('delivery_date', format(date, 'yyyy-MM-dd'));
+                        }
+                      }}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Tip: Use Ctrl+D to advance delivery date by one day
+              </p>
+            </div>
+
             {/* Customer Selection */}
             <FormField
               control={form.control}
@@ -227,20 +339,33 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Customer *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a customer" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {customers?.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.company_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a customer" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {customers?.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.company_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {yesterdayOrder && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={copyFromYesterday}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy from Yesterday
+                      </Button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

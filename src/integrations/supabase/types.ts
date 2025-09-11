@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -3328,6 +3328,7 @@ export type Database = {
           custom_fields: Json | null
           customer_id: string | null
           customer_po_number: string | null
+          delivery_date: string
           discount_rate: number | null
           discount_total: number | null
           discount_type: string | null
@@ -3370,6 +3371,7 @@ export type Database = {
           custom_fields?: Json | null
           customer_id?: string | null
           customer_po_number?: string | null
+          delivery_date?: string
           discount_rate?: number | null
           discount_total?: number | null
           discount_type?: string | null
@@ -3412,6 +3414,7 @@ export type Database = {
           custom_fields?: Json | null
           customer_id?: string | null
           customer_po_number?: string | null
+          delivery_date?: string
           discount_rate?: number | null
           discount_total?: number | null
           discount_type?: string | null
@@ -4659,7 +4662,7 @@ export type Database = {
     }
     Functions: {
       approve_sales_order: {
-        Args: { p_sales_order_id: string; p_approved_by: string }
+        Args: { p_approved_by: string; p_sales_order_id: string }
         Returns: undefined
       }
       generate_sales_order_number: {
@@ -4668,23 +4671,23 @@ export type Database = {
       }
       generate_sales_orders_from_templates: {
         Args: {
+          p_customer_id?: string
           p_date?: string
           p_organization_id?: string
-          p_customer_id?: string
           p_template_id?: string
         }
         Returns: Json
       }
       get_template_item_quantity_for_date: {
         Args: {
-          monday_qty: number
-          tuesday_qty: number
-          wednesday_qty: number
-          thursday_qty: number
           friday_qty: number
+          monday_qty: number
           saturday_qty: number
           sunday_qty: number
           target_date: string
+          thursday_qty: number
+          tuesday_qty: number
+          wednesday_qty: number
         }
         Returns: number
       }
@@ -4695,8 +4698,8 @@ export type Database = {
       invite_user_to_organization: {
         Args: {
           p_email: string
-          p_role: Database["public"]["Enums"]["user_role"]
           p_organization_id: string
+          p_role: Database["public"]["Enums"]["user_role"]
         }
         Returns: string
       }
@@ -4722,9 +4725,9 @@ export type Database = {
       user_has_permission: {
         Args:
           | {
-              p_user_id: string
-              p_resource: Database["public"]["Enums"]["permission_resource"]
               p_action: Database["public"]["Enums"]["permission_action"]
+              p_resource: Database["public"]["Enums"]["permission_resource"]
+              p_user_id: string
             }
           | { permission: string }
         Returns: boolean
