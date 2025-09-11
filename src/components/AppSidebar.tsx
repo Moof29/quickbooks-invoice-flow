@@ -30,41 +30,15 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const navigationGroups = [
-  {
-    label: "General",
-    items: [
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    ]
-  },
-  {
-    label: "Sales",
-    items: [
-      { name: 'Sales Orders', href: '/sales-orders', icon: ShoppingCart },
-      { name: 'Invoices', href: '/invoices', icon: FileText },
-      { name: 'Customers', href: '/customers', icon: Users },
-    ]
-  },
-  {
-    label: "Inventory",
-    items: [
-      { name: 'Products', href: '/items', icon: Package },
-    ]
-  },
-  {
-    label: "Integration",
-    items: [
-      { name: 'QuickBooks', href: '/quickbooks', icon: Zap },
-    ]
-  },
-  {
-    label: "Other",
-    items: [
-      { name: 'Settings', href: '/settings', icon: Settings },
-    ]
-  }
+const navigationItems = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Sales Orders', href: '/sales-orders', icon: ShoppingCart },
+  { name: 'Invoices', href: '/invoices', icon: FileText },
+  { name: 'Customers', href: '/customers', icon: Users },
+  { name: 'Products', href: '/items', icon: Package },
+  { name: 'QuickBooks', href: '/quickbooks', icon: Zap },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -74,7 +48,6 @@ export function AppSidebar() {
   const { signOut } = useAuthProfile();
   const { toast } = useToast();
   const isCollapsed = state === "collapsed";
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['General', 'Sales']);
 
   const handleSignOut = async () => {
     try {
@@ -93,21 +66,13 @@ export function AppSidebar() {
     }
   };
 
-  const toggleGroup = (groupLabel: string) => {
-    setExpandedGroups(prev => 
-      prev.includes(groupLabel)
-        ? prev.filter(label => label !== groupLabel)
-        : [...prev, groupLabel]
-    );
-  };
-
   return (
     <Sidebar 
       collapsible="icon" 
       className={isCollapsed ? "w-16" : "w-64"}
     >
       <SidebarHeader className="border-b">
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex items-center justify-between px-3 py-2">
           <div className="flex items-center gap-2">
             <Package2 className="h-6 w-6 shrink-0 text-primary" />
             {!isCollapsed && (
@@ -118,7 +83,7 @@ export function AppSidebar() {
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="h-8 w-8 ml-auto"
+            className="h-8 w-8"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -140,84 +105,31 @@ export function AppSidebar() {
       </SidebarHeader>
       
       <SidebarContent className="px-2 py-2">
-        {navigationGroups.map((group, groupIndex) => (
-          <div key={group.label} className={groupIndex > 0 ? "mt-6" : ""}>
-            {!isCollapsed && (
-              <Collapsible
-                open={expandedGroups.includes(group.label)}
-                onOpenChange={() => toggleGroup(group.label)}
-              >
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-between px-2 py-1 h-auto text-xs font-medium text-muted-foreground hover:text-foreground mb-1"
-                  >
-                    {group.label}
-                    {expandedGroups.includes(group.label) ? (
-                      <ChevronDown className="h-3 w-3" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarGroup>
-                    <SidebarGroupContent>
-                      <SidebarMenu>
-                        {group.items.map((item) => (
-                          <SidebarMenuItem key={item.name}>
-                            <SidebarMenuButton asChild>
-                              <NavLink
-                                to={item.href}
-                                className={({ isActive }) =>
-                                  `flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm ${
-                                    isActive 
-                                      ? "bg-accent text-accent-foreground font-medium" 
-                                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                                  }`
-                                }
-                              >
-                                <item.icon className="h-4 w-4 flex-shrink-0" />
-                                <span>{item.name}</span>
-                              </NavLink>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        ))}
-                      </SidebarMenu>
-                    </SidebarGroupContent>
-                  </SidebarGroup>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-            
-            {isCollapsed && (
-              <SidebarGroup>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {group.items.map((item) => (
-                      <SidebarMenuItem key={item.name}>
-                        <SidebarMenuButton asChild>
-                          <NavLink
-                            to={item.href}
-                            className={({ isActive }) =>
-                              `flex items-center justify-center p-2 rounded-md transition-colors ${
-                                isActive 
-                                  ? "bg-accent text-accent-foreground" 
-                                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                              }`
-                            }
-                          >
-                            <item.icon className="h-4 w-4" />
-                          </NavLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
-          </div>
-        ))}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigationItems.map((item) => (
+                <SidebarMenuItem key={item.name}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.href}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm ${
+                          isActive 
+                            ? "bg-accent text-accent-foreground font-medium" 
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                        } ${isCollapsed ? "justify-center" : ""}`
+                      }
+                    >
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      {!isCollapsed && <span>{item.name}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       
       <SidebarFooter className="border-t mt-auto">
