@@ -9,6 +9,7 @@ import {
   LogOut,
   ShoppingCart,
   Package,
+  Package2,
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
@@ -103,15 +104,21 @@ export function AppSidebar() {
   return (
     <Sidebar 
       collapsible="icon" 
-      className={isCollapsed ? "w-16" : "w-52"}
+      className={isCollapsed ? "w-16" : "w-64"}
     >
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Package2 className="h-6 w-6 shrink-0 text-primary" />
+            {!isCollapsed && (
+              <span className="text-lg font-semibold text-foreground">Batchly</span>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="h-8 w-8"
+            className="h-8 w-8 ml-auto"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -129,9 +136,6 @@ export function AppSidebar() {
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </Button>
-          {!isCollapsed && (
-            <span className="text-sm font-semibold">Batchly</span>
-          )}
         </div>
       </SidebarHeader>
       
