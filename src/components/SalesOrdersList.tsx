@@ -241,30 +241,30 @@ export function SalesOrdersList() {
         <CardContent className="p-6 space-y-6">
           {/* Summary Stats */}
           {filteredOrders.length > 0 && (
-            <div className="layout-grid-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
               <Card className="bg-muted/30 border-border/50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-blue-600" />
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <FileText className="h-4 w-4 text-blue-600" />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
-                      <p className="text-2xl font-bold text-foreground">{filteredOrders.length}</p>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-muted-foreground truncate">Total Orders</p>
+                      <p className="text-lg font-bold text-foreground">{filteredOrders.length}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
               <Card className="bg-muted/30 border-border/50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-green-600" />
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <DollarSign className="h-4 w-4 text-green-600" />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Sales Today</p>
-                      <p className="text-2xl font-bold text-foreground">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-muted-foreground truncate">Sales Today</p>
+                      <p className="text-lg font-bold text-foreground truncate">
                         {formatCurrency(todaySalesTotal)}
                       </p>
                     </div>
@@ -273,14 +273,14 @@ export function SalesOrdersList() {
               </Card>
               
               <Card className="bg-muted/30 border-border/50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                      <Calendar className="h-5 w-5 text-purple-600" />
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Calendar className="h-4 w-4 text-purple-600" />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Pending / Approved</p>
-                      <p className="text-2xl font-bold text-foreground">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-muted-foreground truncate">Pending / Approved</p>
+                      <p className="text-lg font-bold text-foreground">
                         {filteredOrders.filter(order => order.status === 'pending').length} / {filteredOrders.filter(order => order.status === 'approved').length}
                       </p>
                     </div>
