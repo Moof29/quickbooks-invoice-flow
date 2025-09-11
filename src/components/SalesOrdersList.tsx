@@ -304,60 +304,55 @@ export function SalesOrdersList() {
             </div>
           )}
 
-          {/* Filters and Calendar */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Search by order number, customer, or memo..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="invoiced">Invoiced</SelectItem>
-                  </SelectContent>
-                </Select>
-                {selectedDeliveryDate && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedDeliveryDate(null)}
-                    className="whitespace-nowrap"
-                  >
-                    Clear Date Filter
-                  </Button>
-                )}
-              </div>
-              
-              {selectedDeliveryDate && (
-                <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
-                  <div className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-medium">
-                      Filtering by delivery date: {format(selectedDeliveryDate, 'EEEE, MMM dd, yyyy')}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="lg:col-span-1">
-              <DeliveryCalendarWidget
-                onDateSelect={setSelectedDeliveryDate}
-                selectedDate={selectedDeliveryDate}
+          {/* Filters Row */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search by order number, customer, or memo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
               />
             </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="invoiced">Invoiced</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              onClick={() => setSelectedDeliveryDate(selectedDeliveryDate ? null : new Date())}
+              className="flex items-center gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              {selectedDeliveryDate ? 'Clear Filter' : 'Filter by Date'}
+            </Button>
           </div>
+          
+          {/* Active Filters */}
+          {selectedDeliveryDate && (
+            <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium">
+                    Showing orders for: {format(selectedDeliveryDate, 'EEEE, MMM dd, yyyy')}
+                  </p>
+                </div>
+                <DeliveryCalendarWidget
+                  onDateSelect={setSelectedDeliveryDate}
+                  selectedDate={selectedDeliveryDate}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Orders Table */}
           {filteredOrders.length === 0 ? (

@@ -61,52 +61,48 @@ export function DeliveryCalendarWidget({ onDateSelect, selectedDate }: DeliveryC
   };
 
   return (
-    <Card className="border-0 shadow-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Delivery Calendar</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Click a date to filter orders by delivery date
-        </p>
-      </CardHeader>
-      <CardContent className="p-4">
-        <Calendar
-          mode="single"
-          selected={calendarDate}
-          onSelect={handleDateSelect}
-          modifiers={modifiers}
-          modifiersStyles={modifiersStyles}
-          className={cn("p-0 pointer-events-auto")}
-          components={{
-            DayContent: ({ date }) => {
-              const orderCount = getOrderCountForDate(date);
-              return (
-                <div className="relative w-full h-full flex items-center justify-center">
-                  <span>{format(date, 'd')}</span>
-                  {orderCount > 0 && (
-                    <Badge 
-                      variant="secondary" 
-                      className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
-                    >
-                      {orderCount}
-                    </Badge>
-                  )}
-                </div>
-              );
-            },
-          }}
-        />
-        
-        {selectedDate && (
-          <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-            <p className="text-sm font-medium">
-              Selected: {format(selectedDate, 'EEEE, MMM dd, yyyy')}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {getOrderCountForDate(selectedDate)} order(s) for delivery
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div className="bg-card border border-border rounded-lg p-3 shadow-sm">
+      <div className="mb-2">
+        <p className="text-sm font-medium text-foreground">Delivery Calendar</p>
+        <p className="text-xs text-muted-foreground">Select a date to filter</p>
+      </div>
+      <Calendar
+        mode="single"
+        selected={calendarDate}
+        onSelect={handleDateSelect}
+        modifiers={modifiers}
+        modifiersStyles={modifiersStyles}
+        className={cn("p-0 pointer-events-auto border-0")}
+        components={{
+          DayContent: ({ date }) => {
+            const orderCount = getOrderCountForDate(date);
+            return (
+              <div className="relative w-full h-full flex items-center justify-center">
+                <span className="text-xs">{format(date, 'd')}</span>
+                {orderCount > 0 && (
+                  <Badge 
+                    variant="secondary" 
+                    className="absolute -top-1 -right-1 h-3 w-3 p-0 flex items-center justify-center text-[10px] leading-none"
+                  >
+                    {orderCount > 9 ? '9+' : orderCount}
+                  </Badge>
+                )}
+              </div>
+            );
+          },
+        }}
+      />
+      
+      {selectedDate && (
+        <div className="mt-2 p-2 bg-muted/30 rounded text-center">
+          <p className="text-xs font-medium text-foreground">
+            {format(selectedDate, 'MMM dd')}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {getOrderCountForDate(selectedDate)} orders
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
