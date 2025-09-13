@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Search, Bell } from "lucide-react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { ThemeProvider } from "next-themes";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -49,7 +51,7 @@ function Header() {
   const [searchQuery, setSearchQuery] = useState("")
 
   return (
-    <header className="border-b bg-white">
+    <header className="border-b bg-background">
       <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
         {/* Sidebar trigger */}
         <SidebarTrigger className="h-8 w-8 flex-shrink-0" />
@@ -71,6 +73,7 @@ function Header() {
             <Bell className="h-4 w-4" />
             <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
           </Button>
+          <ThemeToggle />
         </div>
       </div>
     </header>
@@ -94,12 +97,13 @@ function AppLayout() {
 }
 
 const App = () => (
-  <AuthProfileProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <AuthProfileProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
@@ -125,6 +129,7 @@ const App = () => (
       </TooltipProvider>
     </QueryClientProvider>
   </AuthProfileProvider>
+  </ThemeProvider>
 );
 
 export default App;
