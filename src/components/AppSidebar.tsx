@@ -11,7 +11,8 @@ import {
   Package,
   Package2,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Shield
 } from 'lucide-react';
 import { useAuthProfile } from "@/hooks/useAuthProfile";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +35,7 @@ const navigationItems = [
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Products', href: '/items', icon: Package },
   { name: 'QuickBooks', href: '/quickbooks', icon: Zap },
+  { name: 'Security', href: '/security', icon: Shield },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

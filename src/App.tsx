@@ -20,6 +20,7 @@ import SalesOrderDetails from "./pages/SalesOrderDetails";
 import Items from "./pages/Items";
 import Customers from "./pages/Customers";
 import QuickBooksIntegration from "./pages/QuickBooksIntegration";
+import Security from "./pages/Security";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 import { useState } from "react";
@@ -121,6 +122,7 @@ const App = () => (
               <Route path="/items" element={<Items />} />
               <Route path="/customers" element={<Customers />} />
               <Route path="/quickbooks" element={<QuickBooksIntegration />} />
+              <Route path="/security" element={<Security />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
