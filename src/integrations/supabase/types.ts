@@ -3835,6 +3835,48 @@ export type Database = {
           },
         ]
       }
+      security_audit_log: {
+        Row: {
+          access_type: string
+          accessed_column: string | null
+          accessed_table: string
+          id: string
+          ip_address: unknown | null
+          organization_id: string
+          record_id: string | null
+          sensitive_data_accessed: boolean | null
+          timestamp: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_type: string
+          accessed_column?: string | null
+          accessed_table: string
+          id?: string
+          ip_address?: unknown | null
+          organization_id: string
+          record_id?: string | null
+          sensitive_data_accessed?: boolean | null
+          timestamp?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_type?: string
+          accessed_column?: string | null
+          accessed_table?: string
+          id?: string
+          ip_address?: unknown | null
+          organization_id?: string
+          record_id?: string | null
+          sensitive_data_accessed?: boolean | null
+          timestamp?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       sync_error: {
         Row: {
           created_at: string | null
@@ -4677,6 +4719,18 @@ export type Database = {
           p_template_id?: string
         }
         Returns: Json
+      }
+      get_qbo_connection_secure: {
+        Args: { org_id: string }
+        Returns: {
+          id: string
+          is_active: boolean
+          last_connected_at: string
+          last_sync_at: string
+          organization_id: string
+          qbo_company_id: string
+          qbo_realm_id: string
+        }[]
       }
       get_template_item_quantity_for_date: {
         Args: {
