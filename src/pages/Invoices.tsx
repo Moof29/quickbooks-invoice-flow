@@ -3,16 +3,36 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { 
-  Search,
-  Filter,
   Plus,
   Eye,
   Edit,
   Trash2,
   Download,
-  Send
+  Send,
+  MoreHorizontal,
+  FileText,
+  DollarSign,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +48,7 @@ interface Invoice {
   status: string;
   customer_profile?: {
     display_name: string;
+    company_name: string;
     email: string;
   };
 }
@@ -37,6 +58,7 @@ const Invoices = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -56,6 +78,7 @@ const Invoices = () => {
           status,
           customer_profile:customer_id (
             display_name,
+            company_name,
             email
           )
         `)
@@ -81,20 +104,41 @@ const Invoices = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status?.toLowerCase()) {
       case 'paid':
-        return 'bg-green-100 text-green-800';
+        return 'default';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'secondary';
       case 'overdue':
-        return 'bg-red-100 text-red-800';
+        return 'destructive';
       case 'draft':
-        return 'bg-gray-100 text-gray-800';
+        return 'outline';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'outline';
     }
   };
+
+  const toggleInvoiceSelection = (invoiceId: string) => {
+    setSelectedInvoices(prev =>
+      prev.includes(invoiceId)
+        ? prev.filter(id => id !== invoiceId)
+        : [...prev, invoiceId]
+    );
+  };
+
+  const toggleAllInvoices = () => {
+    if (selectedInvoices.length === invoices.length) {
+      setSelectedInvoices([]);
+    } else {
+      setSelectedInvoices(invoices.map(inv => inv.id));
+    }
+  };
+
+  const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+  const paidInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'paid');
+  const pendingInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'pending');
+  const overdueInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'overdue');
 
   const handleDeleteInvoice = async (invoiceId: string) => {
     if (!confirm('Are you sure you want to delete this invoice?')) return;
@@ -135,7 +179,7 @@ const Invoices = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex-1 space-y-4 p-8">
       <ModernPageHeader
         title="Invoices"
         description="Manage and track all your invoices"
@@ -154,10 +198,63 @@ const Invoices = () => {
         </Button>
       </ModernPageHeader>
 
-      <div className="page-content">
+      {/* Metrics Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground">{invoices.length} total invoices</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Paid</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{paidInvoices.length}</div>
+            <p className="text-xs text-muted-foreground">
+              ${paidInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingInvoices.length}</div>
+            <p className="text-xs text-muted-foreground">
+              ${pendingInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{overdueInvoices.length}</div>
+            <p className="text-xs text-muted-foreground">
+              ${overdueInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-4">
         {/* Invoices List */}
-        <Card className="card-data-table">
-          <CardHeader className="table-header-enhanced">
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg font-semibold">All Invoices</CardTitle>
@@ -165,9 +262,11 @@ const Invoices = () => {
                   {invoices.length} invoice{invoices.length !== 1 ? 's' : ''} found
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="text-xs font-medium">
-                {invoices.length} Total
-              </Badge>
+              {selectedInvoices.length > 0 && (
+                <Badge variant="secondary" className="text-xs font-medium">
+                  {selectedInvoices.length} selected
+                </Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -175,9 +274,7 @@ const Invoices = () => {
               <div className="text-center py-16">
                 <div className="flex justify-center mb-4">
                   <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
-                    <svg className="h-8 w-8 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <FileText className="h-8 w-8 text-muted-foreground/50" />
                   </div>
                 </div>
                 <h3 className="text-lg font-medium text-foreground mb-2">No invoices found</h3>
@@ -190,82 +287,111 @@ const Invoices = () => {
                 </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Invoice #</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Customer</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Due Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Amount</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoices.map((invoice) => (
-                      <tr key={invoice.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">
-                          <div className="font-medium text-blue-600">
-                            {invoice.invoice_number}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedInvoices.length === invoices.length}
+                        onCheckedChange={toggleAllInvoices}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
+                    <TableHead>Invoice</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Invoice Date</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map((invoice) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedInvoices.includes(invoice.id)}
+                          onCheckedChange={() => toggleInvoiceSelection(invoice.id)}
+                          aria-label={`Select invoice ${invoice.invoice_number}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-primary">
+                          {invoice.invoice_number}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              {(invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'CU').substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
                           <div>
-                            <div className="font-medium text-gray-900">
-                              {invoice.customer_profile?.display_name || 'Unknown Customer'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {invoice.customer_profile?.email || ''}
-                            </div>
+                            <div className="font-medium">{invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'N/A'}</div>
+                            <div className="text-sm text-muted-foreground">{invoice.customer_profile?.email || 'N/A'}</div>
                           </div>
-                        </td>
-                        <td className="py-3 px-4 text-gray-900">
-                          {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td className="py-3 px-4 text-gray-900">
-                          {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="font-medium text-gray-900">
-                            ${invoice.total?.toLocaleString() || '0.00'}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <Badge className={getStatusColor(invoice.status)}>
-                            {invoice.status || 'draft'}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex justify-end space-x-1">
-                            <Button variant="ghost" size="sm" title="View">
-                              <Eye className="h-4 w-4" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">
+                          ${invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusVariant(invoice.status)}>
+                          {invoice.status || 'draft'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Open menu</span>
                             </Button>
-                            <Button variant="ghost" size="sm" title="Edit">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" title="Download">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" title="Send">
-                              <Send className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              title="Delete"
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit Invoice
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Download className="mr-2 h-4 w-4" />
+                              Download PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Send className="mr-2 h-4 w-4" />
+                              Send to Customer
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
                               onClick={() => handleDeleteInvoice(invoice.id)}
                             >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
