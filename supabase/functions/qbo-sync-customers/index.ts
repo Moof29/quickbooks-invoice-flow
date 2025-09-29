@@ -218,7 +218,7 @@ async function pushCustomersToQB(supabase: any, connection: any): Promise<number
   let syncedCount = 0;
   for (const customer of customers) {
     try {
-      const qbCustomerData = {
+      const qbCustomerData: any = {
         Name: customer.display_name || customer.company_name,
         CompanyName: customer.company_name || "",
         PrimaryEmailAddr: customer.email ? { Address: customer.email } : undefined,

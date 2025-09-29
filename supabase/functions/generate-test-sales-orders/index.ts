@@ -5,9 +5,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface Profile {
+  organization_id: string
+}
+
+interface Customer {
+  id: string
+  company_name: string
+}
+
+interface Item {
+  id: string
+  name: string
+  purchase_cost: number | null
+}
+
+interface CustomerTemplate {
+  id: string
+}
+
 interface Database {
   public: {
     Tables: {
+      profiles: {
+        Row: Profile
+      }
+      customer_profile: {
+        Row: Customer
+      }
+      item_record: {
+        Row: Item
+      }
+      customer_templates: {
+        Row: CustomerTemplate
+        Insert: {
+          organization_id: string
+          customer_id: string
+          name: string
+          description?: string
+          is_active?: boolean
+        }
+      }
       sales_order: {
         Insert: {
           id?: string
@@ -41,7 +79,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient<Database>(
+    const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
@@ -72,7 +110,7 @@ Deno.serve(async (req) => {
       throw new Error('Could not get user profile')
     }
 
-    const organizationId = profile.organization_id
+    const organizationId = (profile as Profile).organization_id
 
     // Get available customers and items
     const { data: customers, error: customersError } = await supabaseClient
@@ -95,19 +133,22 @@ Deno.serve(async (req) => {
       throw new Error(`Error fetching items: ${itemsError.message}`)
     }
 
-    if (!customers || customers.length === 0) {
+    const typedCustomers = customers as Customer[] | null
+    const typedItems = items as Item[] | null
+
+    if (!typedCustomers || typedCustomers.length === 0) {
       throw new Error('No customers found. Please create some customers first.')
     }
 
-    if (!items || items.length === 0) {
+    if (!typedItems || typedItems.length === 0) {
       throw new Error('No items found. Please create some items first.')
     }
 
-    console.log(`Found ${customers.length} customers and ${items.length} items`)
+    console.log(`Found ${typedCustomers.length} customers and ${typedItems.length} items`)
 
     // First, create customer templates for all customers if they don't exist
     console.log('Creating customer templates...')
-    for (const customer of customers) {
+    for (const customer of typedCustomers) {
       // Check if customer already has templates
       const { data: existingTemplates, error: templateCheckError } = await supabaseClient
         .from('customer_templates')
@@ -124,6 +165,7 @@ Deno.serve(async (req) => {
       if (!existingTemplates || existingTemplates.length === 0) {
         const { error: templateError } = await supabaseClient
           .from('customer_templates')
+          // @ts-ignore - Supabase type inference issue in edge functions
           .insert({
             organization_id: organizationId,
             customer_id: customer.id,
@@ -144,7 +186,7 @@ Deno.serve(async (req) => {
     const statuses = ['pending_approval', 'pending_approval', 'approved', 'invoiced'] // Use database-valid statuses
 
     for (let i = 1; i <= 20; i++) {
-      const customerId = customers[Math.floor(Math.random() * customers.length)].id
+      const customerId = typedCustomers[Math.floor(Math.random() * typedCustomers.length)].id
       const status = statuses[Math.floor(Math.random() * statuses.length)]
       
       // Generate order date (last 30 days)
@@ -158,7 +200,7 @@ Deno.serve(async (req) => {
       let orderTotal = 0
       
       for (let j = 0; j < numLineItems; j++) {
-        const item = items[Math.floor(Math.random() * items.length)]
+        const item = typedItems[Math.floor(Math.random() * typedItems.length)]
         const quantity = Math.floor(Math.random() * 10) + 1
         const unitPrice = item.purchase_cost || (Math.random() * 100 + 10)
         const amount = quantity * unitPrice
@@ -192,6 +234,7 @@ Deno.serve(async (req) => {
     const batchSize = 5
     for (let i = 0; i < salesOrders.length; i += batchSize) {
       const batch = salesOrders.slice(i, i + batchSize)
+      // @ts-ignore - Supabase type inference issue in edge functions
       const { error: ordersError } = await supabaseClient
         .from('sales_order')
         .insert(batch)
@@ -205,6 +248,7 @@ Deno.serve(async (req) => {
     // Insert line items in smaller batches
     for (let i = 0; i < lineItems.length; i += batchSize) {
       const batch = lineItems.slice(i, i + batchSize)
+      // @ts-ignore - Supabase type inference issue in edge functions
       const { error: lineItemsError } = await supabaseClient
         .from('sales_order_line_item')
         .insert(batch)
@@ -232,14 +276,19 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error generating test sales orders:', error)
-    console.error('Error details:', error.details || error.hint || 'No additional details')
-    console.error('Error code:', error.code || 'No error code')
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorDetails = (error as any)?.details || (error as any)?.hint || 'No additional details'
+    const errorCode = (error as any)?.code || 'No error code'
+    
+    console.error('Error details:', errorDetails)
+    console.error('Error code:', errorCode)
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
-        details: error.details || error.hint,
-        code: error.code
+        error: errorMessage,
+        details: errorDetails,
+        code: errorCode
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
