@@ -1,27 +1,33 @@
-
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   Search,
-  Filter,
   Plus,
   Eye,
   Edit,
   Trash2,
-  Mail,
-  Phone,
-  Building2,
   MoreHorizontal,
-  MapPin
+  TrendingUp,
+  Users,
+  DollarSign,
+  ShoppingBag
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CustomerDialog } from '@/components/CustomerDialog';
-import { ModernPageHeader } from '@/components/ModernPageHeader';
 
 interface Customer {
   id: string;
@@ -41,6 +47,7 @@ const Customers = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -102,123 +109,240 @@ const Customers = () => {
     }
   };
 
+  const toggleCustomer = (id: string) => {
+    setSelectedCustomers(prev =>
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = () => {
+    setSelectedCustomers(prev =>
+      prev.length === customers.length ? [] : customers.map(c => c.id)
+    );
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading customers...</p>
+      <div className="flex-1 space-y-6 p-8">
+        <div className="animate-pulse space-y-6">
+          <div className="h-32 bg-muted rounded-lg"></div>
+          <div className="h-96 bg-muted rounded-lg"></div>
         </div>
       </div>
     );
   }
 
+  const totalCustomers = customers.length;
+  const activeCustomers = customers.filter(c => c.is_active).length;
+
   return (
     <div className="flex-1 space-y-6 p-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-2">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
           <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
-          <p className="text-muted-foreground">
-            Manage your customer relationships
-          </p>
+          <p className="text-muted-foreground">Manage your customer relationships</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search customers by name, company, or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full sm:w-80"
-            />
-          </div>
-          <Button onClick={() => setShowCustomerDialog(true)} className="shrink-0">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Customer
-          </Button>
+        <Button onClick={() => setShowCustomerDialog(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Customer
+        </Button>
+      </div>
+
+      {/* Metrics */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Customers</p>
+                <p className="text-2xl font-bold">{totalCustomers}</p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Users className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-center text-sm">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">+12%</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active</p>
+                <p className="text-2xl font-bold">{activeCustomers}</p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <ShoppingBag className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-center text-sm">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">+8%</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                <p className="text-2xl font-bold">$45,230</p>
+              </div>
+              <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-center text-sm">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">+23%</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Avg Order Value</p>
+                <p className="text-2xl font-bold">$2,350</p>
+              </div>
+              <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-center text-sm">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">+5%</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search customers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {customers.map((customer) => (
-          <Card key={customer.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="h-12 w-12 bg-gradient-to-br from-primary/20 to-primary/30 rounded-lg flex items-center justify-center ring-1 ring-primary/20 shrink-0">
-                    <Building2 className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground text-lg truncate" title={customer.company_name}>
-                      {customer.company_name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground truncate" title={customer.display_name}>
-                      {customer.display_name}
-                    </p>
-                  </div>
+      {/* Table */}
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]">
+                  <Checkbox
+                    checked={selectedCustomers.length === customers.length && customers.length > 0}
+                    onCheckedChange={toggleAll}
+                  />
+                </TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customers.map((customer) => (
+                <TableRow key={customer.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedCustomers.includes(customer.id)}
+                      onCheckedChange={() => toggleCustomer(customer.id)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                          {customer.company_name.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{customer.company_name}</div>
+                        <div className="text-sm text-muted-foreground">{customer.display_name}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm">{customer.email}</TableCell>
+                  <TableCell className="text-sm">{customer.phone || '-'}</TableCell>
+                  <TableCell className="text-sm">
+                    {customer.billing_city && customer.billing_state
+                      ? `${customer.billing_city}, ${customer.billing_state}`
+                      : '-'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={customer.is_active ? "default" : "secondary"} className="bg-green-100 text-green-800">
+                      {customer.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDeleteCustomer(customer.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          
+          {customers.length === 0 && (
+            <div className="text-center py-16">
+              <div className="flex justify-center mb-4">
+                <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
+                  <Users className="h-8 w-8 text-muted-foreground/50" />
                 </div>
-                <Button variant="ghost" size="sm" className="shrink-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
               </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-sm text-muted-foreground min-w-0">
-                  <Mail className="h-4 w-4 shrink-0" />
-                  <span className="truncate flex-1" title={customer.email}>
-                    {customer.email}
-                  </span>
-                </div>
-                {customer.phone && (
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <Phone className="h-4 w-4 shrink-0" />
-                    <span>{customer.phone}</span>
-                  </div>
-                )}
-                {customer.billing_city && customer.billing_state && (
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground min-w-0">
-                    <MapPin className="h-4 w-4 shrink-0" />
-                    <span className="truncate flex-1" title={`${customer.billing_city}, ${customer.billing_state}`}>
-                      {customer.billing_city}, {customer.billing_state}
-                    </span>
-                  </div>
-                )}
-                
-                <div className="flex items-center justify-between pt-3 border-t border-border/50">
-                  <div className="text-xs text-muted-foreground">
-                    Created {format(new Date(customer.created_at), 'MMM dd, yyyy')}
-                  </div>
-                  <Badge variant={customer.is_active ? "default" : "secondary"} className="text-xs shrink-0">
-                    {customer.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      
-      {customers.length === 0 && (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="text-center py-16">
-            <div className="flex justify-center mb-4">
-              <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
-                <svg className="h-8 w-8 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                </svg>
-              </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">No customers found</h3>
+              <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
+                {searchTerm
+                  ? 'Try adjusting your search criteria'
+                  : 'Get started by adding your first customer'}
+              </p>
+              <Button onClick={() => setShowCustomerDialog(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Customer
+              </Button>
             </div>
-            <h3 className="text-lg font-medium text-foreground mb-2">No customers found</h3>
-            <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
-              {searchTerm ? 'Try adjusting your search criteria to find what you\'re looking for' : 'Get started by adding your first customer to manage relationships'}
-            </p>
-            <Button onClick={() => setShowCustomerDialog(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Customer
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <CustomerDialog 
         open={showCustomerDialog} 
