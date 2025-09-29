@@ -270,12 +270,12 @@ const Customers = () => {
                     <div className="flex items-center space-x-3">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                          {customer.company_name.substring(0, 2).toUpperCase()}
+                          {(customer.company_name || customer.display_name || 'CU').substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium">{customer.company_name}</div>
-                        <div className="text-sm text-muted-foreground">{customer.display_name}</div>
+                        <div className="font-medium">{customer.company_name || 'N/A'}</div>
+                        <div className="text-sm text-muted-foreground">{customer.display_name || 'N/A'}</div>
                       </div>
                     </div>
                   </TableCell>
