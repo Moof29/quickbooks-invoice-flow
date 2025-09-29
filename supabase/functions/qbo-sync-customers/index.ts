@@ -23,17 +23,16 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { organizationId, direction = "both" }: SyncRequest = await req.json();
 
-    // Get QuickBooks connection
-    const { data: connection, error: connectionError } = await supabase
-      .from("qbo_connection")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .eq("is_active", true)
-      .single();
+    // Get QuickBooks connection using secure function
+    const { data: connections, error: connectionError } = await supabase
+      .rpc("get_qbo_connection_for_sync", { p_organization_id: organizationId });
 
-    if (connectionError || !connection) {
+    if (connectionError || !connections || connections.length === 0) {
+      console.error("Connection fetch error:", connectionError);
       throw new Error("Active QuickBooks connection not found");
     }
+
+    const connection = connections[0];
 
     // Refresh token if needed
     await refreshTokenIfNeeded(supabase, connection);

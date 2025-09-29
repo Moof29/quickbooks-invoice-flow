@@ -22,16 +22,16 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { organizationId }: TokenRefreshRequest = await req.json();
 
-    // Get current connection
-    const { data: connection, error: fetchError } = await supabase
-      .from("qbo_connection")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .single();
+    // Get current connection using secure function
+    const { data: connections, error: fetchError } = await supabase
+      .rpc("get_qbo_connection_for_sync", { p_organization_id: organizationId });
 
-    if (fetchError || !connection) {
+    if (fetchError || !connections || connections.length === 0) {
+      console.error("Connection fetch error:", fetchError);
       throw new Error("QuickBooks connection not found");
     }
+
+    const connection = connections[0];
 
     if (!connection.qbo_refresh_token) {
       throw new Error("No refresh token available");
@@ -84,13 +84,18 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Token refresh failed:", errorText);
       
       // If refresh fails, mark connection as inactive
-      await supabase
-        .from("qbo_connection")
-        .update({ 
-          is_active: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq("organization_id", organizationId);
+      // Note: This requires direct access with service_role which we still have
+      try {
+        await supabase
+          .from("qbo_connection")
+          .update({ 
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq("organization_id", organizationId);
+      } catch (inactiveError) {
+        console.error("Failed to mark connection as inactive:", inactiveError);
+      }
       
       throw new Error(`Token refresh failed: ${errorText}`);
     }
@@ -102,17 +107,14 @@ const handler = async (req: Request): Promise<Response> => {
     const newExpiresAt = new Date();
     newExpiresAt.setSeconds(newExpiresAt.getSeconds() + tokenData.expires_in);
 
-    // Update the connection with new tokens
+    // Update the connection with new tokens using secure function
     const { error: updateError } = await supabase
-      .from("qbo_connection")
-      .update({
-        qbo_access_token: tokenData.access_token,
-        qbo_refresh_token: tokenData.refresh_token || connection.qbo_refresh_token, // Keep old refresh token if new one not provided
-        qbo_token_expires_at: newExpiresAt.toISOString(),
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("organization_id", organizationId);
+      .rpc("update_qbo_connection_tokens", {
+        p_organization_id: organizationId,
+        p_access_token: tokenData.access_token,
+        p_refresh_token: tokenData.refresh_token || connection.qbo_refresh_token,
+        p_token_expires_at: newExpiresAt.toISOString()
+      });
 
     if (updateError) {
       console.error("Failed to update connection:", updateError);

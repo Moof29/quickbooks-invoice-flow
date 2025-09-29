@@ -144,27 +144,58 @@ const handler = async (req: Request): Promise<Response> => {
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expires_in);
 
-    // Update the qbo_connection record
-    const { error: updateError } = await supabase
+    // Store/Update QuickBooks connection in database
+    // Check if connection exists first
+    const { data: existing } = await supabase
       .from("qbo_connection")
-      .upsert({
-        organization_id: organizationId,
-        qbo_access_token: tokenData.access_token,
-        qbo_refresh_token: tokenData.refresh_token,
-        qbo_token_expires_at: expiresAt.toISOString(),
-        qbo_realm_id: realmId,
-        qbo_company_id: realmId, // QuickBooks uses realmId as company identifier
-        is_active: true,
-        last_connected_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        environment: "production",
-      }, {
-        onConflict: 'organization_id'
-      });
+      .select("id")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
 
-    if (updateError) {
-      console.error("Failed to update connection:", updateError);
-      throw new Error(`Failed to update connection: ${updateError.message}`);
+    if (existing) {
+      // Update existing connection using secure function
+      const { error: updateError } = await supabase
+        .rpc("update_qbo_connection_tokens", {
+          p_organization_id: organizationId,
+          p_access_token: tokenData.access_token,
+          p_refresh_token: tokenData.refresh_token,
+          p_token_expires_at: expiresAt.toISOString()
+        });
+
+      if (updateError) {
+        console.error("Failed to update tokens:", updateError);
+        throw new Error(`Failed to update tokens: ${updateError.message}`);
+      }
+
+      // Update other connection fields with service_role
+      await supabase
+        .from("qbo_connection")
+        .update({
+          is_active: true,
+          last_connected_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq("organization_id", organizationId);
+    } else {
+      // Insert new connection (service_role can do this)
+      const { error: insertError } = await supabase
+        .from("qbo_connection")
+        .insert({
+          organization_id: organizationId,
+          qbo_access_token: tokenData.access_token,
+          qbo_refresh_token: tokenData.refresh_token,
+          qbo_token_expires_at: expiresAt.toISOString(),
+          qbo_realm_id: realmId,
+          qbo_company_id: realmId,
+          is_active: true,
+          last_connected_at: new Date().toISOString(),
+          environment: "production"
+        });
+
+      if (insertError) {
+        console.error("Failed to insert connection:", insertError);
+        throw new Error(`Failed to insert connection: ${insertError.message}`);
+      }
     }
 
     console.log("QuickBooks connection updated successfully");
@@ -232,6 +263,5 @@ function redirectToFrontend(supabaseUrl: string, error?: string | null, success?
     },
   });
 }
-};
 
 serve(handler);

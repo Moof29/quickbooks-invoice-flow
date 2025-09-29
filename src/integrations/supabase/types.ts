@@ -4700,7 +4700,62 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      qbo_connection_safe: {
+        Row: {
+          created_at: string | null
+          environment: string | null
+          has_access_token: boolean | null
+          has_refresh_token: boolean | null
+          id: string | null
+          is_active: boolean | null
+          last_connected_at: string | null
+          last_sync_at: string | null
+          organization_id: string | null
+          qbo_company_id: string | null
+          qbo_realm_id: string | null
+          qbo_token_expires_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          environment?: string | null
+          has_access_token?: never
+          has_refresh_token?: never
+          id?: string | null
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          last_sync_at?: string | null
+          organization_id?: string | null
+          qbo_company_id?: string | null
+          qbo_realm_id?: string | null
+          qbo_token_expires_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          environment?: string | null
+          has_access_token?: never
+          has_refresh_token?: never
+          id?: string | null
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          last_sync_at?: string | null
+          organization_id?: string | null
+          qbo_company_id?: string | null
+          qbo_realm_id?: string | null
+          qbo_token_expires_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qbo_connection_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       approve_sales_order: {
@@ -4720,9 +4775,25 @@ export type Database = {
         }
         Returns: Json
       }
+      get_qbo_connection_for_sync: {
+        Args: { p_organization_id: string }
+        Returns: {
+          environment: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          qbo_access_token: string
+          qbo_company_id: string
+          qbo_realm_id: string
+          qbo_refresh_token: string
+          qbo_token_expires_at: string
+        }[]
+      }
       get_qbo_connection_secure: {
         Args: { org_id: string }
         Returns: {
+          has_access_token: boolean
+          has_refresh_token: boolean
           id: string
           is_active: boolean
           last_connected_at: string
@@ -4774,6 +4845,15 @@ export type Database = {
       }
       setup_table_rls: {
         Args: { table_name: string }
+        Returns: undefined
+      }
+      update_qbo_connection_tokens: {
+        Args: {
+          p_access_token: string
+          p_organization_id: string
+          p_refresh_token: string
+          p_token_expires_at: string
+        }
         Returns: undefined
       }
       user_has_permission: {
