@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +38,7 @@ export function SalesOrdersList() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [selectedDeliveryDate, setSelectedDeliveryDate] = useState<Date | null>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const handleCreateSalesOrder = () => {
     setCreateDialogOpen(true);
@@ -170,6 +171,43 @@ export function SalesOrdersList() {
   const todaySalesTotal = filteredOrders
     .filter(o => isToday(o.order_date))
     .reduce((sum, o) => sum + (o.total || 0), 0);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      const { error } = await supabase
+        .from('sales_order')
+        .delete()
+        .in('id', orderIds);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, orderIds) => {
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      setSelectedOrders([]);
+      toast.success('Orders deleted', { 
+        description: `Successfully deleted ${orderIds.length} order${orderIds.length !== 1 ? 's' : ''}` 
+      });
+    },
+    onError: (error: any) => {
+      toast.error('Failed to delete orders', {
+        description: error.message
+      });
+    },
+  });
+
+  const handleDeleteSelected = () => {
+    if (selectedOrders.length === 0) {
+      toast.error('No orders selected', { description: 'Please select at least one order to delete' });
+      return;
+    }
+
+    const ordersToDelete = sortedOrders.filter(o => selectedOrders.includes(o.id));
+    const orderNumbers = ordersToDelete.map(o => o.order_number).join(', ');
+
+    if (confirm(`Are you sure you want to delete ${selectedOrders.length} order${selectedOrders.length !== 1 ? 's' : ''}?\n\n${orderNumbers}\n\nThis action cannot be undone.`)) {
+      deleteMutation.mutate(selectedOrders);
+    }
+  };
 
   const handleExportCSV = () => {
     if (selectedOrders.length === 0) {
@@ -423,6 +461,16 @@ export function SalesOrdersList() {
                   >
                     <Download className="h-4 w-4" />
                     Export CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleDeleteSelected}
+                    disabled={deleteMutation.isPending}
+                    className="flex items-center gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deleteMutation.isPending ? 'Deleting...' : 'Delete Selected'}
                   </Button>
                   <Button
                     size="sm"
