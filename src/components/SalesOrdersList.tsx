@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown, Truck, Download, Trash2, CircleCheck as CheckCircle } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown, Truck, Download, Trash2, CircleCheck as CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, isToday, isPast, isTomorrow } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
@@ -37,6 +39,7 @@ export function SalesOrdersList() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [selectedDeliveryDate, setSelectedDeliveryDate] = useState<Date | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -201,12 +204,12 @@ export function SalesOrdersList() {
       return;
     }
 
-    const ordersToDelete = sortedOrders.filter(o => selectedOrders.includes(o.id));
-    const orderNumbers = ordersToDelete.map(o => o.order_number).join(', ');
+    setDeleteDialogOpen(true);
+  };
 
-    if (confirm(`Are you sure you want to delete ${selectedOrders.length} order${selectedOrders.length !== 1 ? 's' : ''}?\n\n${orderNumbers}\n\nThis action cannot be undone.`)) {
-      deleteMutation.mutate(selectedOrders);
-    }
+  const confirmDelete = () => {
+    deleteMutation.mutate(selectedOrders);
+    setDeleteDialogOpen(false);
   };
 
   const handleExportCSV = () => {
@@ -319,8 +322,58 @@ export function SalesOrdersList() {
     );
   }
 
+  const ordersToDelete = sortedOrders.filter(o => selectedOrders.includes(o.id));
+
   return (
     <>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+              </div>
+              <div className="flex-1">
+                <AlertDialogTitle className="text-xl">Delete Sales Orders</AlertDialogTitle>
+                <AlertDialogDescription className="mt-2">
+                  Are you sure you want to delete {selectedOrders.length} order{selectedOrders.length !== 1 ? 's' : ''}? This action cannot be undone.
+                </AlertDialogDescription>
+              </div>
+            </div>
+          </AlertDialogHeader>
+
+          <div className="my-4">
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <p className="text-sm font-medium mb-3">Orders to be deleted:</p>
+              <ScrollArea className="h-[200px] w-full rounded-md border bg-background">
+                <div className="p-4 space-y-2">
+                  {ordersToDelete.map((order) => (
+                    <div key={order.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/50 hover:bg-muted">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-sm font-medium">{order.order_number}</span>
+                        <span className="text-sm text-muted-foreground">{order.customer_name}</span>
+                      </div>
+                      <span className="text-sm font-medium">{formatCurrency(order.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? 'Deleting...' : `Delete ${selectedOrders.length} Order${selectedOrders.length !== 1 ? 's' : ''}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
