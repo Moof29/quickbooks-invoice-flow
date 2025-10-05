@@ -4,18 +4,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
-import {
-  DollarSign,
-  ShoppingCart,
-  Users,
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
-  Package,
-  FileText,
-  Clock,
-  CheckCircle
-} from 'lucide-react';
+import { DollarSign, ShoppingCart, Users, TrendingUp, ArrowUpRight, ArrowDownRight, Package, FileText, Clock, CircleCheck as CheckCircle } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface DashboardStats {
