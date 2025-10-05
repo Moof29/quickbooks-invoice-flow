@@ -13,19 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
-import {
-  ArrowLeft,
-  Save,
-  FileText,
-  Package,
-  Truck,
-  Activity,
-  Plus,
-  X,
-  Edit2,
-  Trash2,
-  Check
-} from 'lucide-react';
+import { ArrowLeft, Save, FileText, Package, Truck, Activity, Plus, X, CreditCard as Edit2, Trash2, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { SalesOrderApprovalButton } from '@/components/SalesOrderApprovalButton';
