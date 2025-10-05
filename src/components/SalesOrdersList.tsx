@@ -346,7 +346,7 @@ export function SalesOrdersList() {
             <div className="rounded-lg border bg-muted/50 p-4">
               <p className="text-sm font-medium mb-3">Orders to be deleted:</p>
               <ScrollArea className="h-[200px] w-full rounded-md border bg-background">
-                <div className="min-h-full p-4 space-y-2 border-l-4 border-orange-500">
+                <div className="min-h-[200px] p-4 space-y-2 border-l-4 border-orange-500">
                   {ordersToDelete.map((order) => (
                     <div key={order.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/50 hover:bg-muted">
                       <div className="flex items-center gap-3">
