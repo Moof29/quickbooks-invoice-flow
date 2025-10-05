@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { Video as LucideIcon } from "lucide-react"
+import { LucideIcon } from "lucide-react"
 
 interface EmptyStateProps {
   icon?: LucideIcon

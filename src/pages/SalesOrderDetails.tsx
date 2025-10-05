@@ -143,7 +143,7 @@ export default function SalesOrderDetails() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('item_record')
-        .select('id, name, sku, unit_price')
+        .select('id, name, sku')
         .eq('is_active', true)
         .order('name');
 
