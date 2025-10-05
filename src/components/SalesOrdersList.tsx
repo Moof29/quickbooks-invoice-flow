@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown, Truck } from 'lucide-react';
+import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown, Truck, Download, Trash2, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { format, isToday, isPast, isTomorrow } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
 import { GenerateTestDataButton } from '@/components/GenerateTestDataButton';
@@ -169,14 +170,53 @@ export function SalesOrdersList() {
   const todaySalesTotal = filteredOrders
     .filter(o => isToday(o.order_date))
     .reduce((sum, o) => sum + (o.total || 0), 0);
-  const getStatusVariant = (status: string) => {
+
+  const handleExportCSV = () => {
+    if (selectedOrders.length === 0) {
+      toast.error('No orders selected', { description: 'Please select at least one order to export' });
+      return;
+    }
+
+    const ordersToExport = sortedOrders.filter(o => selectedOrders.includes(o.id));
+    const csvHeaders = ['Order Number', 'Customer', 'Order Date', 'Delivery Date', 'Status', 'Total'];
+    const csvRows = ordersToExport.map(o => [
+      o.order_number,
+      o.customer_name,
+      format(new Date(o.order_date), 'yyyy-MM-dd'),
+      format(new Date(o.delivery_date), 'yyyy-MM-dd'),
+      getStatusLabel(o.status),
+      o.total.toFixed(2)
+    ]);
+
+    const csv = [csvHeaders, ...csvRows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sales-orders-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast.success('Export complete', { description: `Exported ${selectedOrders.length} orders to CSV` });
+  };
+
+  const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
     switch (status) {
+      case 'draft':
+        return 'outline';
       case 'pending':
         return 'secondary';
       case 'approved':
         return 'default';
+      case 'fulfilled':
+      case 'shipped':
+        return 'default';
       case 'invoiced':
         return 'default';
+      case 'closed':
+        return 'outline';
+      case 'canceled':
+        return 'destructive';
       case 'template_generated':
         return 'outline';
       default:
@@ -186,16 +226,26 @@ export function SalesOrdersList() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'Draft';
       case 'pending':
-        return 'Pending';
+        return 'Pending Approval';
       case 'approved':
         return 'Approved';
+      case 'fulfilled':
+        return 'Fulfilled';
+      case 'shipped':
+        return 'Shipped';
       case 'invoiced':
         return 'Invoiced';
+      case 'closed':
+        return 'Closed';
+      case 'canceled':
+        return 'Canceled';
       case 'template_generated':
-        return 'Auto Generated';
+        return 'Auto-Generated';
       default:
-        return status;
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
 
@@ -321,9 +371,14 @@ export function SalesOrdersList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="pending">Pending Approval</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="fulfilled">Fulfilled</SelectItem>
+                <SelectItem value="shipped">Shipped</SelectItem>
                 <SelectItem value="invoiced">Invoiced</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="canceled">Canceled</SelectItem>
               </SelectContent>
             </Select>
             <Select value={selectedDeliveryDate ? format(selectedDeliveryDate, 'yyyy-MM-dd') : 'all'} onValueChange={(value) => setSelectedDeliveryDate(value === 'all' ? null : new Date(value))}>
@@ -352,12 +407,44 @@ export function SalesOrdersList() {
             </Select>
           </div>
           
+          {/* Bulk Actions Toolbar */}
+          {selectedOrders.length > 0 && (
+            <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-sm font-medium">
+                  {selectedOrders.length} order{selectedOrders.length !== 1 ? 's' : ''} selected
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleExportCSV}
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedOrders([]);
+                      toast.info('Selection cleared');
+                    }}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Active Filters */}
           {selectedDeliveryDate && (
-            <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+            <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-primary" />
-                <p className="text-sm font-medium">
+                <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                   Showing orders for: {format(selectedDeliveryDate, 'EEEE, MMM dd, yyyy')}
                 </p>
               </div>
