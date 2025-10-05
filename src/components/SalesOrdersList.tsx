@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown, Truck, Download, Trash2, CheckCircle } from 'lucide-react';
+import { Calendar, Search, FileText, DollarSign, Plus, ArrowUpDown, Truck, Download, Trash2, CircleCheck as CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, isToday, isPast, isTomorrow } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
