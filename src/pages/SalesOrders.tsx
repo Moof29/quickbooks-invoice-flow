@@ -1,17 +1,9 @@
-import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { useQuery } from "@tanstack/react-query"
-import { supabase } from "@/integrations/supabase/client"
 import { SalesOrdersList } from "@/components/SalesOrdersList"
 import { CustomerTemplates } from "@/components/CustomerTemplates"
-import { GenerateTestDataButton } from "@/components/GenerateTestDataButton"
-import { CreateSalesOrderDialog } from "@/components/CreateSalesOrderDialog"
 
 
 export default function SalesOrders() {
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
 
   return (
@@ -21,12 +13,6 @@ export default function SalesOrders() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
           <p className="text-muted-foreground mt-1">View and manage sales orders generated from customer templates</p>
-        </div>
-        <div className="flex gap-3">
-          <GenerateTestDataButton />
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            Create Sales Order
-          </Button>
         </div>
       </div>
 
@@ -48,11 +34,6 @@ export default function SalesOrders() {
           <CustomerTemplates />
         </TabsContent>
       </Tabs>
-
-      <CreateSalesOrderDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-      />
     </div>
   );
 }
