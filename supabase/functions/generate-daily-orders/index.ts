@@ -164,9 +164,9 @@ Deno.serve(async (req) => {
           return sum + (qty * item.unit_price);
         }, 0);
 
-        console.log(`Creating order: ${itemsWithQuantity.length} items, subtotal: ${subtotal}, no_order: ${isNoOrderToday}`);
+        console.log(`Creating order: ${itemsWithQuantity.length} items, no_order: ${isNoOrderToday}`);
 
-        // Create sales order
+        // Create sales order with 0 totals - triggers will update after line items are inserted
         const { data: newOrder, error: orderError } = await supabaseClient
           .from('sales_order')
           .insert({
@@ -175,8 +175,8 @@ Deno.serve(async (req) => {
             order_date: new Date().toISOString().split('T')[0],
             delivery_date: targetDate,
             status: 'pending',
-            subtotal: subtotal,
-            total: subtotal,
+            subtotal: 0,
+            total: 0,
             is_no_order_today: isNoOrderToday,
             invoiced: false,
             memo: `Auto-generated from template: ${template.name}`,
@@ -213,6 +213,17 @@ Deno.serve(async (req) => {
           }
 
           console.log(`Created ${lineItems.length} line items`);
+          
+          // Fetch the updated order with correct totals (calculated by triggers)
+          const { data: updatedOrder } = await supabaseClient
+            .from('sales_order')
+            .select('total')
+            .eq('id', newOrder.id)
+            .single();
+          
+          if (updatedOrder) {
+            subtotal = updatedOrder.total;
+          }
         }
 
         const customer = customerMap.get(template.customer_id);
