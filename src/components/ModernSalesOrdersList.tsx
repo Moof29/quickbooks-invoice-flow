@@ -78,7 +78,7 @@ export function ModernSalesOrdersList() {
   // Get date filter from URL params or default to tomorrow
   const [deliveryDateFilter, setDeliveryDateFilter] = useState<string>(() => {
     const dateParam = searchParams.get('date');
-    return dateParam || deliveryDates[0].date;
+    return dateParam || 'all';
   });
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
@@ -92,7 +92,7 @@ export function ModernSalesOrdersList() {
   const { data: orders, isLoading } = useQuery({
     queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter],
     queryFn: async () => {
-      // First, check if orders exist for this date
+      // Build base query
       let query = supabase
         .from("sales_order")
         .select(
@@ -110,8 +110,12 @@ export function ModernSalesOrdersList() {
         `
         )
         .eq("organization_id", organizationId)
-        .eq("delivery_date", deliveryDateFilter)
         .order("created_at", { ascending: false });
+
+      // Only filter by delivery_date if not "all"
+      if (deliveryDateFilter !== "all") {
+        query = query.eq("delivery_date", deliveryDateFilter);
+      }
 
       if (statusFilter !== "all") {
         query = query.eq("status", statusFilter);
@@ -120,8 +124,8 @@ export function ModernSalesOrdersList() {
       const { data, error } = await query;
       if (error) throw error;
 
-      // If no orders exist for this date, auto-generate from templates
-      if (!data || data.length === 0) {
+      // Auto-generate orders only for specific dates, not for "all"
+      if (deliveryDateFilter !== "all" && (!data || data.length === 0)) {
         console.log(`No orders found for ${deliveryDateFilter}, auto-generating...`);
         
         const { data: generateResult, error: generateError } = await supabase.functions.invoke(
@@ -318,6 +322,7 @@ export function ModernSalesOrdersList() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All Dates</SelectItem>
                   {deliveryDates.map((dateOption) => (
                     <SelectItem key={dateOption.date} value={dateOption.date}>
                       {dateOption.label}
@@ -392,10 +397,15 @@ export function ModernSalesOrdersList() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
                 <Calendar className="h-5 w-5 text-primary" />
                 <div>
-                  <CardTitle>{format(parseISO(deliveryDateFilter), "EEEE, MMMM d, yyyy")}</CardTitle>
+                  <CardTitle>
+                    {deliveryDateFilter === "all" 
+                      ? "All Orders" 
+                      : format(parseISO(deliveryDateFilter), "EEEE, MMMM d, yyyy")
+                    }
+                  </CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
                     {filteredOrders.length} order(s)
                     {reviewedCount > 0 && ` • ${reviewedCount} ready to invoice`}
@@ -403,7 +413,7 @@ export function ModernSalesOrdersList() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {getDeliveryBadge(deliveryDateFilter)}
+                {deliveryDateFilter !== "all" && getDeliveryBadge(deliveryDateFilter)}
                 {reviewedCount > 0 && (
                   <Checkbox
                     checked={filteredOrders
