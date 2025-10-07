@@ -61,17 +61,17 @@ export function ModernSalesOrdersList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Calculate 3-day delivery dates
+  // Calculate 7-day delivery dates
   const deliveryDates = useMemo(() => {
-    const tomorrow = addDays(new Date(), 1);
-    const day2 = addDays(new Date(), 2);
-    const day3 = addDays(new Date(), 3);
-    
-    return [
-      { date: format(tomorrow, 'yyyy-MM-dd'), label: 'Tomorrow' },
-      { date: format(day2, 'yyyy-MM-dd'), label: format(day2, 'EEEE M/d') },
-      { date: format(day3, 'yyyy-MM-dd'), label: format(day3, 'EEEE M/d') }
-    ];
+    const dates = [];
+    for (let i = 1; i <= 7; i++) {
+      const date = addDays(new Date(), i);
+      dates.push({
+        date: format(date, 'yyyy-MM-dd'),
+        label: i === 1 ? 'Tomorrow' : format(date, 'EEEE M/d')
+      });
+    }
+    return dates;
   }, []);
 
   const [deliveryDateFilter, setDeliveryDateFilter] = useState<string>(deliveryDates[0].date);
