@@ -403,18 +403,20 @@ export function CustomerTemplateDialog({
           <div className="flex gap-2 items-end border rounded-md p-4 bg-muted/30">
             <div className="flex-1">
               <Label>Add Item to Template</Label>
-              <Select value={selectedItemId} onValueChange={setSelectedItemId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an item to add" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allItems?.filter(item => !itemRows.some(row => row.item_id === item.id)).map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name} - ${item.list_price.toFixed(2)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={allItems
+                  ?.filter(item => !itemRows.some(row => row.item_id === item.id))
+                  .map(item => ({
+                    label: `${item.name} - $${item.list_price.toFixed(2)}`,
+                    value: item.id
+                  })) || []
+                }
+                value={selectedItemId}
+                onValueChange={setSelectedItemId}
+                placeholder="Search or select an item to add..."
+                searchPlaceholder="Type to search items..."
+                emptyText="No items found"
+              />
             </div>
             <Button onClick={addItem} disabled={!selectedItemId} className="gap-2">
               <Plus className="h-4 w-4" />
