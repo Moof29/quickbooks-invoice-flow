@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { ModernSalesOrdersList } from "@/components/ModernSalesOrdersList";
 import { CustomerTemplates } from "@/components/CustomerTemplates";
 import { CreateSalesOrderDialog } from "@/components/CreateSalesOrderDialog";
+import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
 
 export default function SalesOrders() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -19,10 +20,13 @@ export default function SalesOrders() {
             Manage daily orders for next-day delivery
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
-          <Plus className="h-4 w-4 mr-2" />
-          New Order
-        </Button>
+        <div className="flex gap-2">
+          <GenerateDailyOrdersButton />
+          <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
+            <Plus className="h-4 w-4 mr-2" />
+            New Order
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="orders" className="w-full">
