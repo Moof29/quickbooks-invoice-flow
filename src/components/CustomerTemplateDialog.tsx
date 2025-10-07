@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Save, Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -72,7 +72,21 @@ export function CustomerTemplateDialog({
   const [loading, setLoading] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const commandInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Focus the search input when popover opens
+  useEffect(() => {
+    if (popoverOpen) {
+      // Small delay to ensure popover is fully rendered
+      setTimeout(() => {
+        const input = document.querySelector('[cmdk-input]') as HTMLInputElement;
+        if (input) {
+          input.focus();
+        }
+      }, 50);
+    }
+  }, [popoverOpen]);
 
   // Fetch customers
   const { data: customers } = useQuery<Customer[]>({
@@ -413,12 +427,9 @@ export function CustomerTemplateDialog({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[600px] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-                  <Command shouldFilter={false}>
-                    <CommandInput 
-                      placeholder="Type to search items..." 
-                      autoFocus
-                    />
+                <PopoverContent className="w-[600px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Type to search items..." />
                     <CommandList>
                       <CommandEmpty>No items found</CommandEmpty>
                       <CommandGroup>
