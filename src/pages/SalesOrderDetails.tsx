@@ -410,25 +410,25 @@ export default function SalesOrderDetails() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead>U/M</TableHead>
+                <TableHead className="w-[100px] text-center">Quantity</TableHead>
+                <TableHead className="w-[80px] text-center">U/M</TableHead>
                 <TableHead>Item</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                {!order.invoiced && <TableHead className="w-[100px]"></TableHead>}
+                <TableHead className="w-[120px] text-right">Unit Price</TableHead>
+                <TableHead className="w-[120px] text-right">Amount</TableHead>
+                {!order.invoiced && <TableHead className="w-[80px]"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {lineItems.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="text-right">
+                <TableRow key={item.id} className="group">
+                  <TableCell className="text-center">
                     {editingLineItemId === item.id ? (
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-center gap-1">
                         <Input
                           type="number"
                           value={editQuantity}
                           onChange={(e) => setEditQuantity(e.target.value)}
-                          className="w-20 h-8 text-right"
+                          className="w-16 h-8 text-center"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === "Enter") handleSaveQuantity(item.id);
@@ -438,17 +438,19 @@ export default function SalesOrderDetails() {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="h-8 w-8 p-0"
                           onClick={() => handleSaveQuantity(item.id)}
                           disabled={updateQuantityMutation.isPending}
                         >
-                          <Check className="h-4 w-4" />
+                          <Check className="h-3.5 w-3.5 text-green-600" />
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="h-8 w-8 p-0"
                           onClick={() => setEditingLineItemId(null)}
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-3.5 w-3.5 text-muted-foreground" />
                         </Button>
                       </div>
                     ) : (
@@ -459,8 +461,10 @@ export default function SalesOrderDetails() {
                             setEditQuantity(item.quantity.toString());
                           }
                         }}
-                        className={`text-right w-full hover:bg-muted/50 px-2 py-1 rounded ${
-                          !order.invoiced ? "cursor-pointer" : "cursor-default"
+                        className={`font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                          !order.invoiced 
+                            ? "cursor-pointer hover:bg-primary/10 hover:text-primary" 
+                            : "cursor-default"
                         }`}
                         disabled={order.invoiced}
                       >
@@ -468,17 +472,26 @@ export default function SalesOrderDetails() {
                       </button>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">EA</TableCell>
-                  <TableCell className="font-medium">{item.item_record.name}</TableCell>
-                  <TableCell className="text-right">${item.unit_price.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    ${item.amount.toFixed(2)}
+                  <TableCell className="text-center">
+                    <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-muted text-xs font-medium text-muted-foreground">
+                      EA
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{item.item_record.name}</span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="font-mono text-sm">${item.unit_price.toFixed(2)}</span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="font-mono font-semibold">${item.amount.toFixed(2)}</span>
                   </TableCell>
                   {!order.invoiced && (
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => setDeleteLineItemId(item.id)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -490,17 +503,21 @@ export default function SalesOrderDetails() {
 
               {/* Add Item Row */}
               {addingItem && (
-                <TableRow>
-                  <TableCell>
+                <TableRow className="bg-muted/30">
+                  <TableCell className="text-center">
                     <Input
                       type="number"
                       value={newItem.quantity}
                       onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                      className="w-20"
-                      placeholder="Qty"
+                      className="w-16 text-center mx-auto"
+                      placeholder="0"
                     />
                   </TableCell>
-                  <TableCell className="text-muted-foreground">EA</TableCell>
+                  <TableCell className="text-center">
+                    <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-muted text-xs font-medium text-muted-foreground">
+                      EA
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <Select value={newItem.item_id} onValueChange={(value) => setNewItem({ ...newItem, item_id: value })}>
                       <SelectTrigger>
@@ -515,21 +532,29 @@ export default function SalesOrderDetails() {
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    $0.00
+                  <TableCell className="text-right">
+                    <span className="font-mono text-sm text-muted-foreground">$0.00</span>
                   </TableCell>
-                  <TableCell></TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
+                  <TableCell className="text-right">
+                    <span className="font-mono font-semibold text-muted-foreground">$0.00</span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1">
                       <Button
                         size="sm"
+                        className="h-8 w-8 p-0"
                         onClick={() => addLineItemMutation.mutate()}
                         disabled={!newItem.item_id || addLineItemMutation.isPending}
                       >
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setAddingItem(false)}>
-                        <X className="h-4 w-4" />
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setAddingItem(false)}
+                      >
+                        <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </TableCell>
