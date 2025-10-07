@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -54,6 +55,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { SalesOrderApprovalButton } from "@/components/SalesOrderApprovalButton";
 import { SalesOrderConvertToInvoiceButton } from "@/components/SalesOrderConvertToInvoiceButton";
@@ -97,6 +99,8 @@ export default function SalesOrderDetails() {
   const [deleteLineItemId, setDeleteLineItemId] = useState<string | null>(null);
   const [addingItem, setAddingItem] = useState(false);
   const [newItem, setNewItem] = useState({ item_id: "", quantity: "1" });
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const organizationId = profile?.organization_id;
 
@@ -267,6 +271,74 @@ export default function SalesOrderDetails() {
     },
   });
 
+  // Delete order mutation
+  const deleteOrderMutation = useMutation({
+    mutationFn: async () => {
+      if (order?.invoiced) {
+        throw new Error("Cannot delete invoiced orders");
+      }
+
+      const { error } = await supabase
+        .from("sales_order")
+        .delete()
+        .eq("id", salesOrderId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Order deleted successfully" });
+      navigate("/sales-orders");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting order",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Cancel order mutation
+  const cancelOrderMutation = useMutation({
+    mutationFn: async () => {
+      // Update status to canceled
+      const { error: updateError } = await supabase
+        .from("sales_order")
+        .update({ status: "canceled" })
+        .eq("id", salesOrderId);
+      
+      if (updateError) throw updateError;
+
+      // Create "No Order Today" invoice
+      const { data, error: invoiceError } = await supabase.functions.invoke(
+        "create-invoice-from-order",
+        { body: { order_id: salesOrderId } }
+      );
+
+      if (invoiceError) throw invoiceError;
+      if (!data?.success) throw new Error(data?.error || "Failed to create invoice");
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      toast({
+        title: "Order canceled",
+        description: "A 'No Order Today' invoice has been created",
+      });
+      setShowCancelDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error canceling order",
+        description: error.message,
+        variant: "destructive",
+      });
+      setShowCancelDialog(false);
+    },
+  });
+
   const handleQuantityChange = (lineItemId: string, value: string) => {
     setQuantities(prev => ({ ...prev, [lineItemId]: value }));
   };
@@ -376,8 +448,40 @@ export default function SalesOrderDetails() {
             salesOrderId={order.id}
             currentStatus={order.status}
           />
+          
+          {/* Cancel Order Button (pending/reviewed only) */}
+          {(order.status === "pending" || order.status === "reviewed") && !order.invoiced && (
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelDialog(true)}
+            >
+              <Ban className="h-4 w-4 mr-2" />
+              Cancel Order
+            </Button>
+          )}
+
+          {/* Delete Order Button */}
+          {!order.invoiced ? (
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+          ) : null}
         </div>
       </div>
+
+      {/* Invoiced Warning Banner */}
+      {order.invoiced && (
+        <Alert>
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            This order is invoiced. Handle corrections in the Invoice module.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Order Summary */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -602,7 +706,7 @@ export default function SalesOrderDetails() {
         </Card>
       )}
 
-      {/* Delete Confirmation */}
+      {/* Delete Line Item Confirmation */}
       <AlertDialog open={!!deleteLineItemId} onOpenChange={() => setDeleteLineItemId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -618,6 +722,49 @@ export default function SalesOrderDetails() {
               className="bg-destructive hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Order Confirmation */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this order? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteOrderMutation.mutate()}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Order Confirmation */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Order for {order.customer_profile.company_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create a "No Order Today" invoice for tracking purposes. The order status will be set to canceled.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Order</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => cancelOrderMutation.mutate()}
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={cancelOrderMutation.isPending}
+            >
+              {cancelOrderMutation.isPending ? "Canceling..." : "Cancel Order"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

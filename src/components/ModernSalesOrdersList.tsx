@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Search,
   Lock,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -88,6 +95,7 @@ export function ModernSalesOrdersList() {
   const [isBatchReviewing, setIsBatchReviewing] = useState(false);
   const [showBulkReviewDialog, setShowBulkReviewDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
 
   const organizationId = profile?.organization_id;
 
@@ -158,9 +166,20 @@ export function ModernSalesOrdersList() {
     enabled: !!organizationId,
   });
 
-  // Delete mutation
+  // Delete mutation (only for non-invoiced orders)
   const deleteMutation = useMutation({
     mutationFn: async (orderId: string) => {
+      // Double-check order is not invoiced
+      const { data: order } = await supabase
+        .from("sales_order")
+        .select("invoiced")
+        .eq("id", orderId)
+        .single();
+      
+      if (order?.invoiced) {
+        throw new Error("Cannot delete invoiced orders");
+      }
+
       const { error } = await supabase.from("sales_order").delete().eq("id", orderId);
       if (error) throw error;
     },
@@ -175,6 +194,46 @@ export function ModernSalesOrdersList() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  // Cancel order mutation (creates "No Order Today" invoice)
+  const cancelOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      // First update order status to canceled
+      const { error: updateError } = await supabase
+        .from("sales_order")
+        .update({ status: "canceled" })
+        .eq("id", orderId);
+      
+      if (updateError) throw updateError;
+
+      // Then create invoice via edge function
+      const { data, error: invoiceError } = await supabase.functions.invoke(
+        "create-invoice-from-order",
+        { body: { order_id: orderId } }
+      );
+
+      if (invoiceError) throw invoiceError;
+      if (!data?.success) throw new Error(data?.error || "Failed to create invoice");
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      toast({
+        title: "Order canceled",
+        description: "A 'No Order Today' invoice has been created",
+      });
+      setCancelOrderId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error canceling order",
+        description: error.message,
+        variant: "destructive",
+      });
+      setCancelOrderId(null);
     },
   });
 
@@ -640,18 +699,54 @@ export function ModernSalesOrdersList() {
                           Invoice
                         </Button>
                       )}
-                      {!order.invoiced && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteOrderId(order.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      
+                      {/* Cancel Order Button (for pending/reviewed only) */}
+                      {(order.status === "pending" || order.status === "reviewed") && !order.invoiced && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCancelOrderId(order.id);
+                                }}
+                              >
+                                <Ban className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Cancel Order</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
+
+                      {/* Delete Button with Tooltip */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!order.invoiced) {
+                                    setDeleteOrderId(order.id);
+                                  }
+                                }}
+                                disabled={order.invoiced}
+                                className={order.invoiced ? "opacity-50 cursor-not-allowed" : ""}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {order.invoiced ? "Cannot delete invoiced orders" : "Delete order"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </div>
                 </CardContent>
@@ -677,6 +772,27 @@ export function ModernSalesOrdersList() {
               className="bg-destructive hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Order Confirmation Dialog */}
+      <AlertDialog open={!!cancelOrderId} onOpenChange={() => setCancelOrderId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this order? This will create a "No Order Today" invoice for tracking purposes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Order</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => cancelOrderId && cancelOrderMutation.mutate(cancelOrderId)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Cancel Order
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
