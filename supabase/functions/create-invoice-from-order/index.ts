@@ -146,17 +146,36 @@ Deno.serve(async (req) => {
     console.log('Invoice created:', invoice.id, invoiceNumber);
 
     // Create invoice line items
-    const invoiceLineItems = lineItems?.map((item: any) => ({
-      organization_id: order.organization_id,
-      invoice_id: invoice.id,
-      item_id: item.item_id,
-      description: item.item_record?.name || '',
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      amount: item.amount,
-      tax_rate: item.tax_rate || 0,
-      tax_amount: item.tax_amount || 0,
-    })) || [];
+    let invoiceLineItems;
+    
+    if (order.is_no_order_today) {
+      // For "No Order Today" orders, create a special line item
+      console.log('Creating "No Order Today" invoice line item');
+      invoiceLineItems = [{
+        organization_id: order.organization_id,
+        invoice_id: invoice.id,
+        item_id: null, // No actual item
+        description: 'No Order Today - Customer Confirmed',
+        quantity: 0,
+        unit_price: 0,
+        amount: 0,
+        tax_rate: 0,
+        tax_amount: 0,
+      }];
+    } else {
+      // Normal orders: create line items from sales order line items
+      invoiceLineItems = lineItems?.map((item: any) => ({
+        organization_id: order.organization_id,
+        invoice_id: invoice.id,
+        item_id: item.item_id,
+        description: item.item_record?.name || '',
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        amount: item.amount,
+        tax_rate: item.tax_rate || 0,
+        tax_amount: item.tax_amount || 0,
+      })) || [];
+    }
 
     if (invoiceLineItems.length > 0) {
       const { error: invoiceLineError } = await supabaseClient
