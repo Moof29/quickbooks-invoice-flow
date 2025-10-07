@@ -141,8 +141,7 @@ Deno.serve(async (req) => {
             id,
             item_id,
             unit_price,
-            ${dayColumn},
-            item_record!inner(id, name)
+            ${dayColumn}
           `)
           .eq('template_id', template.id)
           .eq('organization_id', organizationId);
