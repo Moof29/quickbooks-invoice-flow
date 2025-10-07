@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
 
         console.log(`Creating order: ${itemsWithQuantity.length} items, no_order: ${isNoOrderToday}`);
 
-        // Create sales order with 0 totals - triggers will update after line items are inserted
+      // Create sales order with 0 totals - triggers will update after line items are inserted
         const { data: newOrder, error: orderError } = await supabaseClient
           .from('sales_order')
           .insert({

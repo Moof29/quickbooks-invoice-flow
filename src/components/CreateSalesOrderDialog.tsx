@@ -31,7 +31,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus, Trash2, Copy } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { CalendarIcon, Plus, Trash2, Copy, AlertTriangle } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -68,6 +78,9 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
   const [requestedShipDate, setRequestedShipDate] = useState<Date>();
   const [promisedShipDate, setPromisedShipDate] = useState<Date>();
   const [lineItems, setLineItems] = useState<LineItem[]>([{ item_id: '', quantity: 1, unit_price: 0 }]);
+  const [duplicateOrderData, setDuplicateOrderData] = useState<any>(null);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [pendingOrderData, setPendingOrderData] = useState<CreateSalesOrderData | null>(null);
   const queryClient = useQueryClient();
   const { profile } = useAuthProfile();
 
@@ -265,14 +278,67 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
     }
   };
 
-  const onSubmit = (data: CreateSalesOrderData) => {
+  // Check for duplicate orders
+  const checkDuplicateOrder = async (data: CreateSalesOrderData) => {
+    if (!profile?.organization_id || !data.customer_id) {
+      return null;
+    }
+
+    try {
+      const { data: duplicateCheck, error } = await supabase.rpc('check_duplicate_orders', {
+        p_customer_id: data.customer_id,
+        p_delivery_date: format(deliveryDate, 'yyyy-MM-dd'),
+        p_organization_id: profile.organization_id,
+      });
+
+      if (error) {
+        console.error('Error checking duplicates:', error);
+        return null;
+      }
+
+      return duplicateCheck as any; // Type assertion for RPC response
+    } catch (error) {
+      console.error('Duplicate check failed:', error);
+      return null;
+    }
+  };
+
+  const onSubmit = async (data: CreateSalesOrderData) => {
     const submitData = {
       ...data,
       delivery_date: format(deliveryDate, 'yyyy-MM-dd'),
       requested_ship_date: requestedShipDate ? format(requestedShipDate, 'yyyy-MM-dd') : undefined,
       promised_ship_date: promisedShipDate ? format(promisedShipDate, 'yyyy-MM-dd') : undefined,
     };
+
+    // Check for duplicates before creating
+    const duplicateCheck = await checkDuplicateOrder(submitData);
+    
+    if (duplicateCheck?.has_duplicate && duplicateCheck?.existing_order) {
+      // Show duplicate warning dialog
+      setDuplicateOrderData(duplicateCheck.existing_order);
+      setPendingOrderData(submitData);
+      setShowDuplicateDialog(true);
+      return;
+    }
+
+    // No duplicate, proceed with creation
     createSalesOrderMutation.mutate(submitData);
+  };
+
+  const handleCreateAnyway = () => {
+    if (pendingOrderData) {
+      createSalesOrderMutation.mutate(pendingOrderData);
+      setShowDuplicateDialog(false);
+      setDuplicateOrderData(null);
+      setPendingOrderData(null);
+    }
+  };
+
+  const handleCancelDuplicate = () => {
+    setShowDuplicateDialog(false);
+    setDuplicateOrderData(null);
+    setPendingOrderData(null);
   };
 
   const getDayName = (date: Date) => {
@@ -673,6 +739,53 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
           </form>
         </Form>
       </DialogContent>
+
+      {/* Duplicate Order Warning Dialog */}
+      <AlertDialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-yellow-600">
+              <AlertTriangle className="h-5 w-5" />
+              Duplicate Order Detected
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>This customer already has an order for this delivery date:</p>
+              {duplicateOrderData && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 space-y-1">
+                  <p className="font-medium text-foreground">
+                    Order: {duplicateOrderData.order_number}
+                  </p>
+                  <p className="text-sm">
+                    Status: <span className="font-medium">{duplicateOrderData.status}</span>
+                  </p>
+                  <p className="text-sm">
+                    Total: <span className="font-medium">${duplicateOrderData.total?.toFixed(2) || '0.00'}</span>
+                  </p>
+                  {duplicateOrderData.is_no_order_today && (
+                    <p className="text-sm text-yellow-700">
+                      ⚠️ Marked as "No Order Today"
+                    </p>
+                  )}
+                </div>
+              )}
+              <p className="text-sm pt-2">
+                Do you want to create another order for this customer and date?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDuplicate}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCreateAnyway}
+              className="bg-yellow-600 hover:bg-yellow-700"
+            >
+              Create Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

@@ -101,6 +101,7 @@ export default function SalesOrderDetails() {
   const [newItem, setNewItem] = useState({ item_id: "", quantity: "1" });
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<any>(null);
 
   const organizationId = profile?.organization_id;
 
@@ -183,6 +184,36 @@ export default function SalesOrderDetails() {
       setQuantities(initialQuantities);
     }
   }, [lineItems]);
+
+  // Check for duplicate orders when delivery_date or customer_id changes
+  useEffect(() => {
+    const checkDuplicates = async () => {
+      if (!order || !organizationId) return;
+
+      try {
+        const { data: duplicateCheck } = await supabase.rpc('check_duplicate_orders', {
+          p_customer_id: order.customer_id,
+          p_delivery_date: order.delivery_date,
+          p_organization_id: organizationId,
+          p_exclude_order_id: order.id,
+        });
+
+        // Type assertion for RPC response
+        const result = duplicateCheck as any;
+        
+        if (result?.has_duplicate && result?.existing_order) {
+          setDuplicateWarning(result.existing_order);
+        } else {
+          setDuplicateWarning(null);
+        }
+      } catch (error) {
+        console.error('Error checking duplicates:', error);
+        setDuplicateWarning(null);
+      }
+    };
+
+    checkDuplicates();
+  }, [order?.customer_id, order?.delivery_date, order?.id, organizationId]);
 
   // Update quantity mutation
   const updateQuantityMutation = useMutation({
@@ -479,6 +510,16 @@ export default function SalesOrderDetails() {
           <Lock className="h-4 w-4" />
           <AlertDescription>
             This order is invoiced. Handle corrections in the Invoice module.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Duplicate Order Warning Banner */}
+      {duplicateWarning && !order.invoiced && (
+        <Alert className="border-yellow-300 bg-yellow-50 text-yellow-800">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            ⚠️ This customer has another order for this date: <strong>{duplicateWarning.order_number}</strong> (Status: {duplicateWarning.status}, Total: ${duplicateWarning.total?.toFixed(2) || '0.00'})
           </AlertDescription>
         </Alert>
       )}
