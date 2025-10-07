@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,25 +21,24 @@ interface CustomerTemplate {
   is_active: boolean;
 }
 
-interface TemplateItem {
-  id?: string;
+interface ItemRow {
   item_id: string;
   item_name: string;
-  unit_measure: string;
-  unit_price: number;
+  list_price: number;
+  custom_price: number;
+  sunday_qty: number;
   monday_qty: number;
   tuesday_qty: number;
   wednesday_qty: number;
   thursday_qty: number;
   friday_qty: number;
   saturday_qty: number;
-  sunday_qty: number;
 }
 
 interface Item {
   id: string;
   name: string;
-  list_price?: number; // Sales price from items module
+  list_price?: number;
 }
 
 interface Customer {
@@ -66,11 +65,11 @@ export function CustomerTemplateDialog({
     description: '',
     is_active: true
   });
-  const [templateItems, setTemplateItems] = useState<TemplateItem[]>([]);
+  const [itemRows, setItemRows] = useState<ItemRow[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch customers with explicit typing
+  // Fetch customers
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ['customers'],
     queryFn: async () => {
@@ -84,136 +83,127 @@ export function CustomerTemplateDialog({
     }
   });
 
-  // Fetch items with explicit typing - using available columns
-  const { data: items } = useQuery<Item[]>({
-    queryKey: ['items'],
+  // Fetch ALL items - every item available in the system
+  const { data: allItems } = useQuery<Item[]>({
+    queryKey: ['all-items'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('item_record')
-        .select('id, name, purchase_cost') // Will be 'list_price' when items module is expanded
+        .select('id, name, purchase_cost')
         .eq('is_active', true)
         .order('name');
       
       if (error) throw error;
-      // Map purchase_cost to list_price for now
       return data.map(item => ({
         id: item.id,
         name: item.name,
-        list_price: item.purchase_cost
+        list_price: item.purchase_cost || 0
       })) as Item[];
     }
   });
 
+  // Initialize item rows when dialog opens or items load
   useEffect(() => {
+    if (!open || !allItems) return;
+
     if (template) {
+      // Editing existing template
       setFormData({
         name: template.name,
         customer_id: template.customer_id,
         description: template.description || '',
         is_active: template.is_active
       });
-      // Load template items if editing
       loadTemplateItems(template.id);
     } else {
+      // New template - show all items with zero quantities
       setFormData({
         name: '',
         customer_id: '',
         description: '',
         is_active: true
       });
-      setTemplateItems([]);
+      initializeItemRows();
     }
-  }, [template, open]);
+  }, [template, open, allItems]);
 
-  const loadTemplateItems = async (templateId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('customer_template_items')
-        .select('*')
-        .eq('template_id', templateId);
-
-      if (error) throw error;
-
-      // Get item names for the loaded items
-      const itemIds = data.map(item => item.item_id);
-      const { data: itemData, error: itemError } = await supabase
-        .from('item_record')
-        .select('id, name')
-        .in('id', itemIds);
-
-      if (itemError) throw itemError;
-
-      const items = data.map(item => {
-        const itemRecord = itemData.find(ir => ir.id === item.item_id);
-        return {
-          id: item.id,
-          item_id: item.item_id,
-          item_name: itemRecord?.name || 'Unknown Item',
-          unit_measure: item.unit_measure,
-          unit_price: item.unit_price,
-          monday_qty: item.monday_qty,
-          tuesday_qty: item.tuesday_qty,
-          wednesday_qty: item.wednesday_qty,
-          thursday_qty: item.thursday_qty,
-          friday_qty: item.friday_qty,
-          saturday_qty: item.saturday_qty,
-          sunday_qty: item.sunday_qty
-        };
-      });
-
-      setTemplateItems(items);
-    } catch (error) {
-      console.error('Error loading template items:', error);
-    }
-  };
-
-  const addTemplateItem = () => {
-    if (!items || items.length === 0) return;
+  const initializeItemRows = () => {
+    if (!allItems) return;
     
-    const firstItem = items[0];
-    setTemplateItems([...templateItems, {
-      item_id: firstItem.id,
-      item_name: firstItem.name,
-      unit_measure: 'EA',
-      unit_price: firstItem.list_price || 0,
+    const rows: ItemRow[] = allItems.map(item => ({
+      item_id: item.id,
+      item_name: item.name,
+      list_price: item.list_price || 0,
+      custom_price: item.list_price || 0,
+      sunday_qty: 0,
       monday_qty: 0,
       tuesday_qty: 0,
       wednesday_qty: 0,
       thursday_qty: 0,
       friday_qty: 0,
       saturday_qty: 0,
-      sunday_qty: 0
-    }]);
-  };
-
-  const removeTemplateItem = (index: number) => {
-    setTemplateItems(templateItems.filter((_, i) => i !== index));
-  };
-
-  const updateTemplateItem = (index: number, field: keyof TemplateItem, value: any) => {
-    const updated = [...templateItems];
-    updated[index] = { ...updated[index], [field]: value };
+    }));
     
-    // Update item details if item_id changed
-    if (field === 'item_id' && items) {
-      const selectedItem = items.find(item => item.id === value);
-      if (selectedItem) {
-        updated[index].item_name = selectedItem.name;
-        updated[index].unit_measure = 'EA';
-        updated[index].unit_price = selectedItem.list_price || 0;
-      }
+    setItemRows(rows);
+  };
+
+  const loadTemplateItems = async (templateId: string) => {
+    if (!allItems) return;
+    
+    try {
+      const { data: templateItemsData, error } = await supabase
+        .from('customer_template_items')
+        .select('*')
+        .eq('template_id', templateId);
+
+      if (error) throw error;
+
+      // Create a map of template items for quick lookup
+      const templateItemsMap = new Map(
+        templateItemsData.map(ti => [ti.item_id, ti])
+      );
+
+      // Create rows for ALL items, with saved quantities if they exist
+      const rows: ItemRow[] = allItems.map(item => {
+        const savedItem = templateItemsMap.get(item.id);
+        return {
+          item_id: item.id,
+          item_name: item.name,
+          list_price: item.list_price || 0,
+          custom_price: savedItem?.unit_price || item.list_price || 0,
+          sunday_qty: savedItem?.sunday_qty || 0,
+          monday_qty: savedItem?.monday_qty || 0,
+          tuesday_qty: savedItem?.tuesday_qty || 0,
+          wednesday_qty: savedItem?.wednesday_qty || 0,
+          thursday_qty: savedItem?.thursday_qty || 0,
+          friday_qty: savedItem?.friday_qty || 0,
+          saturday_qty: savedItem?.saturday_qty || 0,
+        };
+      });
+
+      setItemRows(rows);
+    } catch (error) {
+      console.error('Error loading template items:', error);
     }
-    
-    setTemplateItems(updated);
   };
 
-  const calculateTotalQty = (item: TemplateItem) => {
-    return item.monday_qty + item.tuesday_qty + item.wednesday_qty + 
-           item.thursday_qty + item.friday_qty + item.saturday_qty + item.sunday_qty;
+  const updateItemRow = (itemId: string, field: keyof ItemRow, value: any) => {
+    setItemRows(rows => 
+      rows.map(row => 
+        row.item_id === itemId 
+          ? { ...row, [field]: typeof value === 'string' ? parseFloat(value) || 0 : value }
+          : row
+      )
+    );
   };
 
-  const calculateExtPrice = (item: TemplateItem) => {
-    return calculateTotalQty(item) * item.unit_price;
+  const calculateWeeklyTotal = (row: ItemRow) => {
+    return row.sunday_qty + row.monday_qty + row.tuesday_qty + 
+           row.wednesday_qty + row.thursday_qty + row.friday_qty + row.saturday_qty;
+  };
+
+  const calculateWeeklyAmount = (row: ItemRow) => {
+    return calculateWeeklyTotal(row) * row.custom_price;
   };
 
   const handleSave = async () => {
@@ -226,19 +216,6 @@ export function CustomerTemplateDialog({
       return;
     }
 
-    // Validate template items
-    for (let i = 0; i < templateItems.length; i++) {
-      const item = templateItems[i];
-      if (!item.item_id) {
-        toast({
-          title: "Error",
-          description: `Please select an item for row ${i + 1}`,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
     setLoading(true);
 
     try {
@@ -247,7 +224,6 @@ export function CustomerTemplateDialog({
         throw new Error('No user found');
       }
       
-      // Get organization_id from profiles table
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
@@ -296,20 +272,24 @@ export function CustomerTemplateDialog({
           .eq('template_id', template.id);
       }
 
-      // Save template items with customer-specific pricing
-      if (templateItems.length > 0) {
-        const itemsToInsert = templateItems.map(item => ({
+      // Save only items with quantities > 0
+      const itemsWithQuantities = itemRows.filter(row => 
+        calculateWeeklyTotal(row) > 0
+      );
+
+      if (itemsWithQuantities.length > 0) {
+        const itemsToInsert = itemsWithQuantities.map(row => ({
           template_id: savedTemplate.id,
-          item_id: item.item_id,
-          unit_measure: item.unit_measure,
-          unit_price: item.unit_price, // Customer-specific pricing locked in
-          monday_qty: item.monday_qty,
-          tuesday_qty: item.tuesday_qty,
-          wednesday_qty: item.wednesday_qty,
-          thursday_qty: item.thursday_qty,
-          friday_qty: item.friday_qty,
-          saturday_qty: item.saturday_qty,
-          sunday_qty: item.sunday_qty,
+          item_id: row.item_id,
+          unit_measure: 'EA',
+          unit_price: row.custom_price,
+          sunday_qty: row.sunday_qty,
+          monday_qty: row.monday_qty,
+          tuesday_qty: row.tuesday_qty,
+          wednesday_qty: row.wednesday_qty,
+          thursday_qty: row.thursday_qty,
+          friday_qty: row.friday_qty,
+          saturday_qty: row.saturday_qty,
           organization_id: profile.organization_id
         }));
 
@@ -341,15 +321,16 @@ export function CustomerTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] max-h-[95vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {template ? 'Edit Customer Template' : 'Create Customer Template'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+          {/* Form fields */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Template Name *</Label>
               <Input
@@ -378,6 +359,15 @@ export function CustomerTemplateDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="flex items-center space-x-2 pt-6">
+              <Switch
+                id="is_active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+              />
+              <Label htmlFor="is_active">Active Template</Label>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -387,176 +377,147 @@ export function CustomerTemplateDialog({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Optional description"
-              rows={3}
+              rows={2}
             />
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="is_active"
-              checked={formData.is_active}
-              onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-            />
-            <Label htmlFor="is_active">Active Template</Label>
-          </div>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Template Items</CardTitle>
-              <Button onClick={addTemplateItem} size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Item
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>U/M</TableHead>
-                      <TableHead>Unit Price($)</TableHead>
-                      <TableHead>Mon</TableHead>
-                      <TableHead>Tue</TableHead>
-                      <TableHead>Wed</TableHead>
-                      <TableHead>Thu</TableHead>
-                      <TableHead>Fri</TableHead>
-                      <TableHead>Sat</TableHead>
-                      <TableHead>Sun</TableHead>
-                      <TableHead>Total Qty</TableHead>
-                      <TableHead>Ext. Price($)</TableHead>
-                      <TableHead></TableHead>
+          {/* Spreadsheet-style table */}
+          <div className="flex-1 border rounded-md overflow-hidden">
+            <ScrollArea className="h-[500px]">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="w-[250px] sticky left-0 bg-background z-20">Item Name</TableHead>
+                    <TableHead className="w-[100px]">List Price</TableHead>
+                    <TableHead className="w-[100px]">Custom Price</TableHead>
+                    <TableHead className="w-[80px] text-center">Sun</TableHead>
+                    <TableHead className="w-[80px] text-center">Mon</TableHead>
+                    <TableHead className="w-[80px] text-center">Tue</TableHead>
+                    <TableHead className="w-[80px] text-center">Wed</TableHead>
+                    <TableHead className="w-[80px] text-center">Thu</TableHead>
+                    <TableHead className="w-[80px] text-center">Fri</TableHead>
+                    <TableHead className="w-[80px] text-center">Sat</TableHead>
+                    <TableHead className="w-[100px] text-center">Week Total</TableHead>
+                    <TableHead className="w-[120px] text-right">Week Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {itemRows.map((row) => (
+                    <TableRow key={row.item_id}>
+                      <TableCell className="font-medium sticky left-0 bg-background">
+                        {row.item_name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        ${row.list_price.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={row.custom_price}
+                          onChange={(e) => updateItemRow(row.item_id, 'custom_price', e.target.value)}
+                          className="w-20 h-8 text-sm"
+                          min="0"
+                          step="0.01"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={row.sunday_qty}
+                          onChange={(e) => updateItemRow(row.item_id, 'sunday_qty', e.target.value)}
+                          className="w-16 h-8 text-sm text-center"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={row.monday_qty}
+                          onChange={(e) => updateItemRow(row.item_id, 'monday_qty', e.target.value)}
+                          className="w-16 h-8 text-sm text-center"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={row.tuesday_qty}
+                          onChange={(e) => updateItemRow(row.item_id, 'tuesday_qty', e.target.value)}
+                          className="w-16 h-8 text-sm text-center"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={row.wednesday_qty}
+                          onChange={(e) => updateItemRow(row.item_id, 'wednesday_qty', e.target.value)}
+                          className="w-16 h-8 text-sm text-center"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={row.thursday_qty}
+                          onChange={(e) => updateItemRow(row.item_id, 'thursday_qty', e.target.value)}
+                          className="w-16 h-8 text-sm text-center"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={row.friday_qty}
+                          onChange={(e) => updateItemRow(row.item_id, 'friday_qty', e.target.value)}
+                          className="w-16 h-8 text-sm text-center"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={row.saturday_qty}
+                          onChange={(e) => updateItemRow(row.item_id, 'saturday_qty', e.target.value)}
+                          className="w-16 h-8 text-sm text-center"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell className="text-center font-medium bg-muted/30">
+                        {calculateWeeklyTotal(row)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium bg-muted/30">
+                        ${calculateWeeklyAmount(row).toFixed(2)}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {templateItems.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="min-w-[200px]">
-                          <Select
-                            value={item.item_id}
-                            onValueChange={(value) => updateTemplateItem(index, 'item_id', value)}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {items?.map((catalogItem) => (
-                                <SelectItem key={catalogItem.id} value={catalogItem.id}>
-                                  {catalogItem.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>{item.unit_measure}</TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.unit_price}
-                            onChange={(e) => updateTemplateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                            className="w-20"
-                            min="0"
-                            step="0.01"
-                            placeholder="0.00"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.monday_qty}
-                            onChange={(e) => updateTemplateItem(index, 'monday_qty', parseInt(e.target.value) || 0)}
-                            className="w-16"
-                            min="0"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.tuesday_qty}
-                            onChange={(e) => updateTemplateItem(index, 'tuesday_qty', parseInt(e.target.value) || 0)}
-                            className="w-16"
-                            min="0"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.wednesday_qty}
-                            onChange={(e) => updateTemplateItem(index, 'wednesday_qty', parseInt(e.target.value) || 0)}
-                            className="w-16"
-                            min="0"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.thursday_qty}
-                            onChange={(e) => updateTemplateItem(index, 'thursday_qty', parseInt(e.target.value) || 0)}
-                            className="w-16"
-                            min="0"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.friday_qty}
-                            onChange={(e) => updateTemplateItem(index, 'friday_qty', parseInt(e.target.value) || 0)}
-                            className="w-16"
-                            min="0"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.saturday_qty}
-                            onChange={(e) => updateTemplateItem(index, 'saturday_qty', parseInt(e.target.value) || 0)}
-                            className="w-16"
-                            min="0"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.sunday_qty}
-                            onChange={(e) => updateTemplateItem(index, 'sunday_qty', parseInt(e.target.value) || 0)}
-                            className="w-16"
-                            min="0"
-                          />
-                        </TableCell>
-                        <TableCell>{calculateTotalQty(item)}</TableCell>
-                        <TableCell>{calculateExtPrice(item).toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeTemplateItem(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {templateItems.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
-                          No items added. Click "Add Item" to get started.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
 
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={loading} className="gap-2">
-              <Save className="h-4 w-4" />
-              {loading ? 'Saving...' : 'Save Template'}
-            </Button>
+          {/* Footer */}
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              {itemRows.filter(row => calculateWeeklyTotal(row) > 0).length} items with quantities
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={loading}
+                className="gap-2"
+              >
+                <Save className="h-4 w-4" />
+                {loading ? 'Saving...' : 'Save Template'}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
