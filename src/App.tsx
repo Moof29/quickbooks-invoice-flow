@@ -97,41 +97,45 @@ function AppLayout() {
   )
 }
 
-const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-    <AuthProfileProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/invoices" element={<Invoices />} />
-              <Route path="/sales-orders" element={<SalesOrders />} />
-              <Route path="/sales-orders/:id" element={<SalesOrderDetails />} />
-              <Route path="/items" element={<Items />} />
-              <Route path="/customers" element={<Customers />} />
-              <Route path="/quickbooks" element={<QuickBooksIntegration />} />
-              <Route path="/security" element={<Security />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </AuthProfileProvider>
-  </ThemeProvider>
-);
+const App = () => {
+  console.log("=== App component rendering ===");
+  
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <AuthProfileProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route
+                  element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/invoices" element={<Invoices />} />
+                  <Route path="/sales-orders" element={<SalesOrders />} />
+                  <Route path="/sales-orders/:id" element={<SalesOrderDetails />} />
+                  <Route path="/items" element={<Items />} />
+                  <Route path="/customers" element={<Customers />} />
+                  <Route path="/quickbooks" element={<QuickBooksIntegration />} />
+                  <Route path="/security" element={<Security />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </AuthProfileProvider>
+    </ThemeProvider>
+  );
+};
 
 export default App;

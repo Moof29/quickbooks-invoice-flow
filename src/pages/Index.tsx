@@ -18,8 +18,11 @@ const Index = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuthProfile();
 
+  console.log("=== Index page rendering ===", { user: !!user, loading });
+
   useEffect(() => {
     if (!loading && user) {
+      console.log("=== Redirecting to dashboard ===");
       navigate('/dashboard');
     }
   }, [user, loading, navigate]);
