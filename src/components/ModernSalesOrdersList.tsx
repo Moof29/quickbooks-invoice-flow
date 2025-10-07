@@ -83,10 +83,11 @@ export function ModernSalesOrdersList() {
 
   const organizationId = profile?.organization_id;
 
-  // Fetch orders for selected delivery date
+  // Fetch orders for selected delivery date, auto-generate if none exist
   const { data: orders, isLoading } = useQuery({
     queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter],
     queryFn: async () => {
+      // First, check if orders exist for this date
       let query = supabase
         .from("sales_order")
         .select(
@@ -113,6 +114,33 @@ export function ModernSalesOrdersList() {
 
       const { data, error } = await query;
       if (error) throw error;
+
+      // If no orders exist for this date, auto-generate from templates
+      if (!data || data.length === 0) {
+        console.log(`No orders found for ${deliveryDateFilter}, auto-generating...`);
+        
+        const { data: generateResult, error: generateError } = await supabase.functions.invoke(
+          "generate-daily-orders",
+          {
+            body: {
+              target_date: deliveryDateFilter,
+            },
+          }
+        );
+
+        if (generateError) {
+          console.error("Error auto-generating orders:", generateError);
+          return data as SalesOrder[]; // Return empty array if generation fails
+        }
+
+        console.log(`Auto-generated ${generateResult?.orders_created || 0} orders`);
+
+        // Fetch the newly created orders
+        const { data: newData, error: newError } = await query;
+        if (newError) throw newError;
+        return newData as SalesOrder[];
+      }
+
       return data as SalesOrder[];
     },
     enabled: !!organizationId,
