@@ -14,6 +14,7 @@ import {
   Eye,
   AlertCircle,
   Search,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -262,15 +263,15 @@ export function ModernSalesOrdersList() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      pending: { variant: "secondary" as const, label: "Pending", icon: Clock },
-      reviewed: { variant: "default" as const, label: "Reviewed", icon: CheckCircle2 },
-      invoiced: { variant: "default" as const, label: "Invoiced", icon: FileText },
-      canceled: { variant: "destructive" as const, label: "Canceled", icon: XCircle },
+      pending: { variant: "secondary" as const, label: "Pending", icon: Clock, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
+      reviewed: { variant: "default" as const, label: "Reviewed", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+      invoiced: { variant: "outline" as const, label: "Invoiced", icon: Lock, className: "text-muted-foreground" },
+      canceled: { variant: "destructive" as const, label: "Canceled", icon: XCircle, className: "" },
     };
     const config = variants[status as keyof typeof variants] || variants.pending;
     const Icon = config.icon;
     return (
-      <Badge variant={config.variant} className="gap-1">
+      <Badge variant={config.variant} className={`gap-1 ${config.className}`}>
         <Icon className="h-3 w-3" />
         {config.label}
       </Badge>
@@ -470,7 +471,7 @@ export function ModernSalesOrdersList() {
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-semibold text-base">{order.customer_profile.company_name}</span>
                           {order.is_no_order_today && (
-                            <Badge variant="outline" className="gap-1">
+                            <Badge variant="outline" className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700">
                               <AlertCircle className="h-3 w-3" />
                               No Order Today
                             </Badge>
