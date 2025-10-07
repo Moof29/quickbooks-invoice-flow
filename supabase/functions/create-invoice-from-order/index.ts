@@ -177,6 +177,8 @@ Deno.serve(async (req) => {
       })) || [];
     }
 
+    console.log('Invoice line items to insert:', JSON.stringify(invoiceLineItems, null, 2));
+
     if (invoiceLineItems.length > 0) {
       const { error: invoiceLineError } = await supabaseClient
         .from('invoice_line_item')
@@ -184,10 +186,11 @@ Deno.serve(async (req) => {
 
       if (invoiceLineError) {
         console.error('Error creating invoice line items:', invoiceLineError);
+        console.error('Error details:', JSON.stringify(invoiceLineError, null, 2));
         // Rollback: delete the invoice
         await supabaseClient.from('invoice_record').delete().eq('id', invoice.id);
         return new Response(
-          JSON.stringify({ error: 'Failed to create invoice line items' }),
+          JSON.stringify({ error: 'Failed to create invoice line items', details: invoiceLineError.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
