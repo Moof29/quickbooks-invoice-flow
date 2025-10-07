@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Save, Plus, Trash2, Search, Check, ChevronsUpDown } from 'lucide-react';
+import { Save, Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,8 +70,8 @@ export function CustomerTemplateDialog({
   });
   const [itemRows, setItemRows] = useState<ItemRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string>('');
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const { toast } = useToast();
 
   // Fetch customers
@@ -130,7 +130,6 @@ export function CustomerTemplateDialog({
       });
       setItemRows([]);
     }
-    setSearchQuery('');
   }, [template, open]);
 
 
@@ -225,10 +224,6 @@ export function CustomerTemplateDialog({
   const removeItem = (itemId: string) => {
     setItemRows(itemRows.filter(row => row.item_id !== itemId));
   };
-
-  const filteredRows = itemRows.filter(row =>
-    row.item_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const handleSave = async () => {
     if (!formData.name || !formData.customer_id) {
@@ -405,7 +400,7 @@ export function CustomerTemplateDialog({
           <div className="flex gap-2 items-end border rounded-md p-4 bg-muted/30">
             <div className="flex-1">
               <Label>Add Item to Template</Label>
-              <Popover>
+              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -432,6 +427,7 @@ export function CustomerTemplateDialog({
                               value={item.name}
                               onSelect={() => {
                                 setSelectedItemId(item.id);
+                                setPopoverOpen(false);
                               }}
                             >
                               <Check
@@ -458,17 +454,6 @@ export function CustomerTemplateDialog({
             </Button>
           </div>
 
-          {/* Search */}
-          <div className="flex gap-2 items-center">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search items in template..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1"
-            />
-          </div>
-
           {/* Spreadsheet-style table */}
           <div className="flex-1 border rounded-md overflow-hidden">
             <ScrollArea className="h-[500px]">
@@ -491,7 +476,7 @@ export function CustomerTemplateDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRows.map((row) => (
+                  {itemRows.map((row) => (
                     <TableRow key={row.item_id}>
                       <TableCell className="sticky left-0 bg-background">
                         <Button
