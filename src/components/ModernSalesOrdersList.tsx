@@ -420,7 +420,7 @@ export function ModernSalesOrdersList() {
                       )}
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold">{order.order_number}</span>
+                          <span className="font-semibold text-base">{order.customer_profile.company_name}</span>
                           {order.is_no_order_today && (
                             <Badge variant="outline" className="gap-1">
                               <AlertCircle className="h-3 w-3" />
@@ -430,7 +430,7 @@ export function ModernSalesOrdersList() {
                           {getStatusBadge(order.status)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {order.customer_profile.company_name} • {order.sales_order_line_item?.[0]?.count || 0} items • $
+                          {order.order_number} • {order.sales_order_line_item?.[0]?.count || 0} items • $
                           {order.total.toFixed(2)}
                         </div>
                       </div>
