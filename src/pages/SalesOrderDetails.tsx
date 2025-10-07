@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import {
   ArrowLeft,
   Save,
@@ -337,7 +337,7 @@ export default function SalesOrderDetails() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/sales-orders")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -380,7 +380,7 @@ export default function SalesOrderDetails() {
               <div>
                 <p className="text-sm text-muted-foreground">Delivery Date</p>
                 <p className="text-lg font-semibold">
-                  {format(new Date(order.delivery_date), "MMM dd, yyyy")}
+                  {format(parseISO(order.delivery_date), "MMM dd, yyyy")}
                 </p>
               </div>
             </div>
