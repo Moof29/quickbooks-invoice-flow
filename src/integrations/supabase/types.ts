@@ -3334,6 +3334,9 @@ export type Database = {
           discount_type: string | null
           exchange_rate: number | null
           id: string
+          invoice_id: string | null
+          invoiced: boolean
+          is_no_order_today: boolean
           last_sync_at: string | null
           memo: string | null
           message: string | null
@@ -3377,6 +3380,9 @@ export type Database = {
           discount_type?: string | null
           exchange_rate?: number | null
           id?: string
+          invoice_id?: string | null
+          invoiced?: boolean
+          is_no_order_today?: boolean
           last_sync_at?: string | null
           memo?: string | null
           message?: string | null
@@ -3420,6 +3426,9 @@ export type Database = {
           discount_type?: string | null
           exchange_rate?: number | null
           id?: string
+          invoice_id?: string | null
+          invoiced?: boolean
+          is_no_order_today?: boolean
           last_sync_at?: string | null
           memo?: string | null
           message?: string | null
@@ -3468,6 +3477,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customer_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_record"
             referencedColumns: ["id"]
           },
           {
@@ -4761,6 +4777,10 @@ export type Database = {
       approve_sales_order: {
         Args: { p_approved_by: string; p_sales_order_id: string }
         Returns: undefined
+      }
+      can_delete_sales_order: {
+        Args: { order_id: string }
+        Returns: boolean
       }
       generate_sales_order_number: {
         Args: { org_id: string }
