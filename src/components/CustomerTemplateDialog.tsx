@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Save, Plus, Trash2, Search } from 'lucide-react';
+import { Save, Plus, Trash2, Search, Check, ChevronsUpDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Combobox } from "@/components/ui/combobox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface CustomerTemplate {
   id: string;
@@ -403,20 +405,52 @@ export function CustomerTemplateDialog({
           <div className="flex gap-2 items-end border rounded-md p-4 bg-muted/30">
             <div className="flex-1">
               <Label>Add Item to Template</Label>
-              <Combobox
-                options={allItems
-                  ?.filter(item => !itemRows.some(row => row.item_id === item.id))
-                  .map(item => ({
-                    label: `${item.name} - $${item.list_price.toFixed(2)}`,
-                    value: item.id
-                  })) || []
-                }
-                value={selectedItemId}
-                onValueChange={setSelectedItemId}
-                placeholder="Search or select an item to add..."
-                searchPlaceholder="Type to search items..."
-                emptyText="No items found"
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                  >
+                    {selectedItemId 
+                      ? allItems?.find(i => i.id === selectedItemId)?.name 
+                      : "Search items by name..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[600px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Type to search items..." />
+                    <CommandList>
+                      <CommandEmpty>No items found</CommandEmpty>
+                      <CommandGroup>
+                        {allItems
+                          ?.filter(item => !itemRows.some(row => row.item_id === item.id))
+                          .map((item) => (
+                            <CommandItem
+                              key={item.id}
+                              value={item.name}
+                              onSelect={() => {
+                                setSelectedItemId(item.id);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedItemId === item.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <span className="flex-1">{item.name}</span>
+                              <span className="text-muted-foreground ml-2">
+                                ${item.list_price.toFixed(2)}
+                              </span>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <Button onClick={addItem} disabled={!selectedItemId} className="gap-2">
               <Plus className="h-4 w-4" />
