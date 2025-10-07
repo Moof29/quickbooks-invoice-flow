@@ -362,7 +362,11 @@ export function ModernSalesOrdersList() {
                   <AccordionContent>
                     <div className="px-6 pb-4 space-y-3">
                       {dateOrders.map((order) => (
-                        <Card key={order.id} className="border shadow-sm">
+                        <Card 
+                          key={order.id} 
+                          className="border shadow-sm cursor-pointer hover:bg-accent/50 transition-colors"
+                          onClick={() => navigate(`/sales-orders/${order.id}`)}
+                        >
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4 flex-1">
@@ -378,6 +382,7 @@ export function ModernSalesOrdersList() {
                                       }
                                       setSelectedOrders(newSelected);
                                     }}
+                                    onClick={(e) => e.stopPropagation()}
                                   />
                                 )}
                                 <div className="flex-1">
@@ -400,18 +405,14 @@ export function ModernSalesOrdersList() {
 
                               {/* Actions */}
                               <div className="flex items-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => navigate(`/sales-orders/${order.id}`)}
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
                                 {order.status === "pending" && (
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => reviewMutation.mutate(order.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      reviewMutation.mutate(order.id);
+                                    }}
                                   >
                                     <CheckCircle2 className="h-4 w-4 mr-1" />
                                     Review
@@ -420,7 +421,8 @@ export function ModernSalesOrdersList() {
                                 {order.status === "reviewed" && !order.invoiced && (
                                   <Button
                                     size="sm"
-                                    onClick={async () => {
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
                                       const { data, error } = await supabase.functions.invoke(
                                         "create-invoice-from-order",
                                         { body: { order_id: order.id } }
@@ -445,7 +447,10 @@ export function ModernSalesOrdersList() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setDeleteOrderId(order.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteOrderId(order.id);
+                                    }}
                                   >
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                   </Button>
