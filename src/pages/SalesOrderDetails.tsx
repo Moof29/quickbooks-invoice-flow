@@ -22,6 +22,7 @@ import {
   Clock,
   XCircle,
   Ban,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -30,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -102,6 +104,9 @@ export default function SalesOrderDetails() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<any>(null);
+  const [showSaveToTemplateDialog, setShowSaveToTemplateDialog] = useState(false);
+  const [pendingTemplateItem, setPendingTemplateItem] = useState<{ item_id: string; item_name: string } | null>(null);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
 
   const organizationId = profile?.organization_id;
 
@@ -172,6 +177,34 @@ export default function SalesOrderDetails() {
       return data;
     },
     enabled: !!organizationId,
+  });
+
+  // Fetch customer template items
+  const { data: templateItems = [] } = useQuery({
+    queryKey: ["customer-template-items", order?.customer_id],
+    queryFn: async () => {
+      if (!order?.customer_id) return [];
+
+      // First get the active template for this customer
+      const { data: template, error: templateError } = await supabase
+        .from("customer_templates")
+        .select("id")
+        .eq("customer_id", order.customer_id)
+        .eq("is_active", true)
+        .single();
+
+      if (templateError || !template) return [];
+
+      // Then get the items in this template
+      const { data, error } = await supabase
+        .from("customer_template_items")
+        .select("item_id")
+        .eq("template_id", template.id);
+
+      if (error) return [];
+      return data.map(item => item.item_id);
+    },
+    enabled: !!order?.customer_id && !!organizationId,
   });
 
   // Initialize quantities when line items load
@@ -285,17 +318,79 @@ export default function SalesOrderDetails() {
       });
 
       if (error) throw error;
+
+      return { item_id: item.id, item_name: item.name };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["sales-order-line-items", salesOrderId] });
       queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       toast({ title: "Item added successfully" });
       setAddingItem(false);
       setNewItem({ item_id: "", quantity: "1" });
+
+      // Check if item is NOT in template and should prompt to save
+      if (!dontAskAgain && !templateItems.includes(data.item_id)) {
+        setPendingTemplateItem({ item_id: data.item_id, item_name: data.item_name });
+        setShowSaveToTemplateDialog(true);
+      }
     },
     onError: (error: any) => {
       toast({
         title: "Error adding item",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Save item to template mutation
+  const saveToTemplateMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      if (!order?.customer_id) throw new Error("No customer found");
+
+      // Get the active template for this customer
+      const { data: template, error: templateError } = await supabase
+        .from("customer_templates")
+        .select("id")
+        .eq("customer_id", order.customer_id)
+        .eq("is_active", true)
+        .single();
+
+      if (templateError || !template) {
+        throw new Error("No active template found for customer");
+      }
+
+      // Add item to template with all quantities set to 0
+      const { error } = await supabase
+        .from("customer_template_items")
+        .insert({
+          template_id: template.id,
+          item_id: itemId,
+          organization_id: organizationId,
+          unit_price: 0,
+          monday_qty: 0,
+          tuesday_qty: 0,
+          wednesday_qty: 0,
+          thursday_qty: 0,
+          friday_qty: 0,
+          saturday_qty: 0,
+          sunday_qty: 0,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customer-template-items", order?.customer_id] });
+      toast({ 
+        title: "Item added to template",
+        description: "This item is now part of the customer's template"
+      });
+      setShowSaveToTemplateDialog(false);
+      setPendingTemplateItem(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error saving to template",
         description: error.message,
         variant: "destructive",
       });
@@ -806,6 +901,56 @@ export default function SalesOrderDetails() {
               disabled={cancelOrderMutation.isPending}
             >
               {cancelOrderMutation.isPending ? "Canceling..." : "Cancel Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Save to Template Dialog */}
+      <AlertDialog open={showSaveToTemplateDialog} onOpenChange={setShowSaveToTemplateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              Save {pendingTemplateItem?.item_name} to customer template?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This item is not currently part of the customer's template. Would you like to add it for future orders?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="flex items-center space-x-2 py-4">
+            <Checkbox 
+              id="dont-ask"
+              checked={dontAskAgain}
+              onCheckedChange={(checked) => setDontAskAgain(checked as boolean)}
+            />
+            <label
+              htmlFor="dont-ask"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Don't ask again for this order
+            </label>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowSaveToTemplateDialog(false);
+                setPendingTemplateItem(null);
+              }}
+            >
+              No, Order Only
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingTemplateItem) {
+                  saveToTemplateMutation.mutate(pendingTemplateItem.item_id);
+                }
+              }}
+              disabled={saveToTemplateMutation.isPending}
+            >
+              {saveToTemplateMutation.isPending ? "Adding..." : "Yes, Add to Template"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
