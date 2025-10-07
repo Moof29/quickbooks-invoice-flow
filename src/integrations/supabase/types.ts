@@ -4782,6 +4782,15 @@ export type Database = {
         Args: { order_id: string }
         Returns: boolean
       }
+      check_duplicate_orders: {
+        Args: {
+          p_customer_id: string
+          p_delivery_date: string
+          p_exclude_order_id?: string
+          p_organization_id: string
+        }
+        Returns: Json
+      }
       generate_sales_order_number: {
         Args: { org_id: string }
         Returns: string
@@ -4885,6 +4894,10 @@ export type Database = {
             }
           | { permission: string }
         Returns: boolean
+      }
+      validate_order_before_invoice: {
+        Args: { p_order_id: string }
+        Returns: Json
       }
     }
     Enums: {
