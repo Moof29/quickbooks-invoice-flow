@@ -478,7 +478,7 @@ export function ModernSalesOrdersList() {
                           {getStatusBadge(order.status)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {order.order_number} • Order: {format(parseISO(order.order_date), "MMM dd")} • Delivery: {format(parseISO(order.delivery_date), "MMM dd")} • {order.sales_order_line_item?.[0]?.count || 0} items • $
+                          {order.order_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.sales_order_line_item?.[0]?.count || 0} items • $
                           {order.total.toFixed(2)}
                         </div>
                       </div>
