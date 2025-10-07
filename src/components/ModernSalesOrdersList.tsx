@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
-import { format, parseISO, isToday, isTomorrow, isFuture, isPast } from "date-fns";
+import { format, parseISO, isToday, isTomorrow, isFuture, isPast, addDays } from "date-fns";
 import {
   Calendar,
   CheckCircle2,
@@ -26,12 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +61,20 @@ export function ModernSalesOrdersList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // Calculate 3-day delivery dates
+  const deliveryDates = useMemo(() => {
+    const tomorrow = addDays(new Date(), 1);
+    const day2 = addDays(new Date(), 2);
+    const day3 = addDays(new Date(), 3);
+    
+    return [
+      { date: format(tomorrow, 'yyyy-MM-dd'), label: 'Tomorrow' },
+      { date: format(day2, 'yyyy-MM-dd'), label: format(day2, 'EEEE M/d') },
+      { date: format(day3, 'yyyy-MM-dd'), label: format(day3, 'EEEE M/d') }
+    ];
+  }, []);
+
+  const [deliveryDateFilter, setDeliveryDateFilter] = useState<string>(deliveryDates[0].date);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
@@ -75,9 +83,9 @@ export function ModernSalesOrdersList() {
 
   const organizationId = profile?.organization_id;
 
-  // Fetch orders
+  // Fetch orders for selected delivery date
   const { data: orders, isLoading } = useQuery({
-    queryKey: ["sales-orders", organizationId, statusFilter],
+    queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter],
     queryFn: async () => {
       let query = supabase
         .from("sales_order")
@@ -96,7 +104,7 @@ export function ModernSalesOrdersList() {
         `
         )
         .eq("organization_id", organizationId)
-        .order("delivery_date", { ascending: true })
+        .eq("delivery_date", deliveryDateFilter)
         .order("created_at", { ascending: false });
 
       if (statusFilter !== "all") {
@@ -173,7 +181,7 @@ export function ModernSalesOrdersList() {
     },
   });
 
-  // Filter orders by search query
+  // Filter orders by search query (no grouping needed now)
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     if (!searchQuery.trim()) return orders;
@@ -186,13 +194,7 @@ export function ModernSalesOrdersList() {
     );
   }, [orders, searchQuery]);
 
-  // Group orders by delivery date
-  const groupedOrders = filteredOrders?.reduce((acc, order) => {
-    const date = order.delivery_date;
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(order);
-    return acc;
-  }, {} as Record<string, SalesOrder[]>);
+  const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -230,8 +232,8 @@ export function ModernSalesOrdersList() {
     batchInvoiceMutation.mutate(orderIds);
   };
 
-  const handleSelectAll = (dateGroup: SalesOrder[]) => {
-    const reviewedOrders = dateGroup.filter((o) => o.status === "reviewed" && !o.invoiced);
+  const handleSelectAll = () => {
+    const reviewedOrders = filteredOrders?.filter((o) => o.status === "reviewed" && !o.invoiced) || [];
     const newSelected = new Set(selectedOrders);
     const allSelected = reviewedOrders.every((o) => newSelected.has(o.id));
 
@@ -261,6 +263,18 @@ export function ModernSalesOrdersList() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle>Filter Orders</CardTitle>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <Select value={deliveryDateFilter} onValueChange={setDeliveryDateFilter}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {deliveryDates.map((dateOption) => (
+                    <SelectItem key={dateOption.date} value={dateOption.date}>
+                      {dateOption.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="relative flex-1 sm:flex-initial">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -317,156 +331,142 @@ export function ModernSalesOrdersList() {
         </Card>
       )}
 
-      {/* Orders grouped by delivery date */}
+      {/* Orders for selected delivery date */}
       {!filteredOrders || filteredOrders.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">
-            {searchQuery ? "No orders match your search." : "No orders found. Create your first order to get started."}
+            {searchQuery ? "No orders match your search." : "No orders found for this delivery date."}
           </CardContent>
         </Card>
       ) : (
-        <Accordion type="multiple" defaultValue={Object.keys(groupedOrders || {})} className="space-y-4">
-          {Object.entries(groupedOrders || {}).map(([date, dateOrders]) => {
-            const reviewedCount = dateOrders.filter((o) => o.status === "reviewed").length;
-            return (
-              <AccordionItem key={date} value={date} className="border-0">
-                <Card>
-                  <AccordionTrigger className="hover:no-underline px-6 py-4">
-                    <div className="flex items-center justify-between w-full pr-4">
-                      <div className="flex items-center gap-3">
-                        <Calendar className="h-5 w-5 text-primary" />
-                        <div className="text-left">
-                          <div className="font-semibold text-lg">
-                            {format(parseISO(date), "EEEE, MMMM d, yyyy")}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {dateOrders.length} order(s)
-                            {reviewedCount > 0 && ` • ${reviewedCount} ready to invoice`}
-                          </div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-primary" />
+                <div>
+                  <CardTitle>{format(parseISO(deliveryDateFilter), "EEEE, MMMM d, yyyy")}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {filteredOrders.length} order(s)
+                    {reviewedCount > 0 && ` • ${reviewedCount} ready to invoice`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {getDeliveryBadge(deliveryDateFilter)}
+                {reviewedCount > 0 && (
+                  <Checkbox
+                    checked={filteredOrders
+                      .filter((o) => o.status === "reviewed" && !o.invoiced)
+                      .every((o) => selectedOrders.has(o.id))}
+                    onCheckedChange={() => handleSelectAll()}
+                  />
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {filteredOrders.map((order) => (
+              <Card 
+                key={order.id} 
+                className="border shadow-sm cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => navigate(`/sales-orders/${order.id}`)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      {order.status === "reviewed" && !order.invoiced && (
+                        <Checkbox
+                          checked={selectedOrders.has(order.id)}
+                          onCheckedChange={(checked) => {
+                            const newSelected = new Set(selectedOrders);
+                            if (checked) {
+                              newSelected.add(order.id);
+                            } else {
+                              newSelected.delete(order.id);
+                            }
+                            setSelectedOrders(newSelected);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold">{order.order_number}</span>
+                          {order.is_no_order_today && (
+                            <Badge variant="outline" className="gap-1">
+                              <AlertCircle className="h-3 w-3" />
+                              No Order Today
+                            </Badge>
+                          )}
+                          {getStatusBadge(order.status)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {order.customer_profile.company_name} • {order.sales_order_line_item?.[0]?.count || 0} items • $
+                          {order.total.toFixed(2)}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {getDeliveryBadge(date)}
-                        {reviewedCount > 0 && (
-                          <Checkbox
-                            checked={dateOrders
-                              .filter((o) => o.status === "reviewed")
-                              .every((o) => selectedOrders.has(o.id))}
-                            onCheckedChange={() => handleSelectAll(dateOrders)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        )}
-                      </div>
                     </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="px-6 pb-4 space-y-3">
-                      {dateOrders.map((order) => (
-                        <Card 
-                          key={order.id} 
-                          className="border shadow-sm cursor-pointer hover:bg-accent/50 transition-colors"
-                          onClick={() => navigate(`/sales-orders/${order.id}`)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4 flex-1">
-                                {order.status === "reviewed" && !order.invoiced && (
-                                  <Checkbox
-                                    checked={selectedOrders.has(order.id)}
-                                    onCheckedChange={(checked) => {
-                                      const newSelected = new Set(selectedOrders);
-                                      if (checked) {
-                                        newSelected.add(order.id);
-                                      } else {
-                                        newSelected.delete(order.id);
-                                      }
-                                      setSelectedOrders(newSelected);
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                )}
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-semibold">{order.order_number}</span>
-                                    {order.is_no_order_today && (
-                                      <Badge variant="outline" className="gap-1">
-                                        <AlertCircle className="h-3 w-3" />
-                                        No Order Today
-                                      </Badge>
-                                    )}
-                                    {getStatusBadge(order.status)}
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {order.customer_profile.company_name} • {order.sales_order_line_item?.[0]?.count || 0} items • $
-                                    {order.total.toFixed(2)}
-                                  </div>
-                                </div>
-                              </div>
 
-                              {/* Actions */}
-                              <div className="flex items-center gap-2">
-                                {order.status === "pending" && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      reviewMutation.mutate(order.id);
-                                    }}
-                                  >
-                                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                                    Review
-                                  </Button>
-                                )}
-                                {order.status === "reviewed" && !order.invoiced && (
-                                  <Button
-                                    size="sm"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      const { data, error } = await supabase.functions.invoke(
-                                        "create-invoice-from-order",
-                                        { body: { order_id: order.id } }
-                                      );
-                                      if (error) {
-                                        toast({
-                                          title: "Error",
-                                          description: error.message,
-                                          variant: "destructive",
-                                        });
-                                      } else {
-                                        queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
-                                        toast({ title: "Invoice created successfully" });
-                                      }
-                                    }}
-                                  >
-                                    <FileText className="h-4 w-4 mr-1" />
-                                    Invoice
-                                  </Button>
-                                )}
-                                {!order.invoiced && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDeleteOrderId(order.id);
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      {order.status === "pending" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            reviewMutation.mutate(order.id);
+                          }}
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-1" />
+                          Review
+                        </Button>
+                      )}
+                      {order.status === "reviewed" && !order.invoiced && (
+                        <Button
+                          size="sm"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const { data, error } = await supabase.functions.invoke(
+                              "create-invoice-from-order",
+                              { body: { order_id: order.id } }
+                            );
+                            if (error) {
+                              toast({
+                                title: "Error",
+                                description: error.message,
+                                variant: "destructive",
+                              });
+                            } else {
+                              queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+                              toast({ title: "Invoice created successfully" });
+                            }
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Invoice
+                        </Button>
+                      )}
+                      {!order.invoiced && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteOrderId(order.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                  </AccordionContent>
-                </Card>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       {/* Delete Confirmation Dialog */}
