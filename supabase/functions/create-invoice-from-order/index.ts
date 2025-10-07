@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
         subtotal: order.subtotal,
         tax_total: order.tax_total || 0,
         total: order.total,
-        status: 'pending',
+        status: 'draft', // Valid status: draft, sent, paid, partial, void, overdue
         source_system: 'ERP',
         memo: `Generated from Sales Order ${order.order_number}`,
       })
