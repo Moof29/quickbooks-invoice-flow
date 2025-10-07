@@ -78,7 +78,7 @@ export function ModernSalesOrdersList() {
   // Get date filter from URL params or default to tomorrow
   const [deliveryDateFilter, setDeliveryDateFilter] = useState<string>(() => {
     const dateParam = searchParams.get('date');
-    return dateParam || 'all';
+    return dateParam || deliveryDates[0].date;
   });
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
