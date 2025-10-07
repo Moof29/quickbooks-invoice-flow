@@ -89,8 +89,7 @@ export default function SalesOrderDetails() {
   const { profile } = useAuthProfile();
   const { toast } = useToast();
 
-  const [editingLineItemId, setEditingLineItemId] = useState<string | null>(null);
-  const [editQuantity, setEditQuantity] = useState<string>("");
+  const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [deleteLineItemId, setDeleteLineItemId] = useState<string | null>(null);
   const [addingItem, setAddingItem] = useState(false);
   const [newItem, setNewItem] = useState({ item_id: "", quantity: "1" });
@@ -166,6 +165,17 @@ export default function SalesOrderDetails() {
     enabled: !!organizationId,
   });
 
+  // Initialize quantities when line items load
+  useEffect(() => {
+    if (lineItems.length > 0) {
+      const initialQuantities: Record<string, string> = {};
+      lineItems.forEach(item => {
+        initialQuantities[item.id] = item.quantity.toString();
+      });
+      setQuantities(initialQuantities);
+    }
+  }, [lineItems]);
+
   // Update quantity mutation
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ lineItemId, quantity }: { lineItemId: string; quantity: number }) => {
@@ -180,7 +190,6 @@ export default function SalesOrderDetails() {
       queryClient.invalidateQueries({ queryKey: ["sales-order-line-items", salesOrderId] });
       queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       toast({ title: "Quantity updated successfully" });
-      setEditingLineItemId(null);
     },
     onError: (error: any) => {
       toast({
@@ -254,9 +263,15 @@ export default function SalesOrderDetails() {
     },
   });
 
-  const handleSaveQuantity = (lineItemId: string) => {
-    const quantity = parseFloat(editQuantity);
-    if (isNaN(quantity) || quantity < 0) {
+  const handleQuantityChange = (lineItemId: string, value: string) => {
+    setQuantities(prev => ({ ...prev, [lineItemId]: value }));
+  };
+
+  const handleQuantityBlur = (lineItemId: string, originalQuantity: number) => {
+    const newQuantity = parseFloat(quantities[lineItemId] || "0");
+    if (isNaN(newQuantity) || newQuantity < 0) {
+      // Reset to original if invalid
+      setQuantities(prev => ({ ...prev, [lineItemId]: originalQuantity.toString() }));
       toast({
         title: "Invalid quantity",
         description: "Please enter a valid number",
@@ -264,7 +279,20 @@ export default function SalesOrderDetails() {
       });
       return;
     }
-    updateQuantityMutation.mutate({ lineItemId, quantity });
+    
+    // Only update if changed
+    if (newQuantity !== originalQuantity) {
+      updateQuantityMutation.mutate({ lineItemId, quantity: newQuantity });
+    }
+  };
+
+  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, lineItemId: string, originalQuantity: number) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    } else if (e.key === "Escape") {
+      setQuantities(prev => ({ ...prev, [lineItemId]: originalQuantity.toString() }));
+      e.currentTarget.blur();
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -419,58 +447,19 @@ export default function SalesOrderDetails() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lineItems.map((item) => (
+              {lineItems.map((item, index) => (
                 <TableRow key={item.id} className="group">
                   <TableCell className="text-center">
-                    {editingLineItemId === item.id ? (
-                      <div className="flex items-center justify-center gap-1">
-                        <Input
-                          type="number"
-                          value={editQuantity}
-                          onChange={(e) => setEditQuantity(e.target.value)}
-                          className="w-16 h-8 text-center"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSaveQuantity(item.id);
-                            if (e.key === "Escape") setEditingLineItemId(null);
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0"
-                          onClick={() => handleSaveQuantity(item.id)}
-                          disabled={updateQuantityMutation.isPending}
-                        >
-                          <Check className="h-3.5 w-3.5 text-green-600" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0"
-                          onClick={() => setEditingLineItemId(null)}
-                        >
-                          <X className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          if (!order.invoiced) {
-                            setEditingLineItemId(item.id);
-                            setEditQuantity(item.quantity.toString());
-                          }
-                        }}
-                        className={`font-semibold px-3 py-1.5 rounded-md transition-colors ${
-                          !order.invoiced 
-                            ? "cursor-pointer hover:bg-primary/10 hover:text-primary" 
-                            : "cursor-default"
-                        }`}
-                        disabled={order.invoiced}
-                      >
-                        {item.quantity}
-                      </button>
-                    )}
+                    <Input
+                      type="number"
+                      value={quantities[item.id] ?? item.quantity}
+                      onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                      onBlur={() => handleQuantityBlur(item.id, item.quantity)}
+                      onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
+                      className="w-20 h-9 text-center border-input"
+                      disabled={order.invoiced}
+                      tabIndex={index + 1}
+                    />
                   </TableCell>
                   <TableCell className="text-center">
                     <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-muted text-xs font-medium text-muted-foreground">
