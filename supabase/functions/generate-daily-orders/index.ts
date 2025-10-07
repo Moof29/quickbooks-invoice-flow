@@ -74,12 +74,7 @@ Deno.serve(async (req) => {
     // Get active customer templates
     let templatesQuery = supabaseClient
       .from('customer_templates')
-      .select(`
-        id,
-        customer_id,
-        name,
-        customer_profile!inner(id, company_name)
-      `)
+      .select('id, customer_id, name')
       .eq('organization_id', organizationId)
       .eq('is_active', true);
 
@@ -98,6 +93,22 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Found ${templates?.length || 0} active templates`);
+
+    // Fetch customer data for all templates
+    const customerIds = templates?.map(t => t.customer_id) || [];
+    const { data: customers, error: customersError } = await supabaseClient
+      .from('customer_profile')
+      .select('id, company_name')
+      .in('id', customerIds);
+
+    if (customersError) {
+      console.error('Error fetching customers:', customersError);
+    }
+
+    // Create a map of customer data
+    const customerMap = new Map(
+      customers?.map(c => [c.id, c]) || []
+    );
 
     const ordersCreated: any[] = [];
     const errors: any[] = [];
@@ -205,11 +216,12 @@ Deno.serve(async (req) => {
           console.log(`Created ${lineItems.length} line items`);
         }
 
+        const customer = customerMap.get(template.customer_id);
         ordersCreated.push({
           order_id: newOrder.id,
           order_number: newOrder.order_number,
           customer_id: template.customer_id,
-          customer_name: (template.customer_profile as any)?.company_name,
+          customer_name: customer?.company_name || 'Unknown',
           delivery_date: targetDate,
           total: subtotal,
           is_no_order_today: isNoOrderToday,
