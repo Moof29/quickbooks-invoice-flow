@@ -6,6 +6,7 @@ import { ModernSalesOrdersList } from "@/components/ModernSalesOrdersList";
 import { CustomerTemplates } from "@/components/CustomerTemplates";
 import { CreateSalesOrderDialog } from "@/components/CreateSalesOrderDialog";
 import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
+import { GenerateTemplateTestDataButton } from "@/components/GenerateTemplateTestDataButton";
 
 export default function SalesOrders() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -21,6 +22,7 @@ export default function SalesOrders() {
           </p>
         </div>
         <div className="flex gap-2">
+          <GenerateTemplateTestDataButton />
           <GenerateDailyOrdersButton />
           <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
             <Plus className="h-4 w-4 mr-2" />
