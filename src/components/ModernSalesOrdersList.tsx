@@ -85,6 +85,8 @@ export function ModernSalesOrdersList() {
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
   const [isBatchInvoicing, setIsBatchInvoicing] = useState(false);
+  const [isBatchReviewing, setIsBatchReviewing] = useState(false);
+  const [showBulkReviewDialog, setShowBulkReviewDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const organizationId = profile?.organization_id;
@@ -217,6 +219,44 @@ export function ModernSalesOrdersList() {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({ title: "Order reviewed successfully" });
     },
+    onError: (error: any) => {
+      toast({
+        title: "Error reviewing order",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Batch review mutation
+  const batchReviewMutation = useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      const { error } = await supabase
+        .from("sales_order")
+        .update({ status: "reviewed", approved_at: new Date().toISOString() })
+        .in("id", orderIds);
+      if (error) throw error;
+      return orderIds.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      setSelectedOrders(new Set());
+      toast({
+        title: "Bulk review complete",
+        description: `${count} orders marked as reviewed`,
+      });
+      setIsBatchReviewing(false);
+      setShowBulkReviewDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Batch review failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setIsBatchReviewing(false);
+      setShowBulkReviewDialog(false);
+    },
   });
 
   // Filter orders by search query and sort
@@ -297,6 +337,12 @@ export function ModernSalesOrdersList() {
     batchInvoiceMutation.mutate(orderIds);
   };
 
+  const handleBatchReview = () => {
+    const orderIds = Array.from(selectedOrders);
+    setIsBatchReviewing(true);
+    batchReviewMutation.mutate(orderIds);
+  };
+
   const handleSelectAll = () => {
     const reviewedOrders = filteredOrders?.filter((o) => o.status === "reviewed" && !o.invoiced) || [];
     const newSelected = new Set(selectedOrders);
@@ -309,6 +355,23 @@ export function ModernSalesOrdersList() {
     }
     setSelectedOrders(newSelected);
   };
+
+  const handleSelectAllPending = () => {
+    const pendingOrders = filteredOrders?.filter((o) => o.status === "pending") || [];
+    const newSelected = new Set(selectedOrders);
+    const allSelected = pendingOrders.every((o) => newSelected.has(o.id));
+
+    if (allSelected) {
+      pendingOrders.forEach((o) => newSelected.delete(o.id));
+    } else {
+      pendingOrders.forEach((o) => newSelected.add(o.id));
+    }
+    setSelectedOrders(newSelected);
+  };
+
+  const selectedPendingCount = Array.from(selectedOrders).filter(id => 
+    filteredOrders?.find(o => o.id === id && o.status === "pending")
+  ).length;
 
   if (isLoading) {
     return (
@@ -380,6 +443,7 @@ export function ModernSalesOrdersList() {
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">
                 {selectedOrders.size} order(s) selected
+                {selectedPendingCount > 0 && ` • ${selectedPendingCount} pending`}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -389,6 +453,18 @@ export function ModernSalesOrdersList() {
                 >
                   Clear Selection
                 </Button>
+                {selectedPendingCount > 0 && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setShowBulkReviewDialog(true)}
+                    disabled={isBatchReviewing}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    {isBatchReviewing ? "Reviewing..." : `Review ${selectedPendingCount}`}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   onClick={handleBatchInvoice}
@@ -485,9 +561,9 @@ export function ModernSalesOrdersList() {
                       </div>
                     </div>
 
-                    {/* Actions */}
+                     {/* Actions */}
                     <div className="flex items-center gap-2">
-                      {order.status === "pending" && (
+                      {order.status === "pending" && !selectedOrders.has(order.id) && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -499,6 +575,21 @@ export function ModernSalesOrdersList() {
                           <CheckCircle2 className="h-4 w-4 mr-1" />
                           Review
                         </Button>
+                      )}
+                      {order.status === "pending" && (
+                        <Checkbox
+                          checked={selectedOrders.has(order.id)}
+                          onCheckedChange={(checked) => {
+                            const newSelected = new Set(selectedOrders);
+                            if (checked) {
+                              newSelected.add(order.id);
+                            } else {
+                              newSelected.delete(order.id);
+                            }
+                            setSelectedOrders(newSelected);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
                       )}
                       {order.status === "reviewed" && !order.invoiced && (
                         <Button
@@ -562,6 +653,29 @@ export function ModernSalesOrdersList() {
               className="bg-destructive hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Review Confirmation Dialog */}
+      <AlertDialog open={showBulkReviewDialog} onOpenChange={setShowBulkReviewDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Review Selected Orders</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark {selectedPendingCount} order(s) as reviewed? 
+              Reviewed orders can be converted to invoices.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBatchReviewing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBatchReview}
+              disabled={isBatchReviewing}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isBatchReviewing ? "Reviewing..." : "Review Orders"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
