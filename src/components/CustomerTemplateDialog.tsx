@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Save, Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react';
+import { Save, Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 
 interface CustomerTemplate {
   id: string;
@@ -71,22 +68,24 @@ export function CustomerTemplateDialog({
   const [itemRows, setItemRows] = useState<ItemRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const commandInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Focus the search input when popover opens
+  // Close dropdown when clicking outside
   useEffect(() => {
-    if (popoverOpen) {
-      // Small delay to ensure popover is fully rendered
-      setTimeout(() => {
-        const input = document.querySelector('[cmdk-input]') as HTMLInputElement;
-        if (input) {
-          input.focus();
-        }
-      }, 50);
-    }
-  }, [popoverOpen]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Fetch customers
   const { data: customers } = useQuery<Customer[]>({
@@ -120,6 +119,12 @@ export function CustomerTemplateDialog({
       })) as Item[];
     }
   });
+
+  // Filter items based on search query
+  const filteredAvailableItems = allItems
+    ?.filter(item => !itemRows.some(row => row.item_id === item.id))
+    .filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    || [];
 
   // Initialize item rows when dialog opens
   useEffect(() => {
@@ -233,6 +238,8 @@ export function CustomerTemplateDialog({
 
     setItemRows([...itemRows, newRow]);
     setSelectedItemId('');
+    setSearchQuery('');
+    setShowDropdown(false);
   };
 
   const removeItem = (itemId: string) => {
@@ -412,55 +419,45 @@ export function CustomerTemplateDialog({
 
           {/* Add Item Section */}
           <div className="flex gap-2 items-end border rounded-md p-4 bg-muted/30">
-            <div className="flex-1">
+            <div className="flex-1 relative" ref={dropdownRef}>
               <Label>Add Item to Template</Label>
-              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between"
-                  >
-                    {selectedItemId 
-                      ? allItems?.find(i => i.id === selectedItemId)?.name 
-                      : "Search items by name..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[600px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Type to search items..." />
-                    <CommandList>
-                      <CommandEmpty>No items found</CommandEmpty>
-                      <CommandGroup>
-                        {allItems
-                          ?.filter(item => !itemRows.some(row => row.item_id === item.id))
-                          .map((item) => (
-                            <CommandItem
-                              key={item.id}
-                              value={item.name}
-                              onSelect={() => {
-                                setSelectedItemId(item.id);
-                                setPopoverOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedItemId === item.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <span className="flex-1">{item.name}</span>
-                              <span className="text-muted-foreground ml-2">
-                                ${item.list_price.toFixed(2)}
-                              </span>
-                            </CommandItem>
-                          ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Input
+                placeholder="Search items by name..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                className="w-full"
+              />
+              {showDropdown && searchQuery && filteredAvailableItems.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 max-h-[300px] overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md">
+                  {filteredAvailableItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        setSelectedItemId(item.id);
+                        setSearchQuery(item.name);
+                        setShowDropdown(false);
+                      }}
+                    >
+                      <span className="flex-1">{item.name}</span>
+                      <span className="text-muted-foreground ml-2">
+                        ${item.list_price.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {showDropdown && searchQuery && filteredAvailableItems.length === 0 && (
+                <div className="absolute z-50 w-full mt-1 rounded-md border bg-popover text-popover-foreground shadow-md">
+                  <div className="px-4 py-2 text-sm text-muted-foreground">
+                    No items found
+                  </div>
+                </div>
+              )}
             </div>
             <Button onClick={addItem} disabled={!selectedItemId} className="gap-2">
               <Plus className="h-4 w-4" />
