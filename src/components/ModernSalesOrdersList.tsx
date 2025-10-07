@@ -237,10 +237,10 @@ export function ModernSalesOrdersList() {
     
     // Sort logic depends on filter selection
     if (deliveryDateFilter === 'all') {
-      // When viewing all dates: sort by delivery date first, then by status
+      // When viewing all dates: sort by delivery date first (nearest first), then by status
       return [...filtered].sort((a, b) => {
-        // First compare delivery dates (newest first)
-        const dateCompare = new Date(b.delivery_date).getTime() - new Date(a.delivery_date).getTime();
+        // First compare delivery dates (nearest first)
+        const dateCompare = new Date(a.delivery_date).getTime() - new Date(b.delivery_date).getTime();
         if (dateCompare !== 0) return dateCompare;
         
         // Within same date, sort by status
