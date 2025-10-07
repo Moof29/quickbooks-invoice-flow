@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface SalesOrder {
   id: string;
@@ -60,6 +60,7 @@ export function ModernSalesOrdersList() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Calculate 7-day delivery dates
   const deliveryDates = useMemo(() => {
@@ -74,7 +75,11 @@ export function ModernSalesOrdersList() {
     return dates;
   }, []);
 
-  const [deliveryDateFilter, setDeliveryDateFilter] = useState<string>(deliveryDates[0].date);
+  // Get date filter from URL params or default to tomorrow
+  const [deliveryDateFilter, setDeliveryDateFilter] = useState<string>(() => {
+    const dateParam = searchParams.get('date');
+    return dateParam || deliveryDates[0].date;
+  });
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
@@ -302,7 +307,13 @@ export function ModernSalesOrdersList() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle>Filter Orders</CardTitle>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Select value={deliveryDateFilter} onValueChange={setDeliveryDateFilter}>
+              <Select 
+                value={deliveryDateFilter} 
+                onValueChange={(value) => {
+                  setDeliveryDateFilter(value);
+                  setSearchParams({ date: value });
+                }}
+              >
                 <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
