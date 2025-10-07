@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2, GripVertical } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +70,7 @@ export function CustomerTemplateDialog({
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -244,6 +245,44 @@ export function CustomerTemplateDialog({
 
   const removeItem = (itemId: string) => {
     setItemRows(itemRows.filter(row => row.item_id !== itemId));
+  };
+
+  const handleDragStart = (e: React.DragEvent, itemId: string) => {
+    setDraggedItemId(itemId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetItemId: string) => {
+    e.preventDefault();
+    
+    if (!draggedItemId || draggedItemId === targetItemId) {
+      setDraggedItemId(null);
+      return;
+    }
+
+    const draggedIndex = itemRows.findIndex(row => row.item_id === draggedItemId);
+    const targetIndex = itemRows.findIndex(row => row.item_id === targetItemId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedItemId(null);
+      return;
+    }
+
+    const newRows = [...itemRows];
+    const [draggedItem] = newRows.splice(draggedIndex, 1);
+    newRows.splice(targetIndex, 0, draggedItem);
+
+    setItemRows(newRows);
+    setDraggedItemId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItemId(null);
   };
 
   const handleSave = async () => {
@@ -472,7 +511,8 @@ export function CustomerTemplateDialog({
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
                     <TableHead className="w-[40px] sticky left-0 bg-background z-20"></TableHead>
-                    <TableHead className="w-[250px] sticky left-[40px] bg-background z-20">Item Name</TableHead>
+                    <TableHead className="w-[40px] sticky left-[40px] bg-background z-20"></TableHead>
+                    <TableHead className="w-[250px] sticky left-[80px] bg-background z-20">Item Name</TableHead>
                     <TableHead className="w-[100px]">List Price</TableHead>
                     <TableHead className="w-[100px]">Custom Price</TableHead>
                     <TableHead className="w-[80px] text-center">Sun</TableHead>
@@ -488,8 +528,21 @@ export function CustomerTemplateDialog({
                 </TableHeader>
                 <TableBody>
                   {itemRows.map((row) => (
-                    <TableRow key={row.item_id}>
+                    <TableRow 
+                      key={row.item_id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, row.item_id)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, row.item_id)}
+                      onDragEnd={handleDragEnd}
+                      className={draggedItemId === row.item_id ? 'opacity-50' : 'cursor-move'}
+                    >
                       <TableCell className="sticky left-0 bg-background">
+                        <div className="cursor-grab active:cursor-grabbing">
+                          <GripVertical className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="sticky left-[40px] bg-background">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -499,7 +552,7 @@ export function CustomerTemplateDialog({
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </TableCell>
-                      <TableCell className="font-medium sticky left-[40px] bg-background">
+                      <TableCell className="font-medium sticky left-[80px] bg-background">
                         {row.item_name}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
