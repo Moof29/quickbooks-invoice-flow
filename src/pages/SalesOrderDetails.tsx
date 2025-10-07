@@ -410,9 +410,10 @@ export default function SalesOrderDetails() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="text-right">Quantity</TableHead>
+                <TableHead>U/M</TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 {!order.invoiced && <TableHead className="w-[100px]"></TableHead>}
               </TableRow>
@@ -420,8 +421,6 @@ export default function SalesOrderDetails() {
             <TableBody>
               {lineItems.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.item_record.name}</TableCell>
-                  <TableCell className="text-right">${item.unit_price.toFixed(2)}</TableCell>
                   <TableCell className="text-right">
                     {editingLineItemId === item.id ? (
                       <div className="flex items-center justify-end gap-2">
@@ -469,6 +468,9 @@ export default function SalesOrderDetails() {
                       </button>
                     )}
                   </TableCell>
+                  <TableCell className="text-muted-foreground">EA</TableCell>
+                  <TableCell className="font-medium">{item.item_record.name}</TableCell>
+                  <TableCell className="text-right">${item.unit_price.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-medium">
                     ${item.amount.toFixed(2)}
                   </TableCell>
@@ -490,6 +492,16 @@ export default function SalesOrderDetails() {
               {addingItem && (
                 <TableRow>
                   <TableCell>
+                    <Input
+                      type="number"
+                      value={newItem.quantity}
+                      onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                      className="w-20"
+                      placeholder="Qty"
+                    />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">EA</TableCell>
+                  <TableCell>
                     <Select value={newItem.item_id} onValueChange={(value) => setNewItem({ ...newItem, item_id: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select item..." />
@@ -505,14 +517,6 @@ export default function SalesOrderDetails() {
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     $0.00
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      value={newItem.quantity}
-                      onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                      className="w-20"
-                    />
                   </TableCell>
                   <TableCell></TableCell>
                   <TableCell>
@@ -535,7 +539,7 @@ export default function SalesOrderDetails() {
               {/* Empty State */}
               {lineItems.length === 0 && !addingItem && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No items added yet. Click "Add Item" to get started.
                   </TableCell>
                 </TableRow>
