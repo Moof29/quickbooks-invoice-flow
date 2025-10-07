@@ -190,10 +190,28 @@ export function ModernSalesOrdersList() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       setSelectedOrders(new Set());
-      toast({
-        title: "Batch invoicing complete",
-        description: `${data.successful_count} orders invoiced, ${data.failed_count} failed`,
-      });
+      
+      const successCount = data.successful_count || 0;
+      const failCount = data.failed_count || 0;
+      const errors = data.errors || [];
+      
+      if (failCount > 0) {
+        // Show detailed errors
+        const errorMessages = errors.slice(0, 3).map((e: any) => 
+          `${e.order_id}: ${e.error}`
+        ).join('\n');
+        
+        toast({
+          title: "Batch invoicing completed with errors",
+          description: `${successCount} invoiced, ${failCount} failed.\n\n${errorMessages}${errors.length > 3 ? '\n...' : ''}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Batch invoicing complete",
+          description: `${successCount} orders invoiced successfully`,
+        });
+      }
       setIsBatchInvoicing(false);
     },
     onError: (error: any) => {
@@ -596,19 +614,25 @@ export function ModernSalesOrdersList() {
                           size="sm"
                           onClick={async (e) => {
                             e.stopPropagation();
-                            const { data, error } = await supabase.functions.invoke(
-                              "create-invoice-from-order",
-                              { body: { order_id: order.id } }
-                            );
-                            if (error) {
+                            try {
+                              const { data, error } = await supabase.functions.invoke(
+                                "create-invoice-from-order",
+                                { body: { order_id: order.id } }
+                              );
+                              if (error) throw error;
+                              if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
+                              
+                              queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+                              toast({ 
+                                title: "Invoice created successfully",
+                                description: `Invoice ${data.invoice?.invoice_number} created`
+                              });
+                            } catch (error: any) {
                               toast({
-                                title: "Error",
+                                title: "Error creating invoice",
                                 description: error.message,
                                 variant: "destructive",
                               });
-                            } else {
-                              queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
-                              toast({ title: "Invoice created successfully" });
                             }
                           }}
                         >

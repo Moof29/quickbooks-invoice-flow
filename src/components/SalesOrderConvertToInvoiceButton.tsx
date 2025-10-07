@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuthProfile } from '@/hooks/useAuthProfile';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,10 +12,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { FileText } from 'lucide-react';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 
 interface SalesOrderConvertToInvoiceButtonProps {
   salesOrderId: string;
@@ -30,168 +29,107 @@ export function SalesOrderConvertToInvoiceButton({
 }: SalesOrderConvertToInvoiceButtonProps) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { profile } = useAuthProfile();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const convertMutation = useMutation({
     mutationFn: async () => {
-      if (!profile?.id || !profile?.organization_id) {
-        throw new Error('User not authenticated or missing organization');
-      }
+      const { data, error } = await supabase.functions.invoke('create-invoice-from-order', {
+        body: { order_id: salesOrderId },
+      });
 
-      // First, get the sales order details
-      const { data: salesOrder, error: salesOrderError } = await supabase
-        .from('sales_order')
-        .select(`
-          *,
-          customer_profile:customer_id(*)
-        `)
-        .eq('id', salesOrderId)
-        .single();
-
-      if (salesOrderError || !salesOrder) {
-        throw new Error('Sales order not found');
-      }
-
-      // Create the invoice record
-      const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
       
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoice_record')
-        .insert({
-          organization_id: profile.organization_id,
-          customer_id: salesOrder.customer_id,
-          invoice_number: invoiceNumber,
-          invoice_date: new Date().toISOString().split('T')[0],
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
-          subtotal: salesOrder.subtotal || 0,
-          tax_total: salesOrder.tax_total || 0,
-          total: salesOrder.total || 0,
-          balance_due: salesOrder.total || 0,
-          status: 'sent',
-          memo: `Converted from Sales Order ${salesOrder.order_number}`
-          // Remove created_by since it's causing FK constraint issues
-        })
-        .select()
-        .single();
-
-      if (invoiceError) {
-        console.error('Invoice creation error:', invoiceError);
-        throw new Error(`Failed to create invoice: ${invoiceError.message}`);
-      }
-
-      if (!invoice) {
-        throw new Error('Failed to create invoice: No data returned');
-      }
-
-      // Get sales order line items
-      const { data: lineItems, error: lineItemsError } = await supabase
-        .from('sales_order_line_item')
-        .select('*')
-        .eq('sales_order_id', salesOrder.id);
-
-      if (lineItemsError) {
-        throw new Error('Failed to fetch line items');
-      }
-
-      // Create invoice line items
-      if (lineItems && lineItems.length > 0) {
-        const invoiceLineItems = lineItems.map(item => ({
-          invoice_id: invoice.id,
-          item_id: item.item_id,
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          discount_amount: item.discount_amount || 0,
-          tax_rate: item.tax_rate || 0,
-          position: item.position,
-          organization_id: salesOrder.organization_id,
-        }));
-
-        const { error: lineItemError } = await supabase
-          .from('invoice_line_item')
-          .insert(invoiceLineItems);
-
-        if (lineItemError) {
-          console.error('Line item creation error:', lineItemError);
-          throw new Error(`Failed to create invoice line items: ${lineItemError.message}`);
-        }
-      }
-
-      // Create the sales order to invoice link
-      const { error: linkError } = await supabase
-        .from('sales_order_invoice_link')
-        .insert({
-          organization_id: profile.organization_id,
-          sales_order_id: salesOrderId,
-          invoice_id: invoice.id
-        });
-
-      if (linkError) {
-        throw new Error('Failed to link sales order to invoice');
-      }
-
-      // Finally, update the sales order status to 'invoiced'
-      const { error: updateError } = await supabase
-        .from('sales_order')
-        .update({ status: 'invoiced' })
-        .eq('id', salesOrderId);
-
-      if (updateError) {
-        throw new Error('Failed to update sales order status');
-      }
-
-      return invoice;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Sales order converted to invoice and line items copied successfully');
+      
+      toast({
+        title: 'Invoice created successfully',
+        description: `Invoice ${data.invoice?.invoice_number} created for ${data.invoice?.customer_name}`,
+      });
+      
       setOpen(false);
       onConversion?.();
+      
+      // Navigate to invoice detail page if invoice ID is available
+      if (data.invoice?.id) {
+        navigate(`/invoices/${data.invoice.id}`);
+      }
     },
     onError: (error: any) => {
-      toast.error(`Failed to convert to invoice: ${error.message}`);
+      const errorMessage = error?.message || 'Failed to create invoice';
+      toast({
+        title: 'Error creating invoice',
+        description: errorMessage,
+        variant: 'destructive',
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => convertMutation.mutate()}
+          >
+            Retry
+          </Button>
+        ),
+      });
     },
   });
 
-  // Only show convert button for approved orders
-  if (currentStatus !== 'approved') {
+  const handleInvoiceClick = () => {
+    // If pending, show confirmation dialog
+    if (currentStatus === 'pending') {
+      setOpen(true);
+    } else {
+      // If reviewed, proceed directly
+      convertMutation.mutate();
+    }
+  };
+
+  // Show button for pending OR reviewed orders (not already invoiced)
+  if (currentStatus !== 'pending' && currentStatus !== 'reviewed') {
     return null;
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="sm"
-          className="flex items-center gap-1"
-          disabled={convertMutation.isPending}
-        >
-          <FileText className="h-3 w-3" />
-          {convertMutation.isPending ? 'Converting...' : 'Convert to Invoice'}
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Convert to Invoice</AlertDialogTitle>
-          <AlertDialogDescription>
-            Are you sure you want to convert this approved sales order to an invoice? This action will create a new invoice and update the sales order status to 'invoiced'.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={convertMutation.isPending}>
-            Cancel
-          </AlertDialogCancel>
-          <AlertDialogAction 
-            onClick={() => convertMutation.mutate()}
-            disabled={convertMutation.isPending}
-          >
-            {convertMutation.isPending ? 'Converting...' : 'Convert to Invoice'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <>
+      <Button 
+        onClick={handleInvoiceClick}
+        disabled={convertMutation.isPending}
+        className="flex items-center gap-2"
+      >
+        <FileText className="h-4 w-4" />
+        {convertMutation.isPending ? 'Creating Invoice...' : 'Create Invoice'}
+      </Button>
+
+      {/* Confirmation dialog for pending orders */}
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Skip Review Step?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This order is still pending. Do you want to skip the review step and create an invoice now?
+              <br /><br />
+              Normally, orders should be reviewed before invoicing.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={convertMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => convertMutation.mutate()}
+              disabled={convertMutation.isPending}
+            >
+              {convertMutation.isPending ? 'Creating...' : 'Yes, Invoice Now'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
