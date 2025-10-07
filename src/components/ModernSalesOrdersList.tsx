@@ -218,7 +218,7 @@ export function ModernSalesOrdersList() {
     },
   });
 
-  // Filter orders by search query and sort by status
+  // Filter orders by search query and sort
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     
@@ -233,14 +233,30 @@ export function ModernSalesOrdersList() {
       );
     }
     
-    // Sort by status: pending -> reviewed -> invoiced
     const statusOrder = { 'pending': 1, 'reviewed': 2, 'invoiced': 3 };
-    return [...filtered].sort((a, b) => {
-      const statusA = statusOrder[a.status as keyof typeof statusOrder] || 999;
-      const statusB = statusOrder[b.status as keyof typeof statusOrder] || 999;
-      return statusA - statusB;
-    });
-  }, [orders, searchQuery]);
+    
+    // Sort logic depends on filter selection
+    if (deliveryDateFilter === 'all') {
+      // When viewing all dates: sort by delivery date first, then by status
+      return [...filtered].sort((a, b) => {
+        // First compare delivery dates (newest first)
+        const dateCompare = new Date(b.delivery_date).getTime() - new Date(a.delivery_date).getTime();
+        if (dateCompare !== 0) return dateCompare;
+        
+        // Within same date, sort by status
+        const statusA = statusOrder[a.status as keyof typeof statusOrder] || 999;
+        const statusB = statusOrder[b.status as keyof typeof statusOrder] || 999;
+        return statusA - statusB;
+      });
+    } else {
+      // When viewing specific date: sort by status only
+      return [...filtered].sort((a, b) => {
+        const statusA = statusOrder[a.status as keyof typeof statusOrder] || 999;
+        const statusB = statusOrder[b.status as keyof typeof statusOrder] || 999;
+        return statusA - statusB;
+      });
+    }
+  }, [orders, searchQuery, deliveryDateFilter]);
 
   const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
 
@@ -462,7 +478,7 @@ export function ModernSalesOrdersList() {
                           {getStatusBadge(order.status)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {order.order_number} • {order.sales_order_line_item?.[0]?.count || 0} items • $
+                          {order.order_number} • Order: {format(parseISO(order.order_date), "MMM dd")} • Delivery: {format(parseISO(order.delivery_date), "MMM dd")} • {order.sales_order_line_item?.[0]?.count || 0} items • $
                           {order.total.toFixed(2)}
                         </div>
                       </div>
