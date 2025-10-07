@@ -158,12 +158,12 @@ Deno.serve(async (req) => {
         description: 'No Order Today - Customer Confirmed',
         quantity: 0,
         unit_price: 0,
-        amount: 0,
+        // amount and tax_amount are GENERATED columns - don't include them
         tax_rate: 0,
-        tax_amount: 0,
       }];
     } else {
       // Normal orders: create line items from sales order line items
+      // NOTE: amount and tax_amount are GENERATED columns - database calculates them
       invoiceLineItems = lineItems?.map((item: any) => ({
         organization_id: order.organization_id,
         invoice_id: invoice.id,
@@ -171,9 +171,9 @@ Deno.serve(async (req) => {
         description: item.item_record?.name || '',
         quantity: item.quantity,
         unit_price: item.unit_price,
-        amount: item.amount,
+        // amount is auto-calculated by database
         tax_rate: item.tax_rate || 0,
-        tax_amount: item.tax_amount || 0,
+        // tax_amount is auto-calculated by database
       })) || [];
     }
 
