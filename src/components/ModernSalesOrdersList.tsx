@@ -209,17 +209,28 @@ export function ModernSalesOrdersList() {
     },
   });
 
-  // Filter orders by search query (no grouping needed now)
+  // Filter orders by search query and sort by status
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
-    if (!searchQuery.trim()) return orders;
     
-    const query = searchQuery.toLowerCase().trim();
-    return orders.filter(order => 
-      order.order_number?.toLowerCase().includes(query) ||
-      order.customer_profile?.company_name?.toLowerCase().includes(query) ||
-      order.total?.toString().includes(query)
-    );
+    // Filter by search query
+    let filtered = orders;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = orders.filter(order => 
+        order.order_number?.toLowerCase().includes(query) ||
+        order.customer_profile?.company_name?.toLowerCase().includes(query) ||
+        order.total?.toString().includes(query)
+      );
+    }
+    
+    // Sort by status: pending -> reviewed -> invoiced
+    const statusOrder = { 'pending': 1, 'reviewed': 2, 'invoiced': 3 };
+    return [...filtered].sort((a, b) => {
+      const statusA = statusOrder[a.status as keyof typeof statusOrder] || 999;
+      const statusB = statusOrder[b.status as keyof typeof statusOrder] || 999;
+      return statusA - statusB;
+    });
   }, [orders, searchQuery]);
 
   const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
