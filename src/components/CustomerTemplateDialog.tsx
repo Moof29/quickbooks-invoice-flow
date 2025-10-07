@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Save } from 'lucide-react';
+import { Save, Plus, Trash2, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Combobox } from "@/components/ui/combobox";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
 
@@ -67,6 +68,8 @@ export function CustomerTemplateDialog({
   });
   const [itemRows, setItemRows] = useState<ItemRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedItemId, setSelectedItemId] = useState<string>('');
   const { toast } = useToast();
 
   // Fetch customers
@@ -83,7 +86,7 @@ export function CustomerTemplateDialog({
     }
   });
 
-  // Fetch ALL items - every item available in the system
+  // Fetch ALL items for the dropdown
   const { data: allItems } = useQuery<Item[]>({
     queryKey: ['all-items'],
     queryFn: async () => {
@@ -102,9 +105,9 @@ export function CustomerTemplateDialog({
     }
   });
 
-  // Initialize item rows when dialog opens or items load
+  // Initialize item rows when dialog opens
   useEffect(() => {
-    if (!open || !allItems) return;
+    if (!open) return;
 
     if (template) {
       // Editing existing template
@@ -116,36 +119,18 @@ export function CustomerTemplateDialog({
       });
       loadTemplateItems(template.id);
     } else {
-      // New template - show all items with zero quantities
+      // New template - start empty
       setFormData({
         name: '',
         customer_id: '',
         description: '',
         is_active: true
       });
-      initializeItemRows();
+      setItemRows([]);
     }
-  }, [template, open, allItems]);
+    setSearchQuery('');
+  }, [template, open]);
 
-  const initializeItemRows = () => {
-    if (!allItems) return;
-    
-    const rows: ItemRow[] = allItems.map(item => ({
-      item_id: item.id,
-      item_name: item.name,
-      list_price: item.list_price || 0,
-      custom_price: item.list_price || 0,
-      sunday_qty: 0,
-      monday_qty: 0,
-      tuesday_qty: 0,
-      wednesday_qty: 0,
-      thursday_qty: 0,
-      friday_qty: 0,
-      saturday_qty: 0,
-    }));
-    
-    setItemRows(rows);
-  };
 
   const loadTemplateItems = async (templateId: string) => {
     if (!allItems) return;
@@ -158,26 +143,21 @@ export function CustomerTemplateDialog({
 
       if (error) throw error;
 
-      // Create a map of template items for quick lookup
-      const templateItemsMap = new Map(
-        templateItemsData.map(ti => [ti.item_id, ti])
-      );
-
-      // Create rows for ALL items, with saved quantities if they exist
-      const rows: ItemRow[] = allItems.map(item => {
-        const savedItem = templateItemsMap.get(item.id);
+      // Only show items that are in the template
+      const rows: ItemRow[] = templateItemsData.map(ti => {
+        const item = allItems.find(i => i.id === ti.item_id);
         return {
-          item_id: item.id,
-          item_name: item.name,
-          list_price: item.list_price || 0,
-          custom_price: savedItem?.unit_price || item.list_price || 0,
-          sunday_qty: savedItem?.sunday_qty || 0,
-          monday_qty: savedItem?.monday_qty || 0,
-          tuesday_qty: savedItem?.tuesday_qty || 0,
-          wednesday_qty: savedItem?.wednesday_qty || 0,
-          thursday_qty: savedItem?.thursday_qty || 0,
-          friday_qty: savedItem?.friday_qty || 0,
-          saturday_qty: savedItem?.saturday_qty || 0,
+          item_id: ti.item_id,
+          item_name: item?.name || 'Unknown Item',
+          list_price: item?.list_price || 0,
+          custom_price: ti.unit_price,
+          sunday_qty: ti.sunday_qty || 0,
+          monday_qty: ti.monday_qty || 0,
+          tuesday_qty: ti.tuesday_qty || 0,
+          wednesday_qty: ti.wednesday_qty || 0,
+          thursday_qty: ti.thursday_qty || 0,
+          friday_qty: ti.friday_qty || 0,
+          saturday_qty: ti.saturday_qty || 0,
         };
       });
 
@@ -205,6 +185,48 @@ export function CustomerTemplateDialog({
   const calculateWeeklyAmount = (row: ItemRow) => {
     return calculateWeeklyTotal(row) * row.custom_price;
   };
+
+  const addItem = () => {
+    if (!selectedItemId || !allItems) return;
+    
+    // Check if item already exists
+    if (itemRows.some(row => row.item_id === selectedItemId)) {
+      toast({
+        title: "Item already added",
+        description: "This item is already in the template",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const item = allItems.find(i => i.id === selectedItemId);
+    if (!item) return;
+
+    const newRow: ItemRow = {
+      item_id: item.id,
+      item_name: item.name,
+      list_price: item.list_price || 0,
+      custom_price: item.list_price || 0,
+      sunday_qty: 0,
+      monday_qty: 0,
+      tuesday_qty: 0,
+      wednesday_qty: 0,
+      thursday_qty: 0,
+      friday_qty: 0,
+      saturday_qty: 0,
+    };
+
+    setItemRows([...itemRows, newRow]);
+    setSelectedItemId('');
+  };
+
+  const removeItem = (itemId: string) => {
+    setItemRows(itemRows.filter(row => row.item_id !== itemId));
+  };
+
+  const filteredRows = itemRows.filter(row =>
+    row.item_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleSave = async () => {
     if (!formData.name || !formData.customer_id) {
@@ -272,13 +294,9 @@ export function CustomerTemplateDialog({
           .eq('template_id', template.id);
       }
 
-      // Save only items with quantities > 0
-      const itemsWithQuantities = itemRows.filter(row => 
-        calculateWeeklyTotal(row) > 0
-      );
-
-      if (itemsWithQuantities.length > 0) {
-        const itemsToInsert = itemsWithQuantities.map(row => ({
+      // Save all items in the template
+      if (itemRows.length > 0) {
+        const itemsToInsert = itemRows.map(row => ({
           template_id: savedTemplate.id,
           item_id: row.item_id,
           unit_measure: 'EA',
@@ -381,13 +399,48 @@ export function CustomerTemplateDialog({
             />
           </div>
 
+          {/* Add Item Section */}
+          <div className="flex gap-2 items-end border rounded-md p-4 bg-muted/30">
+            <div className="flex-1">
+              <Label>Add Item to Template</Label>
+              <Select value={selectedItemId} onValueChange={setSelectedItemId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an item to add" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allItems?.filter(item => !itemRows.some(row => row.item_id === item.id)).map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name} - ${item.list_price.toFixed(2)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={addItem} disabled={!selectedItemId} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Item
+            </Button>
+          </div>
+
+          {/* Search */}
+          <div className="flex gap-2 items-center">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search items in template..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1"
+            />
+          </div>
+
           {/* Spreadsheet-style table */}
           <div className="flex-1 border rounded-md overflow-hidden">
             <ScrollArea className="h-[500px]">
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
-                    <TableHead className="w-[250px] sticky left-0 bg-background z-20">Item Name</TableHead>
+                    <TableHead className="w-[40px] sticky left-0 bg-background z-20"></TableHead>
+                    <TableHead className="w-[250px] sticky left-[40px] bg-background z-20">Item Name</TableHead>
                     <TableHead className="w-[100px]">List Price</TableHead>
                     <TableHead className="w-[100px]">Custom Price</TableHead>
                     <TableHead className="w-[80px] text-center">Sun</TableHead>
@@ -402,9 +455,19 @@ export function CustomerTemplateDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {itemRows.map((row) => (
+                  {filteredRows.map((row) => (
                     <TableRow key={row.item_id}>
-                      <TableCell className="font-medium sticky left-0 bg-background">
+                      <TableCell className="sticky left-0 bg-background">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(row.item_id)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </TableCell>
+                      <TableCell className="font-medium sticky left-[40px] bg-background">
                         {row.item_name}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -499,7 +562,7 @@ export function CustomerTemplateDialog({
           {/* Footer */}
           <div className="flex justify-between items-center pt-4 border-t">
             <div className="text-sm text-muted-foreground">
-              {itemRows.filter(row => calculateWeeklyTotal(row) > 0).length} items with quantities
+              {itemRows.length} items in template
             </div>
             <div className="flex gap-3">
               <Button

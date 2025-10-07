@@ -120,23 +120,69 @@ export function CustomerTemplates() {
   const handleDuplicate = async (template: CustomerTemplate) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organization_id) return;
+      if (!user) {
+        throw new Error('No user found');
+      }
+      
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError || !profile?.organization_id) {
+        throw new Error('No organization found for user');
+      }
 
-      const { error } = await supabase
+      // Create the new template
+      const { data: newTemplate, error: templateError } = await supabase
         .from('customer_templates')
         .insert({
           customer_id: template.customer_id,
           name: `${template.name} (Copy)`,
           description: template.description,
           is_active: false,
-          organization_id: user.user_metadata.organization_id
-        });
+          organization_id: profile.organization_id
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (templateError) throw templateError;
+
+      // Copy the template items
+      const { data: templateItems, error: itemsError } = await supabase
+        .from('customer_template_items')
+        .select('*')
+        .eq('template_id', template.id);
+
+      if (itemsError) throw itemsError;
+
+      if (templateItems && templateItems.length > 0) {
+        const itemsToInsert = templateItems.map(item => ({
+          template_id: newTemplate.id,
+          item_id: item.item_id,
+          unit_measure: item.unit_measure,
+          unit_price: item.unit_price,
+          sunday_qty: item.sunday_qty,
+          monday_qty: item.monday_qty,
+          tuesday_qty: item.tuesday_qty,
+          wednesday_qty: item.wednesday_qty,
+          thursday_qty: item.thursday_qty,
+          friday_qty: item.friday_qty,
+          saturday_qty: item.saturday_qty,
+          organization_id: profile.organization_id
+        }));
+
+        const { error: insertItemsError } = await supabase
+          .from('customer_template_items')
+          .insert(itemsToInsert);
+
+        if (insertItemsError) throw insertItemsError;
+      }
 
       toast({
         title: "Success",
-        description: "Template duplicated successfully",
+        description: "Template and items duplicated successfully",
       });
       refetch();
     } catch (error) {
