@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
@@ -13,6 +13,7 @@ import {
   Edit,
   Eye,
   AlertCircle,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +43,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 
 interface SalesOrder {
@@ -68,6 +70,7 @@ export function ModernSalesOrdersList() {
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
   const [isBatchInvoicing, setIsBatchInvoicing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const organizationId = profile?.organization_id;
 
@@ -168,8 +171,21 @@ export function ModernSalesOrdersList() {
     },
   });
 
+  // Filter orders by search query
+  const filteredOrders = useMemo(() => {
+    if (!orders) return [];
+    if (!searchQuery.trim()) return orders;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return orders.filter(order => 
+      order.order_number?.toLowerCase().includes(query) ||
+      order.customer_profile?.company_name?.toLowerCase().includes(query) ||
+      order.total?.toString().includes(query)
+    );
+  }, [orders, searchQuery]);
+
   // Group orders by delivery date
-  const groupedOrders = orders?.reduce((acc, order) => {
+  const groupedOrders = filteredOrders?.reduce((acc, order) => {
     const date = order.delivery_date;
     if (!acc[date]) acc[date] = [];
     acc[date].push(order);
@@ -242,18 +258,29 @@ export function ModernSalesOrdersList() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle>Filter Orders</CardTitle>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="reviewed">Reviewed</SelectItem>
-                <SelectItem value="invoiced">Invoiced</SelectItem>
-                <SelectItem value="canceled">Canceled</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="relative flex-1 sm:flex-initial">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search orders, customers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 w-full sm:w-[250px]"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="reviewed">Reviewed</SelectItem>
+                  <SelectItem value="invoiced">Invoiced</SelectItem>
+                  <SelectItem value="canceled">Canceled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -289,10 +316,10 @@ export function ModernSalesOrdersList() {
       )}
 
       {/* Orders grouped by delivery date */}
-      {!orders || orders.length === 0 ? (
+      {!filteredOrders || filteredOrders.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">
-            No orders found. Create your first order to get started.
+            {searchQuery ? "No orders match your search." : "No orders found. Create your first order to get started."}
           </CardContent>
         </Card>
       ) : (
