@@ -456,7 +456,7 @@ export default function SalesOrderDetails() {
                       onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                       onBlur={() => handleQuantityBlur(item.id, item.quantity)}
                       onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
-                      className="w-20 h-9 text-center border-input"
+                      className="w-16 h-9 text-center border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       disabled={order.invoiced}
                       tabIndex={index + 1}
                     />
