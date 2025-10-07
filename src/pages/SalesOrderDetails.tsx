@@ -341,8 +341,11 @@ export default function SalesOrderDetails() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{order.order_number}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {order.customer_profile.company_name}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-sm text-muted-foreground">{order.order_number}</p>
               {getStatusBadge(order.status)}
               {order.is_no_order_today && (
                 <Badge variant="outline" className="gap-1">
@@ -351,9 +354,6 @@ export default function SalesOrderDetails() {
                 </Badge>
               )}
             </div>
-            <p className="text-muted-foreground mt-1">
-              {order.customer_profile.company_name}
-            </p>
           </div>
         </div>
 
