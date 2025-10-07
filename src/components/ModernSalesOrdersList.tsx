@@ -58,6 +58,7 @@ interface SalesOrder {
   customer_profile: {
     company_name: string;
   };
+  sales_order_line_item: { count: number }[];
 }
 
 export function ModernSalesOrdersList() {
@@ -90,7 +91,8 @@ export function ModernSalesOrdersList() {
           total,
           is_no_order_today,
           invoiced,
-          customer_profile!inner(company_name)
+          customer_profile!inner(company_name),
+          sales_order_line_item(count)
         `
         )
         .eq("organization_id", organizationId)
@@ -390,7 +392,7 @@ export function ModernSalesOrdersList() {
                                     {getStatusBadge(order.status)}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
-                                    {order.customer_profile.company_name} • $
+                                    {order.customer_profile.company_name} • {order.sales_order_line_item?.[0]?.count || 0} items • $
                                     {order.total.toFixed(2)}
                                   </div>
                                 </div>
