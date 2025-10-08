@@ -312,16 +312,16 @@ export function GenerateDailyOrdersButton() {
           Generate Orders
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4">
+      <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
           <DialogTitle>Generate Sales Orders from Templates</DialogTitle>
           <DialogDescription>
             Select delivery dates and optionally filter customers to generate sales orders from active templates.
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6">
-          <div className="space-y-4 pb-4">
+        <ScrollArea className="max-h-[60vh] px-6">
+          <div className="space-y-4 pb-6">
             {/* Customer Selection - Compact Multi-Select */}
             <div className="space-y-2">
             <label className="text-sm font-medium">Customer Filter (Optional)</label>
@@ -338,7 +338,7 @@ export function GenerateDailyOrdersButton() {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0 bg-popover z-50" align="start">
+              <PopoverContent className="w-[400px] p-0" align="start">
                 <div className="p-2 border-b">
                   <Button
                     variant="ghost"
@@ -356,21 +356,23 @@ export function GenerateDailyOrdersButton() {
                         No active customer templates found
                       </p>
                     ) : (
-                      templates.map((template) => (
-                        <div
-                          key={template.customer_id}
-                          className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
-                          onClick={() => handleCustomerToggle(template.customer_id)}
-                        >
-                          <Checkbox
-                            checked={selectedCustomerIds.has(template.customer_id)}
-                            onCheckedChange={() => handleCustomerToggle(template.customer_id)}
-                          />
-                          <span className="text-sm flex-1">
-                            {template.customer_profile.company_name}
-                          </span>
-                        </div>
-                      ))
+                      templates.map((template) => {
+                        const isChecked = selectedCustomerIds.has(template.customer_id);
+                        return (
+                          <label
+                            key={template.customer_id}
+                            className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={() => handleCustomerToggle(template.customer_id)}
+                            />
+                            <span className="text-sm flex-1">
+                              {template.customer_profile.company_name}
+                            </span>
+                          </label>
+                        );
+                      })
                     )}
                   </div>
                 </ScrollArea>
