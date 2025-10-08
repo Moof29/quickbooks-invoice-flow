@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, isPast, startOfDay } from "date-fns";
-import { CalendarClock, Loader2, AlertCircle, Users } from "lucide-react";
+import { format, isPast, startOfDay, eachDayOfInterval, addDays } from "date-fns";
+import { CalendarClock, Loader2, AlertCircle, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,23 +14,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function GenerateDailyOrdersButton() {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("all");
+  const [selectedDates, setSelectedDates] = useState<Date[]>([new Date()]);
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { profile } = useAuthProfile();
   const queryClient = useQueryClient();
@@ -81,77 +77,118 @@ export function GenerateDailyOrdersButton() {
     enabled: !!organizationId && isOpen,
   });
 
-  // Check for existing orders on selected date
+  // Check for existing orders on selected dates
   const { data: existingOrders = [] } = useQuery({
-    queryKey: ["existing-orders-check", selectedDate, selectedCustomerId],
+    queryKey: ["existing-orders-check", selectedDates, selectedCustomerIds],
     queryFn: async () => {
-      const targetDate = format(selectedDate, "yyyy-MM-dd");
+      const targetDates = selectedDates.map(d => format(d, "yyyy-MM-dd"));
       
       let query = supabase
         .from("sales_order")
-        .select("customer_id, order_number, status")
+        .select("customer_id, order_number, status, delivery_date")
         .eq("organization_id", organizationId)
-        .eq("delivery_date", targetDate);
+        .in("delivery_date", targetDates);
 
-      if (selectedCustomerId !== "all") {
-        query = query.eq("customer_id", selectedCustomerId);
+      if (selectedCustomerIds.size > 0) {
+        query = query.in("customer_id", Array.from(selectedCustomerIds));
       }
 
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!organizationId && isOpen,
+    enabled: !!organizationId && isOpen && selectedDates.length > 0,
   });
 
   // Filter templates based on customer selection
   const filteredTemplates = useMemo(() => {
-    if (selectedCustomerId === "all") {
+    if (selectedCustomerIds.size === 0) {
       return templates;
     }
-    return templates.filter(t => t.customer_id === selectedCustomerId);
-  }, [templates, selectedCustomerId]);
+    return templates.filter(t => selectedCustomerIds.has(t.customer_id));
+  }, [templates, selectedCustomerIds]);
 
   // Calculate preview counts
   const previewCounts = useMemo(() => {
-    const existingCustomerIds = new Set(existingOrders.map(o => o.customer_id));
-    const willGenerate = filteredTemplates.filter(t => !existingCustomerIds.has(t.customer_id));
-    const willSkip = filteredTemplates.filter(t => existingCustomerIds.has(t.customer_id));
+    // For each date, count how many orders would be generated
+    let totalWillGenerate = 0;
+    let totalWillSkip = 0;
+    
+    selectedDates.forEach(date => {
+      const dateStr = format(date, "yyyy-MM-dd");
+      const existingForDate = existingOrders.filter(o => o.delivery_date === dateStr);
+      const existingCustomerIds = new Set(existingForDate.map(o => o.customer_id));
+      
+      const willGenerateForDate = filteredTemplates.filter(t => !existingCustomerIds.has(t.customer_id));
+      const willSkipForDate = filteredTemplates.filter(t => existingCustomerIds.has(t.customer_id));
+      
+      totalWillGenerate += willGenerateForDate.length;
+      totalWillSkip += willSkipForDate.length;
+    });
     
     return {
       total: filteredTemplates.length,
-      willGenerate: willGenerate.length,
-      willSkip: willSkip.length,
+      willGenerate: totalWillGenerate,
+      willSkip: totalWillSkip,
       skippedOrders: existingOrders,
     };
-  }, [filteredTemplates, existingOrders]);
+  }, [filteredTemplates, existingOrders, selectedDates]);
 
   const generateMutation = useMutation({
-    mutationFn: async (targetDate: string) => {
-      console.log("=== Generating orders for date:", targetDate);
+    mutationFn: async () => {
+      console.log("=== Generating orders for dates:", selectedDates);
       
-      const body: any = { target_date: targetDate };
-      if (selectedCustomerId !== "all") {
-        body.customer_id = selectedCustomerId;
+      let totalCreated = 0;
+      const allErrors: any[] = [];
+      
+      // Generate orders for each selected date
+      for (const date of selectedDates) {
+        const targetDate = format(date, "yyyy-MM-dd");
+        const body: any = { target_date: targetDate };
+        
+        // If specific customers selected, pass them
+        if (selectedCustomerIds.size > 0) {
+          // Generate for first customer ID as edge function expects single customer_id
+          // For multiple customers, we'd need to update the edge function
+          const customerIds = Array.from(selectedCustomerIds);
+          for (const customerId of customerIds) {
+            const { data, error } = await supabase.functions.invoke("generate-daily-orders", {
+              body: { ...body, customer_id: customerId },
+            });
+
+            if (error) {
+              console.error("Generate orders error:", error);
+              allErrors.push(error);
+            } else {
+              totalCreated += data.orders_created || 0;
+              if (data.errors) {
+                allErrors.push(...data.errors);
+              }
+            }
+          }
+        } else {
+          const { data, error } = await supabase.functions.invoke("generate-daily-orders", {
+            body,
+          });
+
+          if (error) {
+            console.error("Generate orders error:", error);
+            allErrors.push(error);
+          } else {
+            totalCreated += data.orders_created || 0;
+            if (data.errors) {
+              allErrors.push(...data.errors);
+            }
+          }
+        }
       }
-
-      const { data, error } = await supabase.functions.invoke("generate-daily-orders", {
-        body,
-      });
-
-      if (error) {
-        console.error("Generate orders error:", error);
-        throw error;
-      }
-
-      console.log("Generate orders response:", data);
-      return data;
+      
+      return { orders_created: totalCreated, errors: allErrors };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       
       const { orders_created, errors } = data;
-      const targetDate = format(selectedDate, "yyyy-MM-dd");
       
       if (errors && errors.length > 0) {
         toast({
@@ -162,14 +199,16 @@ export function GenerateDailyOrdersButton() {
       } else {
         toast({
           title: "Success!",
-          description: `Generated ${orders_created} sales order(s) from active customer templates.`,
+          description: `Generated ${orders_created} sales order(s) for ${selectedDates.length} date(s).`,
         });
       }
       
       setIsOpen(false);
       
-      // Auto-select the generated date in the filter
-      navigate(`/sales-orders?date=${targetDate}`);
+      // Auto-select the first generated date in the filter
+      if (selectedDates.length > 0) {
+        navigate(`/sales-orders?date=${format(selectedDates[0], "yyyy-MM-dd")}`);
+      }
     },
     onError: (error: any) => {
       console.error("Generate mutation error:", error);
@@ -182,13 +221,22 @@ export function GenerateDailyOrdersButton() {
   });
 
   const handleGenerate = () => {
-    const targetDate = format(selectedDate, "yyyy-MM-dd");
-    
     // Validation: Don't allow past dates
-    if (isPast(startOfDay(selectedDate)) && !isToday(selectedDate)) {
+    const hasPastDates = selectedDates.some(date => isPast(startOfDay(date)) && !isToday(date));
+    if (hasPastDates) {
       toast({
         title: "Invalid date",
         description: "Cannot generate orders for dates in the past.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validation: Check if dates selected
+    if (selectedDates.length === 0) {
+      toast({
+        title: "No dates selected",
+        description: "Please select at least one delivery date.",
         variant: "destructive",
       });
       return;
@@ -200,18 +248,51 @@ export function GenerateDailyOrdersButton() {
         title: "No orders to generate",
         description: previewCounts.total === 0 
           ? "No active customer templates found." 
-          : "All customers already have orders for this date.",
+          : "All selected customers already have orders for the selected dates.",
         variant: "destructive",
       });
       return;
     }
 
-    generateMutation.mutate(targetDate);
+    generateMutation.mutate();
   };
 
   const isToday = (date: Date) => {
     const today = startOfDay(new Date());
     return startOfDay(date).getTime() === today.getTime();
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    
+    const dateStr = format(date, "yyyy-MM-dd");
+    const existingIndex = selectedDates.findIndex(d => format(d, "yyyy-MM-dd") === dateStr);
+    
+    if (existingIndex >= 0) {
+      // Remove date if already selected
+      setSelectedDates(selectedDates.filter((_, i) => i !== existingIndex));
+    } else {
+      // Add date
+      setSelectedDates([...selectedDates, date].sort((a, b) => a.getTime() - b.getTime()));
+    }
+  };
+
+  const handleCustomerToggle = (customerId: string) => {
+    const newSet = new Set(selectedCustomerIds);
+    if (newSet.has(customerId)) {
+      newSet.delete(customerId);
+    } else {
+      newSet.add(customerId);
+    }
+    setSelectedCustomerIds(newSet);
+  };
+
+  const handleSelectAllCustomers = () => {
+    if (selectedCustomerIds.size === templates.length) {
+      setSelectedCustomerIds(new Set());
+    } else {
+      setSelectedCustomerIds(new Set(templates.map(t => t.customer_id)));
+    }
   };
 
   return (
@@ -232,44 +313,106 @@ export function GenerateDailyOrdersButton() {
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Customer Filter */}
+          {/* Customer Selection */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Customer Filter (Optional)</label>
-            <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Customers ({templates.length})</SelectItem>
-                {templates.map((template) => (
-                  <SelectItem key={template.customer_id} value={template.customer_id}>
-                    {template.customer_profile.company_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Customers</label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSelectAllCustomers}
+              >
+                {selectedCustomerIds.size === templates.length ? "Deselect All" : "Select All"}
+              </Button>
+            </div>
+            <ScrollArea className="h-[180px] rounded-md border p-3">
+              <div className="space-y-2">
+                {templates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No active customer templates found
+                  </p>
+                ) : (
+                  templates.map((template) => (
+                    <div
+                      key={template.customer_id}
+                      className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
+                      onClick={() => handleCustomerToggle(template.customer_id)}
+                    >
+                      <Checkbox
+                        checked={selectedCustomerIds.has(template.customer_id)}
+                        onCheckedChange={() => handleCustomerToggle(template.customer_id)}
+                      />
+                      <span className="text-sm flex-1">
+                        {template.customer_profile.company_name}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+            {selectedCustomerIds.size === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No customers selected - will generate for all active templates
+              </p>
+            )}
           </div>
 
           {/* Date Picker */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Delivery Date</label>
+            <label className="text-sm font-medium">Delivery Dates (Click to select multiple)</label>
             <div className="flex justify-center">
               <Calendar
                 mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
+                selected={selectedDates[0]}
+                onSelect={handleDateSelect}
                 disabled={(date) => isPast(startOfDay(date)) && !isToday(date)}
                 initialFocus
-                className={cn("rounded-md border")}
+                className={cn("rounded-md border pointer-events-auto")}
+                modifiers={{
+                  selected: selectedDates
+                }}
+                modifiersClassNames={{
+                  selected: "bg-primary text-primary-foreground"
+                }}
               />
             </div>
           </div>
           
-          {/* Selected Date Display */}
-          <div className="p-4 bg-muted rounded-lg">
-            <div className="text-sm font-medium mb-1">Selected Delivery Date:</div>
-            <div className="text-lg font-semibold text-primary">
-              {format(selectedDate, "EEEE, MMMM d, yyyy")}
+          {/* Selected Dates Display */}
+          <div className="p-4 bg-muted rounded-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">Selected Delivery Dates:</div>
+              {selectedDates.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedDates([new Date()])}
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {selectedDates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No dates selected</p>
+              ) : (
+                selectedDates.map((date, index) => (
+                  <Badge
+                    key={index}
+                    variant="secondary"
+                    className="gap-1"
+                  >
+                    {format(date, "MMM d, yyyy")}
+                    <X
+                      className="h-3 w-3 cursor-pointer hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedDates(selectedDates.filter((_, i) => i !== index));
+                      }}
+                    />
+                  </Badge>
+                ))
+              )}
             </div>
           </div>
 
