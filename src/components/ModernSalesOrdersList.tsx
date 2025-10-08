@@ -489,14 +489,14 @@ export function ModernSalesOrdersList() {
   };
 
   const handleSelectAll = () => {
-    const reviewedOrders = filteredOrders?.filter((o) => o.status === "reviewed" && !o.invoiced) || [];
+    const selectableOrders = filteredOrders?.filter((o) => !o.invoiced) || [];
     const newSelected = new Set(selectedOrders);
-    const allSelected = reviewedOrders.every((o) => newSelected.has(o.id));
+    const allSelected = selectableOrders.every((o) => newSelected.has(o.id));
 
     if (allSelected) {
-      reviewedOrders.forEach((o) => newSelected.delete(o.id));
+      selectableOrders.forEach((o) => newSelected.delete(o.id));
     } else {
-      reviewedOrders.forEach((o) => newSelected.add(o.id));
+      selectableOrders.forEach((o) => newSelected.add(o.id));
     }
     setSelectedOrders(newSelected);
   };
@@ -659,15 +659,18 @@ export function ModernSalesOrdersList() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {deliveryDateFilter !== "all" && getDeliveryBadge(deliveryDateFilter)}
-                {reviewedCount > 0 && (
-                  <Checkbox
-                    checked={filteredOrders
-                      .filter((o) => o.status === "reviewed" && !o.invoiced)
-                      .every((o) => selectedOrders.has(o.id))}
-                    onCheckedChange={() => handleSelectAll()}
-                  />
+                {filteredOrders.length > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
+                    <Checkbox
+                      checked={filteredOrders
+                        .filter((o) => !o.invoiced)
+                        .every((o) => selectedOrders.has(o.id))}
+                      onCheckedChange={() => handleSelectAll()}
+                    />
+                    <span className="text-sm font-medium">Select All</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -682,7 +685,7 @@ export function ModernSalesOrdersList() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1">
-                      {order.status === "reviewed" && !order.invoiced && (
+                      {!order.invoiced && (
                         <Checkbox
                           checked={selectedOrders.has(order.id)}
                           onCheckedChange={(checked) => {
@@ -729,21 +732,6 @@ export function ModernSalesOrdersList() {
                           <CheckCircle2 className="h-4 w-4 mr-1" />
                           Review
                         </Button>
-                      )}
-                      {order.status === "pending" && (
-                        <Checkbox
-                          checked={selectedOrders.has(order.id)}
-                          onCheckedChange={(checked) => {
-                            const newSelected = new Set(selectedOrders);
-                            if (checked) {
-                              newSelected.add(order.id);
-                            } else {
-                              newSelected.delete(order.id);
-                            }
-                            setSelectedOrders(newSelected);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
                       )}
                       {order.status === "reviewed" && !order.invoiced && (
                         <Button
