@@ -115,6 +115,16 @@ export function GenerateDailyOrdersButton() {
 
   // Calculate preview counts
   const previewCounts = useMemo(() => {
+    // If no dates selected, return zeros
+    if (selectedDates.length === 0) {
+      return {
+        total: filteredTemplates.length,
+        willGenerate: 0,
+        willSkip: 0,
+        skippedOrders: [],
+      };
+    }
+
     // For each date, count how many orders would be generated
     let totalWillGenerate = 0;
     let totalWillSkip = 0;
@@ -124,8 +134,11 @@ export function GenerateDailyOrdersButton() {
       const existingForDate = existingOrders.filter(o => o.delivery_date === dateStr);
       const existingCustomerIds = new Set(existingForDate.map(o => o.customer_id));
       
-      const willGenerateForDate = filteredTemplates.filter(t => !existingCustomerIds.has(t.customer_id));
-      const willSkipForDate = filteredTemplates.filter(t => existingCustomerIds.has(t.customer_id));
+      // If no customer filter, use all templates; otherwise use filtered
+      const templatesToCheck = selectedCustomerIds.size === 0 ? templates : filteredTemplates;
+      
+      const willGenerateForDate = templatesToCheck.filter(t => !existingCustomerIds.has(t.customer_id));
+      const willSkipForDate = templatesToCheck.filter(t => existingCustomerIds.has(t.customer_id));
       
       totalWillGenerate += willGenerateForDate.length;
       totalWillSkip += willSkipForDate.length;
@@ -137,7 +150,7 @@ export function GenerateDailyOrdersButton() {
       willSkip: totalWillSkip,
       skippedOrders: existingOrders,
     };
-  }, [filteredTemplates, existingOrders, selectedDates]);
+  }, [filteredTemplates, templates, existingOrders, selectedDates, selectedCustomerIds]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -325,7 +338,7 @@ export function GenerateDailyOrdersButton() {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0 bg-popover z-50" align="start">
+              <PopoverContent className="w-[400px] p-0 bg-popover z-50" align="start">
                 <div className="p-2 border-b">
                   <Button
                     variant="ghost"
@@ -436,31 +449,41 @@ export function GenerateDailyOrdersButton() {
             )}
 
             {/* Preview Counts */}
-            {previewCounts.total > 0 && (
-            <Alert>
-              <Users className="h-4 w-4" />
-              <AlertDescription>
-                <div className="font-medium mb-1">Generation Preview:</div>
-                <div className="text-sm space-y-1">
-                  <div>✓ Will generate <strong>{previewCounts.willGenerate}</strong> new order(s)</div>
-                  {previewCounts.willSkip > 0 && (
-                    <div className="text-yellow-700 dark:text-yellow-400">
-                      ⚠ Will skip <strong>{previewCounts.willSkip}</strong> customer(s) - orders already exist
-                    </div>
-                  )}
-                </div>
-              </AlertDescription>
-            </Alert>
+            {selectedDates.length > 0 && previewCounts.total > 0 && (
+              <Alert>
+                <Users className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="font-medium mb-1">Generation Preview:</div>
+                  <div className="text-sm space-y-1">
+                    <div>✓ Will generate <strong>{previewCounts.willGenerate}</strong> new order(s) across {selectedDates.length} date(s)</div>
+                    {previewCounts.willSkip > 0 && (
+                      <div className="text-yellow-700 dark:text-yellow-400">
+                        ⚠ Will skip <strong>{previewCounts.willSkip}</strong> order(s) - already exist
+                      </div>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
             )}
 
             {/* No templates warning */}
-            {previewCounts.total === 0 && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No active customer templates found. Create customer templates first.
-              </AlertDescription>
-            </Alert>
+            {templates.length === 0 && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No active customer templates found. Create customer templates first.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* No dates selected warning */}
+            {selectedDates.length === 0 && templates.length > 0 && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Please select at least one delivery date to see generation preview.
+                </AlertDescription>
+              </Alert>
             )}
 
             {/* Info Note */}
