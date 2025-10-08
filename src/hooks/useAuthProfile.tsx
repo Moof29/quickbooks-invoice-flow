@@ -6,10 +6,14 @@ interface Profile {
   id: string;
   first_name: string;
   last_name: string;
-  role: string;
   organization_id: string;
   created_at: string;
   updated_at: string;
+}
+
+interface UserRole {
+  role: string;
+  organization_id: string;
 }
 
 interface Organization {
@@ -28,9 +32,11 @@ interface AuthProfileContextType {
   session: Session | null;
   profile: Profile | null;
   organization: Organization | null;
+  roles: string[];
   loading: boolean;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  hasRole: (role: string) => boolean;
 }
 
 const AuthProfileContext = createContext<AuthProfileContextType | undefined>(undefined);
@@ -40,6 +46,7 @@ export function AuthProfileProvider({ children }: { children: React.ReactNode })
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -81,9 +88,10 @@ export function AuthProfileProvider({ children }: { children: React.ReactNode })
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      // Fetch profile data (without role)
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, first_name, last_name, organization_id, created_at, updated_at')
         .eq('id', userId)
         .single();
 
@@ -91,6 +99,19 @@ export function AuthProfileProvider({ children }: { children: React.ReactNode })
 
       setProfile(profileData);
 
+      // Fetch user roles from user_roles table (using type assertion for new table)
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles' as any)
+        .select('role')
+        .eq('user_id', userId);
+
+      if (rolesError) {
+        console.error('Error fetching roles:', rolesError);
+      } else {
+        setRoles((rolesData as any)?.map((r: any) => r.role) || []);
+      }
+
+      // Fetch organization data
       if (profileData?.organization_id) {
         const { data: orgData, error: orgError } = await supabase
           .from('organizations')
@@ -112,16 +133,19 @@ export function AuthProfileProvider({ children }: { children: React.ReactNode })
     await supabase.auth.signOut();
   };
 
-  const isAdmin = profile?.role === 'admin';
+  const hasRole = (role: string) => roles.includes(role);
+  const isAdmin = hasRole('admin');
 
   const value = {
     user,
     session,
     profile,
     organization,
+    roles,
     loading,
     signOut,
-    isAdmin
+    isAdmin,
+    hasRole
   };
 
   return (

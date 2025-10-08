@@ -85,14 +85,15 @@ const QuickBooksIntegration = () => {
   const loadConnectionStatus = async () => {
     try {
       console.log('Loading connection status for profile:', profile);
+      // Use safe view instead of direct table access (using type assertion for new view)
       const { data, error } = await supabase
-        .from('qbo_connection')
+        .from('qbo_connection_safe' as any)
         .select('*')
         .maybeSingle();
 
       console.log('Connection query result:', { data, error });
       if (error) throw error;
-      setConnection(data);
+      setConnection(data as unknown as QBOConnection | null);
     } catch (error) {
       console.error('Error loading connection status:', error);
     }
@@ -166,19 +167,19 @@ const QuickBooksIntegration = () => {
     if (!confirm('Are you sure you want to disconnect from QuickBooks?')) return;
 
     try {
-      const { error } = await supabase
-        .from('qbo_connection')
-        .update({ is_active: false })
-        .eq('id', connection?.id);
-
-      if (error) throw error;
-
+      // Note: This will fail due to RLS - only service role can modify qbo_connection
+      // Need to create an edge function for disconnect operation
       toast({
-        title: "Success",
-        description: "Disconnected from QuickBooks successfully",
+        title: "Notice",
+        description: "Disconnect feature requires admin approval. Please contact support.",
+        variant: "default",
       });
+      
+      // TODO: Create edge function for disconnect operation
+      // const { error } = await supabase.functions.invoke('qbo-disconnect', {
+      //   body: { organizationId: profile?.organization_id }
+      // });
 
-      loadConnectionStatus();
     } catch (error) {
       console.error('Error disconnecting:', error);
       toast({

@@ -3,7 +3,7 @@ import { useAuthProfile } from '@/hooks/useAuthProfile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function Settings() {
-  const { organization, profile } = useAuthProfile();
+  const { organization, profile, roles } = useAuthProfile();
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -28,8 +28,10 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground">{organization.name}</p>
             </div>
             <div>
-              <label className="text-sm font-medium">Your Role</label>
-              <p className="text-sm text-muted-foreground capitalize">{profile?.role}</p>
+              <label className="text-sm font-medium">Your Role(s)</label>
+              <p className="text-sm text-muted-foreground capitalize">
+                {roles.length > 0 ? roles.join(', ') : 'No roles assigned'}
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">Plan Type</label>
