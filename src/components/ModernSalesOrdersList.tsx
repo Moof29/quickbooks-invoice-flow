@@ -96,6 +96,8 @@ export function ModernSalesOrdersList() {
   const [showBulkReviewDialog, setShowBulkReviewDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+  const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
 
   const organizationId = profile?.organization_id;
 
@@ -336,6 +338,66 @@ export function ModernSalesOrdersList() {
     },
   });
 
+  // Batch delete mutation
+  const batchDeleteMutation = useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      // Check which orders are invoiced
+      const { data: ordersToCheck, error: checkError } = await supabase
+        .from("sales_order")
+        .select("id, invoiced, order_number")
+        .in("id", orderIds);
+      
+      if (checkError) throw checkError;
+      
+      const invoicedOrders = ordersToCheck?.filter(o => o.invoiced) || [];
+      const deletableOrders = ordersToCheck?.filter(o => !o.invoiced) || [];
+      
+      // Delete non-invoiced orders
+      if (deletableOrders.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("sales_order")
+          .delete()
+          .in("id", deletableOrders.map(o => o.id));
+        
+        if (deleteError) throw deleteError;
+      }
+      
+      return {
+        deleted: deletableOrders.length,
+        invoiced: invoicedOrders.length,
+        invoicedOrderNumbers: invoicedOrders.map(o => o.order_number),
+      };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      setSelectedOrders(new Set());
+      
+      if (result.invoiced > 0) {
+        toast({
+          title: "Batch delete completed with warnings",
+          description: `Deleted ${result.deleted} order(s). ${result.invoiced} invoiced order(s) skipped and must be handled from Invoice module.`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Batch delete complete",
+          description: `${result.deleted} order(s) deleted successfully`,
+        });
+      }
+      setIsBatchDeleting(false);
+      setShowBatchDeleteDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Batch delete failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setIsBatchDeleting(false);
+      setShowBatchDeleteDialog(false);
+    },
+  });
+
   // Filter orders by search query and sort
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
@@ -418,6 +480,12 @@ export function ModernSalesOrdersList() {
     const orderIds = Array.from(selectedOrders);
     setIsBatchReviewing(true);
     batchReviewMutation.mutate(orderIds);
+  };
+
+  const handleBatchDelete = () => {
+    const orderIds = Array.from(selectedOrders);
+    setIsBatchDeleting(true);
+    batchDeleteMutation.mutate(orderIds);
   };
 
   const handleSelectAll = () => {
@@ -549,6 +617,15 @@ export function ModernSalesOrdersList() {
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   {isBatchInvoicing ? "Processing..." : "Batch Invoice"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowBatchDeleteDialog(true)}
+                  disabled={isBatchDeleting}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {isBatchDeleting ? "Deleting..." : "Delete Selected"}
                 </Button>
               </div>
             </div>
@@ -816,6 +893,30 @@ export function ModernSalesOrdersList() {
               className="bg-green-600 hover:bg-green-700"
             >
               {isBatchReviewing ? "Reviewing..." : "Review Orders"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Batch Delete Confirmation Dialog */}
+      <AlertDialog open={showBatchDeleteDialog} onOpenChange={setShowBatchDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Selected Orders</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedOrders.size} order(s)? 
+              {" "}Invoiced orders will be skipped and must be handled from the Invoice module. 
+              This action cannot be undone for non-invoiced orders.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBatchDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBatchDelete}
+              disabled={isBatchDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isBatchDeleting ? "Deleting..." : "Delete Orders"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
