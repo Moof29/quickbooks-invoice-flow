@@ -330,7 +330,6 @@ export function GenerateDailyOrdersButton() {
                   align="start"
                   side="bottom"
                   sideOffset={4}
-                  onOpenAutoFocus={(e) => e.preventDefault()}
                 >
                   <div className="p-2 border-b bg-muted/30">
                     <Button
@@ -338,16 +337,13 @@ export function GenerateDailyOrdersButton() {
                       size="sm"
                       className="w-full"
                       type="button"
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        handleSelectAllCustomers();
-                      }}
+                      onClick={handleSelectAllCustomers}
                     >
                       {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
                     </Button>
                   </div>
-                  <div className="max-h-[240px] overflow-y-auto p-2" style={{ overscrollBehavior: 'contain' }}>
-                    <div className="space-y-1">
+                  <ScrollArea className="h-[240px]">
+                    <div className="p-2 space-y-1">
                       {uniqueCustomers.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">
                           No active customer templates found
@@ -358,17 +354,14 @@ export function GenerateDailyOrdersButton() {
                           return (
                             <div
                               key={customer.customer_id}
-                              className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
-                              onPointerDown={(e) => {
-                                e.preventDefault();
-                                handleCustomerToggle(customer.customer_id);
-                              }}
+                              className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
+                              onClick={() => handleCustomerToggle(customer.customer_id)}
                             >
                               <Checkbox
                                 checked={isChecked}
                                 className="pointer-events-none"
                               />
-                              <span className="text-sm flex-1 select-none">
+                              <span className="text-sm flex-1">
                                 {customer.customer_profile.company_name}
                               </span>
                             </div>
@@ -376,7 +369,7 @@ export function GenerateDailyOrdersButton() {
                         })
                       )}
                     </div>
-                  </div>
+                  </ScrollArea>
                 </PopoverContent>
               </Popover>
               {selectedCustomerIds.size > 0 && (
