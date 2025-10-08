@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, isPast, startOfDay, eachDayOfInterval, addDays } from "date-fns";
-import { CalendarClock, Loader2, AlertCircle, Users, X } from "lucide-react";
+import { CalendarClock, Loader2, AlertCircle, Users, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +22,11 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export function GenerateDailyOrdersButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -262,18 +267,9 @@ export function GenerateDailyOrdersButton() {
     return startOfDay(date).getTime() === today.getTime();
   };
 
-  const handleDateSelect = (date: Date | undefined) => {
-    if (!date) return;
-    
-    const dateStr = format(date, "yyyy-MM-dd");
-    const existingIndex = selectedDates.findIndex(d => format(d, "yyyy-MM-dd") === dateStr);
-    
-    if (existingIndex >= 0) {
-      // Remove date if already selected
-      setSelectedDates(selectedDates.filter((_, i) => i !== existingIndex));
-    } else {
-      // Add date
-      setSelectedDates([...selectedDates, date].sort((a, b) => a.getTime() - b.getTime()));
+  const handleDateSelect = (dates: Date[] | undefined) => {
+    if (dates) {
+      setSelectedDates(dates);
     }
   };
 
@@ -313,90 +309,113 @@ export function GenerateDailyOrdersButton() {
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Customer Selection */}
+          {/* Customer Selection - Compact Multi-Select */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Customers</label>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSelectAllCustomers}
-              >
-                {selectedCustomerIds.size === templates.length ? "Deselect All" : "Select All"}
-              </Button>
-            </div>
-            <ScrollArea className="h-[180px] rounded-md border p-3">
-              <div className="space-y-2">
-                {templates.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No active customer templates found
-                  </p>
-                ) : (
-                  templates.map((template) => (
-                    <div
-                      key={template.customer_id}
-                      className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
-                      onClick={() => handleCustomerToggle(template.customer_id)}
-                    >
-                      <Checkbox
-                        checked={selectedCustomerIds.has(template.customer_id)}
-                        onCheckedChange={() => handleCustomerToggle(template.customer_id)}
-                      />
-                      <span className="text-sm flex-1">
-                        {template.customer_profile.company_name}
-                      </span>
-                    </div>
-                  ))
+            <label className="text-sm font-medium">Customer Filter (Optional)</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between"
+                >
+                  {selectedCustomerIds.size === 0
+                    ? `All Customers (${templates.length})`
+                    : `${selectedCustomerIds.size} customer(s) selected`}
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0" align="start">
+                <div className="p-2 border-b">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full"
+                    onClick={handleSelectAllCustomers}
+                  >
+                    {selectedCustomerIds.size === templates.length ? "Deselect All" : "Select All"}
+                  </Button>
+                </div>
+                <ScrollArea className="h-[200px]">
+                  <div className="p-2 space-y-1">
+                    {templates.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No active customer templates found
+                      </p>
+                    ) : (
+                      templates.map((template) => (
+                        <div
+                          key={template.customer_id}
+                          className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
+                          onClick={() => handleCustomerToggle(template.customer_id)}
+                        >
+                          <Checkbox
+                            checked={selectedCustomerIds.has(template.customer_id)}
+                            onCheckedChange={() => handleCustomerToggle(template.customer_id)}
+                          />
+                          <span className="text-sm flex-1">
+                            {template.customer_profile.company_name}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+            {selectedCustomerIds.size > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {Array.from(selectedCustomerIds).slice(0, 3).map(customerId => {
+                  const template = templates.find(t => t.customer_id === customerId);
+                  return template ? (
+                    <Badge key={customerId} variant="secondary" className="text-xs">
+                      {template.customer_profile.company_name}
+                    </Badge>
+                  ) : null;
+                })}
+                {selectedCustomerIds.size > 3 && (
+                  <Badge variant="secondary" className="text-xs">
+                    +{selectedCustomerIds.size - 3} more
+                  </Badge>
                 )}
               </div>
-            </ScrollArea>
-            {selectedCustomerIds.size === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No customers selected - will generate for all active templates
-              </p>
             )}
           </div>
 
           {/* Date Picker */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Delivery Dates (Click to select multiple)</label>
+            <label className="text-sm font-medium">Delivery Dates (Click to toggle)</label>
             <div className="flex justify-center">
               <Calendar
-                mode="single"
-                selected={selectedDates[0]}
-                onSelect={handleDateSelect}
+                mode="multiple"
+                selected={selectedDates}
+                onSelect={(dates) => dates && setSelectedDates(dates)}
                 disabled={(date) => isPast(startOfDay(date)) && !isToday(date)}
                 initialFocus
                 className={cn("rounded-md border pointer-events-auto")}
-                modifiers={{
-                  selected: selectedDates
-                }}
-                modifiersClassNames={{
-                  selected: "bg-primary text-primary-foreground"
-                }}
               />
             </div>
           </div>
           
           {/* Selected Dates Display */}
-          <div className="p-4 bg-muted rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">Selected Delivery Dates:</div>
-              {selectedDates.length > 1 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedDates([new Date()])}
-                >
-                  Clear All
-                </Button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {selectedDates.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No dates selected</p>
-              ) : (
-                selectedDates.map((date, index) => (
+          {selectedDates.length > 0 && (
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">
+                  {selectedDates.length} Date(s) Selected:
+                </div>
+                {selectedDates.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedDates([])}
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {selectedDates.map((date, index) => (
                   <Badge
                     key={index}
                     variant="secondary"
@@ -411,10 +430,10 @@ export function GenerateDailyOrdersButton() {
                       }}
                     />
                   </Badge>
-                ))
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Preview Counts */}
           {previewCounts.total > 0 && (
