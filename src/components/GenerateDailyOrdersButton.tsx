@@ -310,74 +310,69 @@ export function GenerateDailyOrdersButton() {
           <div className="space-y-4 py-4">
             {/* Customer Selection - Compact Multi-Select */}
             <div className="space-y-2">
-            <label className="text-sm font-medium">Customer Filter (Optional)</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between"
-                  type="button"
-                >
-                  {selectedCustomerIds.size === 0
-                    ? `All Customers (${uniqueCustomers.length})`
-                    : `${selectedCustomerIds.size} customer(s) selected`}
-                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-[400px] p-0 bg-background border shadow-md z-50" 
-                align="start" 
-                sideOffset={4}
-                onOpenAutoFocus={(e) => e.preventDefault()}
-              >
-                <div className="p-2 border-b bg-muted/50 sticky top-0 z-10">
+              <label className="text-sm font-medium">Customer Filter (Optional)</label>
+              <Popover>
+                <PopoverTrigger asChild>
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="outline"
+                    className="w-full justify-between"
                     type="button"
-                    className="w-full"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSelectAllCustomers();
-                    }}
                   >
-                    {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
+                    {selectedCustomerIds.size === 0
+                      ? `All Customers (${uniqueCustomers.length})`
+                      : `${selectedCustomerIds.size} customer(s) selected`}
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
-                </div>
-                <div className="max-h-[240px] overflow-y-auto overscroll-contain">
-                  <div className="p-2 space-y-1">
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-[400px] p-0" 
+                  align="start"
+                >
+                  <div className="border-b p-2 bg-muted/30">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      className="w-full hover:bg-accent"
+                      onClick={handleSelectAllCustomers}
+                    >
+                      {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
+                    </Button>
+                  </div>
+                  <div 
+                    className="max-h-[240px] overflow-y-scroll p-2"
+                    style={{ overscrollBehavior: 'contain' }}
+                  >
                     {uniqueCustomers.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">
                         No active customer templates found
                       </p>
                     ) : (
-                      uniqueCustomers.map((customer) => {
-                        const isChecked = selectedCustomerIds.has(customer.customer_id);
-                        return (
-                          <div
-                            key={customer.customer_id}
-                            className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCustomerToggle(customer.customer_id);
-                            }}
-                          >
-                            <Checkbox
-                              checked={isChecked}
-                              className="pointer-events-none"
-                            />
-                            <span className="text-sm flex-1 select-none">
-                              {customer.customer_profile.company_name}
-                            </span>
-                          </div>
-                        );
-                      })
+                      <div className="space-y-2">
+                        {uniqueCustomers.map((customer) => {
+                          const isChecked = selectedCustomerIds.has(customer.customer_id);
+                          return (
+                            <label
+                              key={customer.customer_id}
+                              className="flex items-center space-x-3 p-2 rounded-md hover:bg-accent cursor-pointer group"
+                              htmlFor={`customer-${customer.customer_id}`}
+                            >
+                              <Checkbox
+                                id={`customer-${customer.customer_id}`}
+                                checked={isChecked}
+                                onCheckedChange={() => handleCustomerToggle(customer.customer_id)}
+                              />
+                              <span className="text-sm flex-1">
+                                {customer.customer_profile.company_name}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverContent>
+              </Popover>
             {selectedCustomerIds.size > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {Array.from(selectedCustomerIds).slice(0, 3).map(customerId => {
