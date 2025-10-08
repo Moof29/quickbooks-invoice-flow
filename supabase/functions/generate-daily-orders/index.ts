@@ -6,8 +6,10 @@ const corsHeaders = {
 };
 
 interface GenerateOrdersRequest {
-  target_date?: string; // ISO date string, defaults to today
-  customer_id?: string; // Optional: generate for specific customer only
+  target_date?: string; // Single date (backwards compatibility)
+  target_dates?: string[]; // Array of dates
+  customer_id?: string; // Single customer (backwards compatibility)
+  customer_ids?: string[]; // Array of customer IDs
 }
 
 Deno.serve(async (req) => {
@@ -64,71 +66,82 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
     console.log('Organization ID:', organizationId);
 
-    // Parse request body
-    const { target_date, customer_id }: GenerateOrdersRequest = await req.json().catch(() => ({}));
-    const targetDate = target_date || new Date().toISOString().split('T')[0];
+    // Parse request body - NOW ACCEPTS ARRAYS
+    const { target_date, target_dates, customer_id, customer_ids }: GenerateOrdersRequest = await req.json().catch(() => ({}));
 
-    console.log('Target date:', targetDate);
-    console.log('Customer ID filter:', customer_id || 'All customers');
+    // Convert to arrays for backwards compatibility
+    const targetDates = target_dates 
+      ? (Array.isArray(target_dates) ? target_dates : [target_dates])
+      : (target_date ? [target_date] : [new Date().toISOString().split('T')[0]]);
 
-    // Get active customer templates
-    let templatesQuery = supabaseClient
-      .from('customer_templates')
-      .select('id, customer_id, name')
-      .eq('organization_id', organizationId)
-      .eq('is_active', true);
+    const customerIdsFilter = customer_ids 
+      ? (Array.isArray(customer_ids) ? customer_ids : [customer_ids])
+      : (customer_id ? [customer_id] : null);
 
-    if (customer_id) {
-      templatesQuery = templatesQuery.eq('customer_id', customer_id);
-    }
-
-    const { data: templates, error: templatesError } = await templatesQuery;
-
-    if (templatesError) {
-      console.error('Error fetching templates:', templatesError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch customer templates' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`Found ${templates?.length || 0} active templates`);
-
-    // Fetch customer data for all templates
-    const customerIds = templates?.map(t => t.customer_id) || [];
-    const { data: customers, error: customersError } = await supabaseClient
-      .from('customer_profile')
-      .select('id, company_name')
-      .in('id', customerIds);
-
-    if (customersError) {
-      console.error('Error fetching customers:', customersError);
-    }
-
-    // Create a map of customer data
-    const customerMap = new Map(
-      customers?.map(c => [c.id, c]) || []
-    );
+    console.log('Target dates:', targetDates);
+    console.log('Customer ID filter:', customerIdsFilter || 'All customers');
 
     const ordersCreated: any[] = [];
     const errors: any[] = [];
 
-    // Process each template
-    for (const template of templates || []) {
-      try {
-        console.log(`Processing template ${template.id} for customer ${template.customer_id}`);
-
-        // Check for duplicate order
-        const { data: duplicateCheck } = await supabaseClient.rpc('check_duplicate_orders', {
-          p_customer_id: template.customer_id,
-          p_delivery_date: targetDate,
-          p_organization_id: organizationId,
+    // OUTER LOOP: Process each date
+    for (const targetDate of targetDates) {
+      console.log(`\n=== Processing date: ${targetDate} ===`);
+      
+      // Get active customer templates
+      let templatesQuery = supabaseClient
+        .from('customer_templates')
+        .select('id, customer_id, name')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true);
+      
+      if (customerIdsFilter && customerIdsFilter.length > 0) {
+        templatesQuery = templatesQuery.in('customer_id', customerIdsFilter);
+      }
+      
+      const { data: templates, error: templatesError } = await templatesQuery;
+      
+      if (templatesError) {
+        console.error('Error fetching templates:', templatesError);
+        errors.push({
+          date: targetDate,
+          error: 'Failed to fetch customer templates'
         });
+        continue;
+      }
+      
+      console.log(`Found ${templates?.length || 0} active templates for ${targetDate}`);
+      
+      // Fetch customer data for all templates
+      const customerIds = templates?.map((t) => t.customer_id) || [];
+      const { data: customers, error: customersError } = await supabaseClient
+        .from('customer_profile')
+        .select('id, company_name')
+        .in('id', customerIds);
+      
+      if (customersError) {
+        console.error('Error fetching customers:', customersError);
+      }
+      
+      // Create a map of customer data
+      const customerMap = new Map(customers?.map((c) => [c.id, c]) || []);
+      
+      // Process each template for this date
+      for (const template of templates || []) {
+        try {
+          console.log(`Processing template ${template.id} for customer ${template.customer_id} on ${targetDate}`);
 
-        if (duplicateCheck?.has_duplicate) {
-          console.log(`Duplicate order exists for customer ${template.customer_id}, skipping`);
-          continue;
-        }
+          // Check for duplicate order
+          const { data: duplicateCheck } = await supabaseClient.rpc('check_duplicate_orders', {
+            p_customer_id: template.customer_id,
+            p_delivery_date: targetDate,
+            p_organization_id: organizationId,
+          });
+
+          if (duplicateCheck?.has_duplicate) {
+            console.log(`Duplicate order exists for customer ${template.customer_id} on ${targetDate}, skipping`);
+            continue;
+          }
 
         // Get template items for this date
         const dayOfWeek = new Date(targetDate).getDay(); // 0=Sunday, 6=Saturday
@@ -148,7 +161,7 @@ Deno.serve(async (req) => {
 
         if (itemsError) {
           console.error(`Error fetching template items for ${template.id}:`, itemsError);
-          errors.push({ template_id: template.id, error: itemsError.message });
+          errors.push({ template_id: template.id, date: targetDate, error: itemsError.message });
           continue;
         }
 
@@ -186,7 +199,7 @@ Deno.serve(async (req) => {
 
         if (orderError) {
           console.error(`Error creating order for customer ${template.customer_id}:`, orderError);
-          errors.push({ customer_id: template.customer_id, error: orderError.message });
+          errors.push({ customer_id: template.customer_id, date: targetDate, error: orderError.message });
           continue;
         }
 
@@ -208,7 +221,7 @@ Deno.serve(async (req) => {
 
           if (lineItemsError) {
             console.error(`Error creating line items for order ${newOrder.id}:`, lineItemsError);
-            errors.push({ order_id: newOrder.id, error: lineItemsError.message });
+            errors.push({ order_id: newOrder.id, date: targetDate, error: lineItemsError.message });
             continue;
           }
 
@@ -237,9 +250,10 @@ Deno.serve(async (req) => {
           is_no_order_today: isNoOrderToday,
           line_items_count: itemsWithQuantity.length,
         });
-      } catch (error) {
-        console.error(`Unexpected error processing template ${template.id}:`, error);
-        errors.push({ template_id: template.id, error: error.message });
+        } catch (error) {
+          console.error(`Unexpected error processing template ${template.id}:`, error);
+          errors.push({ template_id: template.id, date: targetDate, error: error.message });
+        }
       }
     }
 
@@ -253,7 +267,7 @@ Deno.serve(async (req) => {
         orders_created: ordersCreated.length,
         orders: ordersCreated,
         errors: errors,
-        target_date: targetDate,
+        dates_processed: targetDates,
       }),
       {
         status: 200,

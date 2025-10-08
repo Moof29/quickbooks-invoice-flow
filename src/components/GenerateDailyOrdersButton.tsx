@@ -156,52 +156,25 @@ export function GenerateDailyOrdersButton() {
     mutationFn: async () => {
       console.log("=== Generating orders for dates:", selectedDates);
       
-      let totalCreated = 0;
-      const allErrors: any[] = [];
+      const targetDates = selectedDates.map(d => format(d, "yyyy-MM-dd"));
+      const customerIds = selectedCustomerIds.size > 0 
+        ? Array.from(selectedCustomerIds) 
+        : undefined;
       
-      // Generate orders for each selected date
-      for (const date of selectedDates) {
-        const targetDate = format(date, "yyyy-MM-dd");
-        const body: any = { target_date: targetDate };
-        
-        // If specific customers selected, pass them
-        if (selectedCustomerIds.size > 0) {
-          // Generate for first customer ID as edge function expects single customer_id
-          // For multiple customers, we'd need to update the edge function
-          const customerIds = Array.from(selectedCustomerIds);
-          for (const customerId of customerIds) {
-            const { data, error } = await supabase.functions.invoke("generate-daily-orders", {
-              body: { ...body, customer_id: customerId },
-            });
+      // SINGLE API CALL for all dates and customers
+      const { data, error } = await supabase.functions.invoke("generate-daily-orders", {
+        body: { 
+          target_dates: targetDates,
+          customer_ids: customerIds
+        },
+      });
 
-            if (error) {
-              console.error("Generate orders error:", error);
-              allErrors.push(error);
-            } else {
-              totalCreated += data.orders_created || 0;
-              if (data.errors) {
-                allErrors.push(...data.errors);
-              }
-            }
-          }
-        } else {
-          const { data, error } = await supabase.functions.invoke("generate-daily-orders", {
-            body,
-          });
-
-          if (error) {
-            console.error("Generate orders error:", error);
-            allErrors.push(error);
-          } else {
-            totalCreated += data.orders_created || 0;
-            if (data.errors) {
-              allErrors.push(...data.errors);
-            }
-          }
-        }
+      if (error) {
+        console.error("Generate orders error:", error);
+        throw error;
       }
       
-      return { orders_created: totalCreated, errors: allErrors };
+      return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
