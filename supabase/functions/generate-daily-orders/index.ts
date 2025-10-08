@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
         }) || [];
 
         const isNoOrderToday = itemsWithQuantity.length === 0;
-        const subtotal = itemsWithQuantity.reduce((sum: number, item: any) => {
+        let subtotal = itemsWithQuantity.reduce((sum: number, item: any) => {
           const qty = item[dayColumn] || 0;
           return sum + (qty * item.unit_price);
         }, 0);
