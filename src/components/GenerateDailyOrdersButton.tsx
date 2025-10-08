@@ -327,20 +327,17 @@ export function GenerateDailyOrdersButton() {
                 <PopoverContent 
                   className="w-[400px] p-0" 
                   align="start"
-                  onInteractOutside={(e) => {
-                    // Only close when clicking outside, not when interacting inside
-                    const target = e.target as HTMLElement;
-                    if (target.closest('[role="dialog"]')) {
-                      e.preventDefault();
-                    }
-                  }}
+                  side="bottom"
+                  sideOffset={4}
                 >
-                  <div className="p-2 border-b">
+                  <div className="p-2 border-b bg-muted/30">
                     <Button
                       variant="ghost"
                       size="sm"
                       className="w-full"
+                      type="button"
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
                         handleSelectAllCustomers();
                       }}
@@ -348,8 +345,8 @@ export function GenerateDailyOrdersButton() {
                       {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
                     </Button>
                   </div>
-                  <ScrollArea className="h-[200px]">
-                    <div className="p-2 space-y-1">
+                  <div className="max-h-[240px] overflow-y-auto p-2">
+                    <div className="space-y-1">
                       {uniqueCustomers.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">
                           No active customer templates found
@@ -361,17 +358,17 @@ export function GenerateDailyOrdersButton() {
                             <div
                               key={customer.customer_id}
                               className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
-                              onClick={(e) => {
+                              onMouseDown={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 handleCustomerToggle(customer.customer_id);
                               }}
                             >
                               <Checkbox
                                 checked={isChecked}
-                                onCheckedChange={() => handleCustomerToggle(customer.customer_id)}
-                                onClick={(e) => e.stopPropagation()}
+                                className="pointer-events-none"
                               />
-                              <span className="text-sm flex-1">
+                              <span className="text-sm flex-1 select-none">
                                 {customer.customer_profile.company_name}
                               </span>
                             </div>
@@ -379,7 +376,7 @@ export function GenerateDailyOrdersButton() {
                         })
                       )}
                     </div>
-                  </ScrollArea>
+                  </div>
                 </PopoverContent>
               </Popover>
               {selectedCustomerIds.size > 0 && (
