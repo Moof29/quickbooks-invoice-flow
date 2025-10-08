@@ -317,6 +317,7 @@ export function GenerateDailyOrdersButton() {
                   variant="outline"
                   role="combobox"
                   className="w-full justify-between"
+                  type="button"
                 >
                   {selectedCustomerIds.size === 0
                     ? `All Customers (${uniqueCustomers.length})`
@@ -324,18 +325,27 @@ export function GenerateDailyOrdersButton() {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0 bg-background border shadow-md" align="start" sideOffset={4}>
-                <div className="p-2 border-b bg-muted/50">
+              <PopoverContent 
+                className="w-[400px] p-0 bg-background border shadow-md z-50" 
+                align="start" 
+                sideOffset={4}
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                <div className="p-2 border-b bg-muted/50 sticky top-0 z-10">
                   <Button
                     variant="ghost"
                     size="sm"
+                    type="button"
                     className="w-full"
-                    onClick={handleSelectAllCustomers}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectAllCustomers();
+                    }}
                   >
                     {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
                   </Button>
                 </div>
-                <div className="max-h-[240px] overflow-y-auto">
+                <div className="max-h-[240px] overflow-y-auto overscroll-contain">
                   <div className="p-2 space-y-1">
                     {uniqueCustomers.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">
@@ -347,14 +357,17 @@ export function GenerateDailyOrdersButton() {
                         return (
                           <div
                             key={customer.customer_id}
-                            className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
-                            onClick={() => handleCustomerToggle(customer.customer_id)}
+                            className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCustomerToggle(customer.customer_id);
+                            }}
                           >
                             <Checkbox
                               checked={isChecked}
-                              onCheckedChange={() => handleCustomerToggle(customer.customer_id)}
+                              className="pointer-events-none"
                             />
-                            <span className="text-sm flex-1">
+                            <span className="text-sm flex-1 select-none">
                               {customer.customer_profile.company_name}
                             </span>
                           </div>
