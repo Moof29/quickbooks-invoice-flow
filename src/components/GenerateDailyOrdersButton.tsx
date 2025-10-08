@@ -82,6 +82,20 @@ export function GenerateDailyOrdersButton() {
     enabled: !!organizationId && isOpen,
   });
 
+  // Create unique customer list for selection (deduplicate by customer_id)
+  const uniqueCustomers = useMemo(() => {
+    const customerMap = new Map();
+    templates.forEach(template => {
+      if (!customerMap.has(template.customer_id)) {
+        customerMap.set(template.customer_id, {
+          customer_id: template.customer_id,
+          customer_profile: template.customer_profile
+        });
+      }
+    });
+    return Array.from(customerMap.values());
+  }, [templates]);
+
   // Check for existing orders on selected dates
   const { data: existingOrders = [] } = useQuery({
     queryKey: ["existing-orders-check", selectedDates, selectedCustomerIds],
@@ -269,10 +283,10 @@ export function GenerateDailyOrdersButton() {
   };
 
   const handleSelectAllCustomers = () => {
-    if (selectedCustomerIds.size === templates.length) {
+    if (selectedCustomerIds.size === uniqueCustomers.length) {
       setSelectedCustomerIds(new Set());
     } else {
-      setSelectedCustomerIds(new Set(templates.map(t => t.customer_id)));
+      setSelectedCustomerIds(new Set(uniqueCustomers.map(c => c.customer_id)));
     }
   };
 
@@ -305,12 +319,12 @@ export function GenerateDailyOrdersButton() {
                   className="w-full justify-between"
                 >
                   {selectedCustomerIds.size === 0
-                    ? `All Customers (${templates.length})`
+                    ? `All Customers (${uniqueCustomers.length})`
                     : `${selectedCustomerIds.size} customer(s) selected`}
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0" align="start">
+              <PopoverContent className="w-[400px] p-0 bg-popover z-50" align="start">
                 <div className="p-2 border-b">
                   <Button
                     variant="ghost"
@@ -318,29 +332,29 @@ export function GenerateDailyOrdersButton() {
                     className="w-full"
                     onClick={handleSelectAllCustomers}
                   >
-                    {selectedCustomerIds.size === templates.length ? "Deselect All" : "Select All"}
+                    {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
                   </Button>
                 </div>
                 <ScrollArea className="h-[200px]">
                   <div className="p-2 space-y-1">
-                    {templates.length === 0 ? (
+                    {uniqueCustomers.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">
                         No active customer templates found
                       </p>
                     ) : (
-                      templates.map((template) => {
-                        const isChecked = selectedCustomerIds.has(template.customer_id);
+                      uniqueCustomers.map((customer) => {
+                        const isChecked = selectedCustomerIds.has(customer.customer_id);
                         return (
                           <label
-                            key={template.customer_id}
+                            key={customer.customer_id}
                             className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
                           >
                             <Checkbox
                               checked={isChecked}
-                              onCheckedChange={() => handleCustomerToggle(template.customer_id)}
+                              onCheckedChange={() => handleCustomerToggle(customer.customer_id)}
                             />
                             <span className="text-sm flex-1">
-                              {template.customer_profile.company_name}
+                              {customer.customer_profile.company_name}
                             </span>
                           </label>
                         );
@@ -353,10 +367,10 @@ export function GenerateDailyOrdersButton() {
             {selectedCustomerIds.size > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {Array.from(selectedCustomerIds).slice(0, 3).map(customerId => {
-                  const template = templates.find(t => t.customer_id === customerId);
-                  return template ? (
+                  const customer = uniqueCustomers.find(c => c.customer_id === customerId);
+                  return customer ? (
                     <Badge key={customerId} variant="secondary" className="text-xs">
-                      {template.customer_profile.company_name}
+                      {customer.customer_profile.company_name}
                     </Badge>
                   ) : null;
                 })}
