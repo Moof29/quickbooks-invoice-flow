@@ -324,8 +324,8 @@ export function GenerateDailyOrdersButton() {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0 bg-popover z-50" align="start">
-                <div className="p-2 border-b">
+              <PopoverContent className="w-[400px] p-0 bg-background border shadow-md" align="start" sideOffset={4}>
+                <div className="p-2 border-b bg-muted/50">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -335,7 +335,7 @@ export function GenerateDailyOrdersButton() {
                     {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
                   </Button>
                 </div>
-                <ScrollArea className="h-[200px]">
+                <div className="max-h-[240px] overflow-y-auto">
                   <div className="p-2 space-y-1">
                     {uniqueCustomers.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">
@@ -345,9 +345,10 @@ export function GenerateDailyOrdersButton() {
                       uniqueCustomers.map((customer) => {
                         const isChecked = selectedCustomerIds.has(customer.customer_id);
                         return (
-                          <label
+                          <div
                             key={customer.customer_id}
                             className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
+                            onClick={() => handleCustomerToggle(customer.customer_id)}
                           >
                             <Checkbox
                               checked={isChecked}
@@ -356,12 +357,12 @@ export function GenerateDailyOrdersButton() {
                             <span className="text-sm flex-1">
                               {customer.customer_profile.company_name}
                             </span>
-                          </label>
+                          </div>
                         );
                       })
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </PopoverContent>
             </Popover>
             {selectedCustomerIds.size > 0 && (
