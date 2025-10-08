@@ -312,75 +312,73 @@ export function GenerateDailyOrdersButton() {
             {/* Customer Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Customer Filter (Optional)</label>
-              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between"
-                    type="button"
-                  >
-                    {selectedCustomerIds.size === 0
-                      ? `All Customers (${uniqueCustomers.length})`
-                      : `${selectedCustomerIds.size} customer(s) selected`}
-                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent 
-                  className="w-[400px] p-0" 
-                  align="start"
-                  side="bottom"
-                  sideOffset={4}
-                  onInteractOutside={(e) => {
-                    // Allow closing by clicking outside
-                    setIsPopoverOpen(false);
-                  }}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  className="w-full justify-between"
+                  type="button"
+                  onClick={() => setIsPopoverOpen(!isPopoverOpen)}
                 >
-                  <div className="p-2 border-b bg-muted/30">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      type="button"
-                      onClick={() => {
-                        handleSelectAllCustomers();
-                      }}
-                    >
-                      {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
-                    </Button>
-                  </div>
-                  <ScrollArea className="h-[240px]">
-                    <div className="p-2 space-y-1">
-                      {uniqueCustomers.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          No active customer templates found
-                        </p>
-                      ) : (
-                        uniqueCustomers.map((customer) => {
-                          const isChecked = selectedCustomerIds.has(customer.customer_id);
-                          return (
-                            <div
-                              key={customer.customer_id}
-                              className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
-                              onClick={() => {
-                                handleCustomerToggle(customer.customer_id);
-                              }}
-                            >
-                              <Checkbox
-                                checked={isChecked}
-                                className="pointer-events-none"
-                              />
-                              <span className="text-sm flex-1">
-                                {customer.customer_profile.company_name}
-                              </span>
-                            </div>
-                          );
-                        })
-                      )}
+                  {selectedCustomerIds.size === 0
+                    ? `All Customers (${uniqueCustomers.length})`
+                    : `${selectedCustomerIds.size} customer(s) selected`}
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+                
+                {isPopoverOpen && (
+                  <>
+                    {/* Backdrop to close dropdown */}
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setIsPopoverOpen(false)}
+                    />
+                    
+                    {/* Dropdown content */}
+                    <div className="absolute top-full left-0 mt-1 w-full bg-popover border rounded-md shadow-md z-50">
+                      <div className="p-2 border-b bg-muted/30">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          type="button"
+                          onClick={handleSelectAllCustomers}
+                        >
+                          {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
+                        </Button>
+                      </div>
+                      <div className="max-h-[240px] overflow-y-auto p-2">
+                        <div className="space-y-1">
+                          {uniqueCustomers.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              No active customer templates found
+                            </p>
+                          ) : (
+                            uniqueCustomers.map((customer) => {
+                              const isChecked = selectedCustomerIds.has(customer.customer_id);
+                              return (
+                                <div
+                                  key={customer.customer_id}
+                                  className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
+                                  onClick={() => handleCustomerToggle(customer.customer_id)}
+                                >
+                                  <Checkbox
+                                    checked={isChecked}
+                                    className="pointer-events-none"
+                                  />
+                                  <span className="text-sm flex-1">
+                                    {customer.customer_profile.company_name}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
+                  </>
+                )}
+              </div>
+              
               {selectedCustomerIds.size > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {Array.from(selectedCustomerIds).slice(0, 3).map(customerId => {
