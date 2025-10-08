@@ -308,15 +308,15 @@ export function GenerateDailyOrdersButton() {
 
         <div className="flex-1 overflow-y-auto px-6">
           <div className="space-y-4 py-4">
-            {/* Customer Selection - Compact Multi-Select */}
+            {/* Customer Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Customer Filter (Optional)</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
+                    role="combobox"
                     className="w-full justify-between"
-                    type="button"
                   >
                     {selectedCustomerIds.size === 0
                       ? `All Customers (${uniqueCustomers.length})`
@@ -327,69 +327,78 @@ export function GenerateDailyOrdersButton() {
                 <PopoverContent 
                   className="w-[400px] p-0" 
                   align="start"
+                  onInteractOutside={(e) => {
+                    // Only close when clicking outside, not when interacting inside
+                    const target = e.target as HTMLElement;
+                    if (target.closest('[role="dialog"]')) {
+                      e.preventDefault();
+                    }
+                  }}
                 >
-                  <div className="border-b p-2 bg-muted/30">
+                  <div className="p-2 border-b">
                     <Button
                       variant="ghost"
                       size="sm"
-                      type="button"
-                      className="w-full hover:bg-accent"
-                      onClick={handleSelectAllCustomers}
+                      className="w-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectAllCustomers();
+                      }}
                     >
                       {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
                     </Button>
                   </div>
-                  <div 
-                    className="max-h-[240px] overflow-y-scroll p-2"
-                    style={{ overscrollBehavior: 'contain' }}
-                  >
-                    {uniqueCustomers.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No active customer templates found
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {uniqueCustomers.map((customer) => {
+                  <ScrollArea className="h-[200px]">
+                    <div className="p-2 space-y-1">
+                      {uniqueCustomers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No active customer templates found
+                        </p>
+                      ) : (
+                        uniqueCustomers.map((customer) => {
                           const isChecked = selectedCustomerIds.has(customer.customer_id);
                           return (
-                            <label
+                            <div
                               key={customer.customer_id}
-                              className="flex items-center space-x-3 p-2 rounded-md hover:bg-accent cursor-pointer group"
-                              htmlFor={`customer-${customer.customer_id}`}
+                              className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCustomerToggle(customer.customer_id);
+                              }}
                             >
                               <Checkbox
-                                id={`customer-${customer.customer_id}`}
                                 checked={isChecked}
                                 onCheckedChange={() => handleCustomerToggle(customer.customer_id)}
+                                onClick={(e) => e.stopPropagation()}
                               />
                               <span className="text-sm flex-1">
                                 {customer.customer_profile.company_name}
                               </span>
-                            </label>
+                            </div>
                           );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                        })
+                      )}
+                    </div>
+                  </ScrollArea>
                 </PopoverContent>
               </Popover>
-            {selectedCustomerIds.size > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {Array.from(selectedCustomerIds).slice(0, 3).map(customerId => {
-                  const customer = uniqueCustomers.find(c => c.customer_id === customerId);
-                  return customer ? (
-                    <Badge key={customerId} variant="secondary" className="text-xs">
-                      {customer.customer_profile.company_name}
+              {selectedCustomerIds.size > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {Array.from(selectedCustomerIds).slice(0, 3).map(customerId => {
+                    const customer = uniqueCustomers.find(c => c.customer_id === customerId);
+                    return customer ? (
+                      <Badge key={customerId} variant="secondary" className="text-xs">
+                        {customer.customer_profile.company_name}
+                      </Badge>
+                    ) : null;
+                  })}
+                  {selectedCustomerIds.size > 3 && (
+                    <Badge variant="secondary" className="text-xs">
+                      +{selectedCustomerIds.size - 3} more
                     </Badge>
-                  ) : null;
-                })}
-                {selectedCustomerIds.size > 3 && (
-                  <Badge variant="secondary" className="text-xs">
-                    +{selectedCustomerIds.size - 3} more
-                  </Badge>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Date Picker */}
