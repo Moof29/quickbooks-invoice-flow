@@ -311,12 +311,13 @@ export function GenerateDailyOrdersButton() {
             {/* Customer Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Customer Filter (Optional)</label>
-              <Popover>
+              <Popover modal={false}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
                     className="w-full justify-between"
+                    type="button"
                   >
                     {selectedCustomerIds.size === 0
                       ? `All Customers (${uniqueCustomers.length})`
@@ -329,6 +330,7 @@ export function GenerateDailyOrdersButton() {
                   align="start"
                   side="bottom"
                   sideOffset={4}
+                  onOpenAutoFocus={(e) => e.preventDefault()}
                 >
                   <div className="p-2 border-b bg-muted/30">
                     <Button
@@ -336,16 +338,15 @@ export function GenerateDailyOrdersButton() {
                       size="sm"
                       className="w-full"
                       type="button"
-                      onClick={(e) => {
+                      onPointerDown={(e) => {
                         e.preventDefault();
-                        e.stopPropagation();
                         handleSelectAllCustomers();
                       }}
                     >
                       {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
                     </Button>
                   </div>
-                  <div className="max-h-[240px] overflow-y-auto p-2">
+                  <div className="max-h-[240px] overflow-y-auto p-2" style={{ overscrollBehavior: 'contain' }}>
                     <div className="space-y-1">
                       {uniqueCustomers.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">
@@ -358,9 +359,8 @@ export function GenerateDailyOrdersButton() {
                             <div
                               key={customer.customer_id}
                               className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer"
-                              onMouseDown={(e) => {
+                              onPointerDown={(e) => {
                                 e.preventDefault();
-                                e.stopPropagation();
                                 handleCustomerToggle(customer.customer_id);
                               }}
                             >
