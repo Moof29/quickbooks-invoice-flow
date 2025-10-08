@@ -30,6 +30,7 @@ import {
 
 export function GenerateDailyOrdersButton() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<Date[]>([new Date()]);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -311,7 +312,7 @@ export function GenerateDailyOrdersButton() {
             {/* Customer Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Customer Filter (Optional)</label>
-              <Popover modal={false}>
+              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -330,6 +331,10 @@ export function GenerateDailyOrdersButton() {
                   align="start"
                   side="bottom"
                   sideOffset={4}
+                  onInteractOutside={(e) => {
+                    // Allow closing by clicking outside
+                    setIsPopoverOpen(false);
+                  }}
                 >
                   <div className="p-2 border-b bg-muted/30">
                     <Button
@@ -337,7 +342,9 @@ export function GenerateDailyOrdersButton() {
                       size="sm"
                       className="w-full"
                       type="button"
-                      onClick={handleSelectAllCustomers}
+                      onClick={() => {
+                        handleSelectAllCustomers();
+                      }}
                     >
                       {selectedCustomerIds.size === uniqueCustomers.length ? "Deselect All" : "Select All"}
                     </Button>
@@ -355,7 +362,9 @@ export function GenerateDailyOrdersButton() {
                             <div
                               key={customer.customer_id}
                               className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
-                              onClick={() => handleCustomerToggle(customer.customer_id)}
+                              onClick={() => {
+                                handleCustomerToggle(customer.customer_id);
+                              }}
                             >
                               <Checkbox
                                 checked={isChecked}
