@@ -299,18 +299,18 @@ export function GenerateDailyOrdersButton() {
           Generate Orders
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
+      <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>Generate Sales Orders from Templates</DialogTitle>
           <DialogDescription>
-            Select a delivery date to generate sales orders from active customer templates.
-            Orders will use the quantities configured for the selected day of the week.
+            Select delivery dates and optionally filter customers to generate sales orders from active templates.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Customer Selection - Compact Multi-Select */}
-          <div className="space-y-2">
+        <ScrollArea className="flex-1 px-6">
+          <div className="space-y-4 pb-4">
+            {/* Customer Selection - Compact Multi-Select */}
+            <div className="space-y-2">
             <label className="text-sm font-medium">Customer Filter (Optional)</label>
             <Popover>
               <PopoverTrigger asChild>
@@ -325,7 +325,7 @@ export function GenerateDailyOrdersButton() {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
+              <PopoverContent className="w-full p-0 bg-popover z-50" align="start">
                 <div className="p-2 border-b">
                   <Button
                     variant="ghost"
@@ -380,12 +380,12 @@ export function GenerateDailyOrdersButton() {
                 )}
               </div>
             )}
-          </div>
+            </div>
 
-          {/* Date Picker */}
-          <div className="space-y-2">
+            {/* Date Picker */}
+            <div className="space-y-2">
             <label className="text-sm font-medium">Delivery Dates (Click to toggle)</label>
-            <div className="flex justify-center">
+            <div className="flex justify-center overflow-x-auto">
               <Calendar
                 mode="multiple"
                 selected={selectedDates}
@@ -395,10 +395,10 @@ export function GenerateDailyOrdersButton() {
                 className={cn("rounded-md border pointer-events-auto")}
               />
             </div>
-          </div>
-          
-          {/* Selected Dates Display */}
-          {selectedDates.length > 0 && (
+            </div>
+            
+            {/* Selected Dates Display */}
+            {selectedDates.length > 0 && (
             <div className="p-4 bg-muted rounded-lg space-y-2">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium">
@@ -433,10 +433,10 @@ export function GenerateDailyOrdersButton() {
                 ))}
               </div>
             </div>
-          )}
+            )}
 
-          {/* Preview Counts */}
-          {previewCounts.total > 0 && (
+            {/* Preview Counts */}
+            {previewCounts.total > 0 && (
             <Alert>
               <Users className="h-4 w-4" />
               <AlertDescription>
@@ -451,29 +451,30 @@ export function GenerateDailyOrdersButton() {
                 </div>
               </AlertDescription>
             </Alert>
-          )}
+            )}
 
-          {/* No templates warning */}
-          {previewCounts.total === 0 && (
+            {/* No templates warning */}
+            {previewCounts.total === 0 && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 No active customer templates found. Create customer templates first.
               </AlertDescription>
             </Alert>
-          )}
+            )}
 
-          {/* Info Note */}
-          <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex gap-2">
-              <div className="text-blue-600 dark:text-blue-400 text-sm">
-                <strong>Note:</strong> Orders will be created with status "pending" and can be reviewed before invoicing.
+            {/* Info Note */}
+            <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex gap-2">
+                <div className="text-blue-600 dark:text-blue-400 text-sm">
+                  <strong>Note:</strong> Orders will be created with status "pending" and can be reviewed before invoicing.
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </ScrollArea>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 pb-6 pt-4 border-t">
           <Button
             variant="outline"
             onClick={() => setIsOpen(false)}
