@@ -108,7 +108,6 @@ export function ModernSalesOrdersList() {
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
   const [showNoOrdersDialog, setShowNoOrdersDialog] = useState(false);
   const [groupByCustomer, setGroupByCustomer] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(true);
 
   const organizationId = profile?.organization_id;
@@ -488,42 +487,7 @@ export function ModernSalesOrdersList() {
 
   // Toggle expand/collapse all groups
   const toggleAllGroups = () => {
-    if (finalGrouping) {
-      const allKeys = new Set(finalGrouping.map(([key]) => key));
-      if (allExpanded) {
-        setExpandedGroups(new Set());
-        setAllExpanded(false);
-      } else {
-        setExpandedGroups(allKeys);
-        setAllExpanded(true);
-      }
-    }
-  };
-
-  // Check if a group is expanded
-  const isGroupExpanded = (key: string) => {
-    return allExpanded ? !expandedGroups.has(key) : expandedGroups.has(key);
-  };
-
-  // Toggle individual group
-  const toggleGroup = (key: string) => {
-    const newExpanded = new Set(expandedGroups);
-    if (allExpanded) {
-      // In expand-all mode, track closed groups
-      if (newExpanded.has(key)) {
-        newExpanded.delete(key);
-      } else {
-        newExpanded.add(key);
-      }
-    } else {
-      // In collapse-all mode, track opened groups
-      if (newExpanded.has(key)) {
-        newExpanded.delete(key);
-      } else {
-        newExpanded.add(key);
-      }
-    }
-    setExpandedGroups(newExpanded);
+    setAllExpanded(!allExpanded);
   };
 
   const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
@@ -796,8 +760,7 @@ export function ModernSalesOrdersList() {
               finalGrouping.map(([groupKey, orders]) => (
                 <Collapsible 
                   key={groupKey} 
-                  open={isGroupExpanded(groupKey)}
-                  onOpenChange={() => toggleGroup(groupKey)}
+                  open={allExpanded}
                   className="space-y-3"
                 >
                   <CollapsibleTrigger className="group flex items-center gap-3 px-4 py-3 rounded-lg border bg-card hover:bg-accent transition-all duration-200 w-full data-[state=closed]:bg-muted/50 data-[state=closed]:border-border/50">
