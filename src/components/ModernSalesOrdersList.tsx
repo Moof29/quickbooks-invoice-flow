@@ -138,7 +138,8 @@ export function ModernSalesOrdersList() {
         query = query.eq("status", statusFilter);
       }
 
-      const { data, error, count } = await query;
+      // Fetch with pagination to bypass PostgREST limits
+      const { data, error, count } = await query.range(0, 9999);
       if (error) throw error;
 
       console.log(`📊 Fetched ${data?.length || 0} orders (Total count: ${count})`);
