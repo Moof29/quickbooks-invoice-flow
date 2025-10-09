@@ -124,7 +124,8 @@ export function ModernSalesOrdersList() {
         `
         )
         .eq("organization_id", organizationId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(10000); // Increased limit to handle large order volumes
 
       // Only filter by delivery_date if not "all"
       if (deliveryDateFilter !== "all") {
