@@ -101,7 +101,7 @@ export function ModernSalesOrdersList() {
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
   const [showNoOrdersDialog, setShowNoOrdersDialog] = useState(false);
-  const [groupByDate, setGroupByDate] = useState(true);
+  const [groupByCustomer, setGroupByCustomer] = useState(false);
 
   const organizationId = profile?.organization_id;
 
@@ -433,9 +433,9 @@ export function ModernSalesOrdersList() {
     setSearchQuery("");
   };
 
-  // Group orders by delivery date
-  const groupedOrders = useMemo(() => {
-    if (!groupByDate || deliveryDateFilter !== 'all') {
+  // Group orders by delivery date (always enabled when viewing all dates)
+  const groupedByDate = useMemo(() => {
+    if (deliveryDateFilter !== 'all') {
       return null;
     }
 
@@ -452,7 +452,31 @@ export function ModernSalesOrdersList() {
     return Array.from(grouped.entries()).sort((a, b) => 
       new Date(a[0]).getTime() - new Date(b[0]).getTime()
     );
-  }, [groupByDate, deliveryDateFilter, filteredOrders]);
+  }, [deliveryDateFilter, filteredOrders]);
+
+  // Group orders by customer (optional when viewing all dates)
+  const groupedByCustomer = useMemo(() => {
+    if (!groupByCustomer || deliveryDateFilter !== 'all') {
+      return null;
+    }
+
+    const grouped = new Map<string, SalesOrder[]>();
+    filteredOrders.forEach(order => {
+      const customerKey = order.customer_profile?.company_name || 'Unknown Customer';
+      if (!grouped.has(customerKey)) {
+        grouped.set(customerKey, []);
+      }
+      grouped.get(customerKey)!.push(order);
+    });
+
+    // Sort by customer name
+    return Array.from(grouped.entries()).sort((a, b) => 
+      a[0].localeCompare(b[0])
+    );
+  }, [groupByCustomer, deliveryDateFilter, filteredOrders]);
+
+  // Determine which grouping to use
+  const finalGrouping = groupByCustomer ? groupedByCustomer : groupedByDate;
 
   const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
 
@@ -682,12 +706,12 @@ export function ModernSalesOrdersList() {
                 {deliveryDateFilter === "all" && (
                   <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
                     <Switch
-                      id="group-by-date"
-                      checked={groupByDate}
-                      onCheckedChange={setGroupByDate}
+                      id="group-by-customer"
+                      checked={groupByCustomer}
+                      onCheckedChange={setGroupByCustomer}
                     />
-                    <Label htmlFor="group-by-date" className="text-sm font-medium cursor-pointer">
-                      Group by Date
+                    <Label htmlFor="group-by-customer" className="text-sm font-medium cursor-pointer">
+                      Group by Customer
                     </Label>
                   </div>
                 )}
@@ -706,19 +730,30 @@ export function ModernSalesOrdersList() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {groupedOrders ? (
-              // Grouped by delivery date
-              groupedOrders.map(([date, orders]) => (
-                <div key={date} className="space-y-3">
+            {finalGrouping ? (
+              // Grouped view (by customer or by date)
+              finalGrouping.map(([groupKey, orders]) => (
+                <div key={groupKey} className="space-y-3">
                   <div className="flex items-center gap-2 py-2 border-b">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    <h3 className="font-semibold text-lg">
-                      {format(parseISO(date), "EEEE, MMMM d, yyyy")}
-                    </h3>
-                    {getDeliveryBadge(date)}
-                    <span className="text-sm text-muted-foreground ml-auto">
-                      {orders.length} order(s)
-                    </span>
+                    {groupByCustomer ? (
+                      <>
+                        <h3 className="font-semibold text-lg">{groupKey}</h3>
+                        <span className="text-sm text-muted-foreground ml-auto">
+                          {orders.length} order(s)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="h-4 w-4 text-primary" />
+                        <h3 className="font-semibold text-lg">
+                          {format(parseISO(groupKey), "EEEE, MMMM d, yyyy")}
+                        </h3>
+                        {getDeliveryBadge(groupKey)}
+                        <span className="text-sm text-muted-foreground ml-auto">
+                          {orders.length} order(s)
+                        </span>
+                      </>
+                    )}
                   </div>
                   {orders.map((order) => (
               <Card 
