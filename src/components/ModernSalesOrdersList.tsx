@@ -16,6 +16,7 @@ import {
   Search,
   Lock,
   Ban,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -733,8 +739,9 @@ export function ModernSalesOrdersList() {
             {finalGrouping ? (
               // Grouped view (by customer or by date)
               finalGrouping.map(([groupKey, orders]) => (
-                <div key={groupKey} className="space-y-3">
-                  <div className="flex items-center gap-2 py-2 border-b">
+                <Collapsible key={groupKey} defaultOpen className="space-y-3">
+                  <CollapsibleTrigger className="flex items-center gap-2 py-2 border-b w-full hover:bg-accent/50 transition-colors">
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
                     {groupByCustomer ? (
                       <>
                         <h3 className="font-semibold text-lg">{groupKey}</h3>
@@ -754,8 +761,9 @@ export function ModernSalesOrdersList() {
                         </span>
                       </>
                     )}
-                  </div>
-                  {orders.map((order) => (
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3">
+                    {orders.map((order) => (
               <Card 
                 key={order.id} 
                 className="border shadow-sm cursor-pointer hover:bg-accent/50 transition-colors"
@@ -895,8 +903,9 @@ export function ModernSalesOrdersList() {
                   </div>
                 </CardContent>
               </Card>
-                   ))}
-                </div>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
               ))
             ) : (
               // Non-grouped view
