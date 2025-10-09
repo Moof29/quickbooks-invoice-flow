@@ -122,47 +122,64 @@ async function createOrderFromTemplate(
 
     const isNoOrderToday = itemsWithQuantity.length === 0;
 
-    // Retry logic for order number conflicts
-    let newOrder = null;
+    // Pre-generate order number to avoid race conditions
+    let orderNumber = null;
     let retryCount = 0;
-    const maxRetries = 5;
+    const maxRetries = 10;
     
-    while (retryCount < maxRetries) {
-      const { data, error: orderError } = await supabaseClient
-        .from('sales_order')
-        .insert({
-          organization_id: organizationId,
-          customer_id: template.customer_id,
-          order_date: new Date().toISOString().split('T')[0],
-          delivery_date: targetDate,
-          status: 'pending',
-          subtotal: 0,
-          total: 0,
-          is_no_order_today: isNoOrderToday,
-          invoiced: false,
-          memo: `Auto-generated from template: ${template.name}`,
-        })
-        .select()
-        .single();
-
-      if (!orderError) {
-        newOrder = data;
-        break;
-      }
-
-      // Retry on unique constraint violations
-      if (orderError.code === '23505' && retryCount < maxRetries - 1) {
+    while (retryCount < maxRetries && !orderNumber) {
+      const { data: generatedNumber, error: numberError } = await supabaseClient
+        .rpc('generate_sales_order_number', { org_id: organizationId });
+      
+      if (numberError) {
+        console.log(`Failed to generate order number: ${numberError.message}`);
         retryCount++;
-        console.log(`Retry ${retryCount} for template ${template.id} due to order number conflict`);
-        await new Promise(resolve => setTimeout(resolve, 50 * retryCount)); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
         continue;
       }
-
-      throw new Error(`Failed to create order: ${orderError.message}`);
+      
+      // Verify the number isn't already taken
+      const { data: existingOrder } = await supabaseClient
+        .from('sales_order')
+        .select('id')
+        .eq('order_number', generatedNumber)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+      
+      if (!existingOrder) {
+        orderNumber = generatedNumber;
+      } else {
+        console.log(`Order number ${generatedNumber} already exists, retrying...`);
+        retryCount++;
+        await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+      }
+    }
+    
+    if (!orderNumber) {
+      throw new Error('Failed to generate unique order number after retries');
     }
 
-    if (!newOrder) {
-      throw new Error('Failed to create order after retries');
+    // Insert with pre-generated order number
+    const { data: newOrder, error: orderError } = await supabaseClient
+      .from('sales_order')
+      .insert({
+        organization_id: organizationId,
+        customer_id: template.customer_id,
+        order_number: orderNumber,
+        order_date: new Date().toISOString().split('T')[0],
+        delivery_date: targetDate,
+        status: 'pending',
+        subtotal: 0,
+        total: 0,
+        is_no_order_today: isNoOrderToday,
+        invoiced: false,
+        memo: `Auto-generated from template: ${template.name}`,
+      })
+      .select()
+      .single();
+
+    if (orderError) {
+      throw new Error(`Failed to create order: ${orderError.message}`);
     }
 
     console.log(`Order created: ${newOrder.id}`);
