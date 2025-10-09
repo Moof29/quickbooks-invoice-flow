@@ -47,15 +47,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface SalesOrder {
   id: string;
@@ -108,8 +101,7 @@ export function ModernSalesOrdersList() {
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
   const [showNoOrdersDialog, setShowNoOrdersDialog] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 50;
+  const [groupByDate, setGroupByDate] = useState(true);
 
   const organizationId = profile?.organization_id;
 
@@ -436,14 +428,31 @@ export function ModernSalesOrdersList() {
     }
   }, [orders, searchQuery, deliveryDateFilter]);
 
-  // Reset to page 1 when filters change
-  const resetPage = () => setCurrentPage(1);
-  
-  // Calculate pagination
-  const totalPages = Math.ceil((filteredOrders?.length || 0) / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedOrders = filteredOrders?.slice(startIndex, endIndex) || [];
+  // Reset filters
+  const resetFilters = () => {
+    setSearchQuery("");
+  };
+
+  // Group orders by delivery date
+  const groupedOrders = useMemo(() => {
+    if (!groupByDate || deliveryDateFilter !== 'all') {
+      return null;
+    }
+
+    const grouped = new Map<string, SalesOrder[]>();
+    filteredOrders.forEach(order => {
+      const dateKey = order.delivery_date;
+      if (!grouped.has(dateKey)) {
+        grouped.set(dateKey, []);
+      }
+      grouped.get(dateKey)!.push(order);
+    });
+
+    // Sort dates
+    return Array.from(grouped.entries()).sort((a, b) => 
+      new Date(a[0]).getTime() - new Date(b[0]).getTime()
+    );
+  }, [groupByDate, deliveryDateFilter, filteredOrders]);
 
   const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
 
@@ -550,7 +559,6 @@ export function ModernSalesOrdersList() {
                 onValueChange={(value) => {
                   setDeliveryDateFilter(value);
                   setSearchParams({ date: value });
-                  resetPage();
                 }}
               >
                 <SelectTrigger className="w-full sm:w-[200px]">
@@ -570,17 +578,11 @@ export function ModernSalesOrdersList() {
                 <Input
                   placeholder="Search orders, customers..."
                   value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    resetPage();
-                  }}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 w-full sm:w-[250px]"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={(value) => {
-                setStatusFilter(value);
-                resetPage();
-              }}>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -670,13 +672,25 @@ export function ModernSalesOrdersList() {
                     }
                   </CardTitle>
                    <p className="text-sm text-muted-foreground mt-1">
-                    {filteredOrders.length} order(s) • Showing {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)}
+                    {filteredOrders.length} order(s)
                     {reviewedCount > 0 && ` • ${reviewedCount} ready to invoice`}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 {deliveryDateFilter !== "all" && getDeliveryBadge(deliveryDateFilter)}
+                {deliveryDateFilter === "all" && (
+                  <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
+                    <Switch
+                      id="group-by-date"
+                      checked={groupByDate}
+                      onCheckedChange={setGroupByDate}
+                    />
+                    <Label htmlFor="group-by-date" className="text-sm font-medium cursor-pointer">
+                      Group by Date
+                    </Label>
+                  </div>
+                )}
                 {filteredOrders.length > 0 && (
                   <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
                     <Checkbox
@@ -692,7 +706,21 @@ export function ModernSalesOrdersList() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {paginatedOrders.map((order) => (
+            {groupedOrders ? (
+              // Grouped by delivery date
+              groupedOrders.map(([date, orders]) => (
+                <div key={date} className="space-y-3">
+                  <div className="flex items-center gap-2 py-2 border-b">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    <h3 className="font-semibold text-lg">
+                      {format(parseISO(date), "EEEE, MMMM d, yyyy")}
+                    </h3>
+                    {getDeliveryBadge(date)}
+                    <span className="text-sm text-muted-foreground ml-auto">
+                      {orders.length} order(s)
+                    </span>
+                  </div>
+                  {orders.map((order) => (
               <Card 
                 key={order.id} 
                 className="border shadow-sm cursor-pointer hover:bg-accent/50 transition-colors"
@@ -832,66 +860,154 @@ export function ModernSalesOrdersList() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+                   ))}
+                </div>
+              ))
+            ) : (
+              // Non-grouped view
+              filteredOrders.map((order) => (
+                <Card 
+                  key={order.id} 
+                  className="border shadow-sm cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => navigate(`/sales-orders/${order.id}`)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1">
+                        {!order.invoiced && (
+                          <Checkbox
+                            checked={selectedOrders.has(order.id)}
+                            onCheckedChange={(checked) => {
+                              const newSelected = new Set(selectedOrders);
+                              if (checked) {
+                                newSelected.add(order.id);
+                              } else {
+                                newSelected.delete(order.id);
+                              }
+                              setSelectedOrders(newSelected);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-base">{order.customer_profile.company_name}</span>
+                            {order.is_no_order_today && (
+                              <Badge variant="outline" className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700">
+                                <AlertCircle className="h-3 w-3" />
+                                No Order Today
+                              </Badge>
+                            )}
+                            {getStatusBadge(order.status)}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {order.order_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.sales_order_line_item?.[0]?.count || 0} items • $
+                            {order.total.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2">
+                        {order.status === "pending" && !selectedOrders.has(order.id) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              reviewMutation.mutate(order.id);
+                            }}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
+                        )}
+                        {order.status === "reviewed" && !order.invoiced && (
+                          <Button
+                            size="sm"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const { data, error } = await supabase.functions.invoke(
+                                  "create-invoice-from-order",
+                                  { body: { order_id: order.id } }
+                                );
+                                if (error) throw error;
+                                if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
+                                
+                                queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+                                toast({ 
+                                  title: "Invoice created successfully",
+                                  description: `Invoice ${data.invoice?.invoice_number} created`
+                                });
+                              } catch (error: any) {
+                                toast({
+                                  title: "Error creating invoice",
+                                  description: error.message,
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Invoice
+                          </Button>
+                        )}
+                        
+                        {/* Cancel Order Button (for pending/reviewed only) */}
+                        {(order.status === "pending" || order.status === "reviewed") && !order.invoiced && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCancelOrderId(order.id);
+                                  }}
+                                >
+                                  <Ban className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Cancel Order</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+
+                        {/* Delete Button with Tooltip */}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!order.invoiced) {
+                                      setDeleteOrderId(order.id);
+                                    }
+                                  }}
+                                  disabled={order.invoiced}
+                                  className={order.invoiced ? "opacity-50 cursor-not-allowed" : ""}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {order.invoiced ? "Cannot delete invoiced orders" : "Delete order"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </CardContent>
-          
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center p-4 border-t">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    />
-                  </PaginationItem>
-                  
-                  {/* Page numbers */}
-                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                    let pageNumber: number;
-                    
-                    if (totalPages <= 7) {
-                      pageNumber = i + 1;
-                    } else if (currentPage <= 4) {
-                      pageNumber = i + 1;
-                    } else if (currentPage >= totalPages - 3) {
-                      pageNumber = totalPages - 6 + i;
-                    } else {
-                      pageNumber = currentPage - 3 + i;
-                    }
-                    
-                    if (i === 3 && currentPage > 4 && totalPages > 7) {
-                      return (
-                        <PaginationItem key="ellipsis">
-                          <PaginationEllipsis />
-                        </PaginationItem>
-                      );
-                    }
-                    
-                    return (
-                      <PaginationItem key={pageNumber}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(pageNumber)}
-                          isActive={currentPage === pageNumber}
-                          className="cursor-pointer"
-                        >
-                          {pageNumber}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  })}
-                  
-                  <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
-                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
         </Card>
       )}
 
