@@ -740,8 +740,8 @@ export function ModernSalesOrdersList() {
               // Grouped view (by customer or by date)
               finalGrouping.map(([groupKey, orders]) => (
                 <Collapsible key={groupKey} defaultOpen className="space-y-3">
-                  <CollapsibleTrigger className="flex items-center gap-2 py-2 border-b w-full hover:bg-accent/50 transition-colors">
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+                  <CollapsibleTrigger className="group flex items-center gap-3 px-4 py-3 rounded-lg border bg-card hover:bg-accent transition-all duration-200 w-full data-[state=closed]:bg-muted/50 data-[state=closed]:border-border/50">
+                    <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 group-data-[state=closed]:rotate-0 group-data-[state=open]:rotate-180 text-muted-foreground group-hover:text-foreground" />
                     {groupByCustomer ? (
                       <>
                         <h3 className="font-semibold text-lg">{groupKey}</h3>
