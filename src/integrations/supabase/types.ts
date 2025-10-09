@@ -3797,6 +3797,27 @@ export type Database = {
           },
         ]
       }
+      sales_order_number_sequences: {
+        Row: {
+          last_number: number
+          organization_id: string
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          last_number?: number
+          organization_id: string
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          last_number?: number
+          organization_id?: string
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
       sales_receipt_record: {
         Row: {
           created_at: string | null
@@ -4924,6 +4945,24 @@ export type Database = {
       validate_order_before_invoice: {
         Args: { p_order_id: string }
         Returns: Json
+      }
+      validate_order_number_integrity: {
+        Args: { p_organization_id: string; p_year?: number }
+        Returns: {
+          check_name: string
+          details: string
+          is_valid: boolean
+          issue_count: number
+        }[]
+      }
+      validate_order_numbers_simple: {
+        Args: { p_organization_id: string; p_year?: number }
+        Returns: {
+          check_name: string
+          details: string
+          is_valid: boolean
+          issue_count: number
+        }[]
       }
     }
     Enums: {
