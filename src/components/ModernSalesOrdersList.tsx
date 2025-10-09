@@ -47,6 +47,15 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface SalesOrder {
   id: string;
@@ -99,6 +108,8 @@ export function ModernSalesOrdersList() {
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
   const [showNoOrdersDialog, setShowNoOrdersDialog] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
 
   const organizationId = profile?.organization_id;
 
@@ -425,6 +436,15 @@ export function ModernSalesOrdersList() {
     }
   }, [orders, searchQuery, deliveryDateFilter]);
 
+  // Reset to page 1 when filters change
+  const resetPage = () => setCurrentPage(1);
+  
+  // Calculate pagination
+  const totalPages = Math.ceil((filteredOrders?.length || 0) / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedOrders = filteredOrders?.slice(startIndex, endIndex) || [];
+
   const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
 
   const getStatusBadge = (status: string) => {
@@ -530,6 +550,7 @@ export function ModernSalesOrdersList() {
                 onValueChange={(value) => {
                   setDeliveryDateFilter(value);
                   setSearchParams({ date: value });
+                  resetPage();
                 }}
               >
                 <SelectTrigger className="w-full sm:w-[200px]">
@@ -549,11 +570,17 @@ export function ModernSalesOrdersList() {
                 <Input
                   placeholder="Search orders, customers..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    resetPage();
+                  }}
                   className="pl-9 w-full sm:w-[250px]"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={(value) => {
+                setStatusFilter(value);
+                resetPage();
+              }}>
                 <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -642,8 +669,8 @@ export function ModernSalesOrdersList() {
                       : format(parseISO(deliveryDateFilter), "EEEE, MMMM d, yyyy")
                     }
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {filteredOrders.length} order(s)
+                   <p className="text-sm text-muted-foreground mt-1">
+                    {filteredOrders.length} order(s) • Showing {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)}
                     {reviewedCount > 0 && ` • ${reviewedCount} ready to invoice`}
                   </p>
                 </div>
@@ -665,7 +692,7 @@ export function ModernSalesOrdersList() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {filteredOrders.map((order) => (
+            {paginatedOrders.map((order) => (
               <Card 
                 key={order.id} 
                 className="border shadow-sm cursor-pointer hover:bg-accent/50 transition-colors"
@@ -807,6 +834,64 @@ export function ModernSalesOrdersList() {
               </Card>
             ))}
           </CardContent>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center p-4 border-t">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                    let pageNumber: number;
+                    
+                    if (totalPages <= 7) {
+                      pageNumber = i + 1;
+                    } else if (currentPage <= 4) {
+                      pageNumber = i + 1;
+                    } else if (currentPage >= totalPages - 3) {
+                      pageNumber = totalPages - 6 + i;
+                    } else {
+                      pageNumber = currentPage - 3 + i;
+                    }
+                    
+                    if (i === 3 && currentPage > 4 && totalPages > 7) {
+                      return (
+                        <PaginationItem key="ellipsis">
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
+                    }
+                    
+                    return (
+                      <PaginationItem key={pageNumber}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(pageNumber)}
+                          isActive={currentPage === pageNumber}
+                          className="cursor-pointer"
+                        >
+                          {pageNumber}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </Card>
       )}
 
