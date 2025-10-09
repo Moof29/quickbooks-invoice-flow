@@ -98,10 +98,11 @@ export function ModernSalesOrdersList() {
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
+  const [showNoOrdersDialog, setShowNoOrdersDialog] = useState(false);
 
   const organizationId = profile?.organization_id;
 
-  // Fetch orders for selected delivery date, auto-generate if none exist
+  // Fetch orders for selected delivery date
   const { data: orders, isLoading } = useQuery({
     queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter],
     queryFn: async () => {
@@ -137,30 +138,9 @@ export function ModernSalesOrdersList() {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Auto-generate orders only for specific dates, not for "all"
+      // Show dialog if no orders for specific date
       if (deliveryDateFilter !== "all" && (!data || data.length === 0)) {
-        console.log(`No orders found for ${deliveryDateFilter}, auto-generating...`);
-        
-        const { data: generateResult, error: generateError } = await supabase.functions.invoke(
-          "generate-daily-orders",
-          {
-            body: {
-              target_date: deliveryDateFilter,
-            },
-          }
-        );
-
-        if (generateError) {
-          console.error("Error auto-generating orders:", generateError);
-          return data as SalesOrder[]; // Return empty array if generation fails
-        }
-
-        console.log(`Auto-generated ${generateResult?.orders_created || 0} orders`);
-
-        // Fetch the newly created orders
-        const { data: newData, error: newError } = await query;
-        if (newError) throw newError;
-        return newData as SalesOrder[];
+        setShowNoOrdersDialog(true);
       }
 
       return data as SalesOrder[];
@@ -905,6 +885,24 @@ export function ModernSalesOrdersList() {
               className="bg-destructive hover:bg-destructive/90"
             >
               {isBatchDeleting ? "Deleting..." : "Delete Orders"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* No Orders Dialog */}
+      <AlertDialog open={showNoOrdersDialog} onOpenChange={setShowNoOrdersDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>No Orders Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              There are no orders for the selected delivery date ({deliveryDateFilter !== "all" ? format(parseISO(deliveryDateFilter), "MMMM d, yyyy") : ""}).
+              {" "}You can create a new order using the "New Order" button.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowNoOrdersDialog(false)}>
+              OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
