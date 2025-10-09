@@ -4791,6 +4791,17 @@ export type Database = {
         }
         Returns: Json
       }
+      check_duplicate_orders_batch: {
+        Args: {
+          p_customer_ids: string[]
+          p_delivery_date: string
+          p_organization_id: string
+        }
+        Returns: {
+          customer_id: string
+          has_duplicate: boolean
+        }[]
+      }
       generate_sales_order_number: {
         Args: { org_id: string }
         Returns: string

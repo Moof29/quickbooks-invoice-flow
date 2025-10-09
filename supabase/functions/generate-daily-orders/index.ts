@@ -12,6 +12,180 @@ interface GenerateOrdersRequest {
   customer_ids?: string[]; // Array of customer IDs
 }
 
+async function processDateOrders(
+  targetDate: string,
+  organizationId: string,
+  customerIdsFilter: string[] | null,
+  supabaseClient: any
+) {
+  console.log(`\n=== Processing date: ${targetDate} ===`);
+  
+  let templatesQuery = supabaseClient
+    .from('customer_templates')
+    .select('id, customer_id, name')
+    .eq('organization_id', organizationId)
+    .eq('is_active', true);
+  
+  if (customerIdsFilter && customerIdsFilter.length > 0) {
+    templatesQuery = templatesQuery.in('customer_id', customerIdsFilter);
+  }
+  
+  const { data: templates, error: templatesError } = await templatesQuery;
+  
+  if (templatesError) {
+    console.error('Error fetching templates:', templatesError);
+    return {
+      date: targetDate,
+      orders: [],
+      errors: [{ date: targetDate, error: 'Failed to fetch templates' }]
+    };
+  }
+  
+  console.log(`Found ${templates?.length || 0} active templates for ${targetDate}`);
+  
+  const customerIds = templates?.map((t) => t.customer_id) || [];
+  const { data: customers } = await supabaseClient
+    .from('customer_profile')
+    .select('id, company_name')
+    .in('id', customerIds);
+  
+  const customerMap = new Map(customers?.map((c) => [c.id, c]) || []);
+  
+  const { data: duplicateResults } = await supabaseClient.rpc('check_duplicate_orders_batch', {
+    p_customer_ids: templates.map(t => t.customer_id),
+    p_delivery_date: targetDate,
+    p_organization_id: organizationId,
+  });
+
+  const duplicateCustomerIds = new Set(
+    duplicateResults
+      ?.filter((r: any) => r.has_duplicate)
+      .map((r: any) => r.customer_id) || []
+  );
+
+  const validTemplates = templates.filter(t => {
+    if (duplicateCustomerIds.has(t.customer_id)) {
+      console.log(`Duplicate order exists for customer ${t.customer_id} on ${targetDate}, skipping`);
+      return false;
+    }
+    return true;
+  });
+  
+  const templateResults = await Promise.allSettled(
+    validTemplates.map(template => 
+      createOrderFromTemplate(template, targetDate, organizationId, customerMap, supabaseClient)
+    )
+  );
+  
+  const orders = templateResults
+    .filter(r => r.status === 'fulfilled' && r.value)
+    .map(r => (r as PromiseFulfilledResult<any>).value);
+  
+  const errors = templateResults
+    .filter(r => r.status === 'rejected')
+    .map(r => ({
+      date: targetDate,
+      error: (r as PromiseRejectedResult).reason?.message || 'Unknown error'
+    }));
+  
+  return { date: targetDate, orders, errors };
+}
+
+async function createOrderFromTemplate(
+  template: any,
+  targetDate: string,
+  organizationId: string,
+  customerMap: Map<string, any>,
+  supabaseClient: any
+) {
+  try {
+    console.log(`Processing template ${template.id} for customer ${template.customer_id} on ${targetDate}`);
+
+    const dayOfWeek = new Date(targetDate).getDay();
+    const dayColumns = ['sunday_qty', 'monday_qty', 'tuesday_qty', 'wednesday_qty', 'thursday_qty', 'friday_qty', 'saturday_qty'];
+    const dayColumn = dayColumns[dayOfWeek];
+
+    const { data: templateItems, error: itemsError } = await supabaseClient
+      .from('customer_template_items')
+      .select(`id, item_id, unit_price, ${dayColumn}`)
+      .eq('template_id', template.id)
+      .eq('organization_id', organizationId);
+
+    if (itemsError) {
+      throw new Error(`Failed to fetch template items: ${itemsError.message}`);
+    }
+
+    const itemsWithQuantity = templateItems?.filter((item: any) => {
+      const qty = item[dayColumn] || 0;
+      return qty > 0;
+    }) || [];
+
+    const isNoOrderToday = itemsWithQuantity.length === 0;
+
+    const { data: newOrder, error: orderError } = await supabaseClient
+      .from('sales_order')
+      .insert({
+        organization_id: organizationId,
+        customer_id: template.customer_id,
+        order_date: new Date().toISOString().split('T')[0],
+        delivery_date: targetDate,
+        status: 'pending',
+        subtotal: 0,
+        total: 0,
+        is_no_order_today: isNoOrderToday,
+        invoiced: false,
+        memo: `Auto-generated from template: ${template.name}`,
+      })
+      .select()
+      .single();
+
+    if (orderError) {
+      throw new Error(`Failed to create order: ${orderError.message}`);
+    }
+
+    console.log(`Order created: ${newOrder.id}`);
+
+    let calculatedTotal = 0;
+    if (itemsWithQuantity.length > 0) {
+      const lineItems = itemsWithQuantity.map((item: any) => ({
+        organization_id: organizationId,
+        sales_order_id: newOrder.id,
+        item_id: item.item_id,
+        quantity: item[dayColumn],
+        unit_price: item.unit_price,
+      }));
+
+      const { data: createdItems, error: lineItemsError } = await supabaseClient
+        .from('sales_order_line_item')
+        .insert(lineItems)
+        .select('amount');
+
+      if (lineItemsError) {
+        throw new Error(`Failed to create line items: ${lineItemsError.message}`);
+      }
+
+      calculatedTotal = createdItems?.reduce((sum: number, item: any) => sum + (item.amount || 0), 0) || 0;
+      
+      console.log(`Created ${lineItems.length} line items, total: ${calculatedTotal}`);
+    }
+
+    const customer = customerMap.get(template.customer_id);
+    return {
+      order_id: newOrder.id,
+      order_number: newOrder.order_number,
+      customer_id: template.customer_id,
+      customer_name: customer?.company_name || 'Unknown',
+      delivery_date: targetDate,
+      total: calculatedTotal,
+      is_no_order_today: isNoOrderToday,
+      line_items_count: itemsWithQuantity.length,
+    };
+  } catch (error: any) {
+    console.error(`Error processing template ${template.id}:`, error);
+    throw error;
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -79,183 +253,27 @@ Deno.serve(async (req) => {
       : (customer_id ? [customer_id] : null);
 
     console.log('Target dates:', targetDates);
-    console.log('Customer ID filter:', customerIdsFilter || 'All customers');
+    console.log('Customer IDs filter:', customerIdsFilter);
+
+    const dateResults = await Promise.allSettled(
+      targetDates.map(targetDate => 
+        processDateOrders(targetDate, organizationId, customerIdsFilter, supabaseClient)
+      )
+    );
 
     const ordersCreated: any[] = [];
     const errors: any[] = [];
 
-    // OUTER LOOP: Process each date
-    for (const targetDate of targetDates) {
-      console.log(`\n=== Processing date: ${targetDate} ===`);
-      
-      // Get active customer templates
-      let templatesQuery = supabaseClient
-        .from('customer_templates')
-        .select('id, customer_id, name')
-        .eq('organization_id', organizationId)
-        .eq('is_active', true);
-      
-      if (customerIdsFilter && customerIdsFilter.length > 0) {
-        templatesQuery = templatesQuery.in('customer_id', customerIdsFilter);
-      }
-      
-      const { data: templates, error: templatesError } = await templatesQuery;
-      
-      if (templatesError) {
-        console.error('Error fetching templates:', templatesError);
+    dateResults.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        ordersCreated.push(...result.value.orders);
+        errors.push(...result.value.errors);
+      } else {
         errors.push({
-          date: targetDate,
-          error: 'Failed to fetch customer templates'
+          error: `Failed to process date: ${result.reason?.message || 'Unknown error'}`
         });
-        continue;
       }
-      
-      console.log(`Found ${templates?.length || 0} active templates for ${targetDate}`);
-      
-      // Fetch customer data for all templates
-      const customerIds = templates?.map((t) => t.customer_id) || [];
-      const { data: customers, error: customersError } = await supabaseClient
-        .from('customer_profile')
-        .select('id, company_name')
-        .in('id', customerIds);
-      
-      if (customersError) {
-        console.error('Error fetching customers:', customersError);
-      }
-      
-      // Create a map of customer data
-      const customerMap = new Map(customers?.map((c) => [c.id, c]) || []);
-      
-      // Process each template for this date
-      for (const template of templates || []) {
-        try {
-          console.log(`Processing template ${template.id} for customer ${template.customer_id} on ${targetDate}`);
-
-          // Check for duplicate order
-          const { data: duplicateCheck } = await supabaseClient.rpc('check_duplicate_orders', {
-            p_customer_id: template.customer_id,
-            p_delivery_date: targetDate,
-            p_organization_id: organizationId,
-          });
-
-          if (duplicateCheck?.has_duplicate) {
-            console.log(`Duplicate order exists for customer ${template.customer_id} on ${targetDate}, skipping`);
-            continue;
-          }
-
-        // Get template items for this date
-        const dayOfWeek = new Date(targetDate).getDay(); // 0=Sunday, 6=Saturday
-        const dayColumns = ['sunday_qty', 'monday_qty', 'tuesday_qty', 'wednesday_qty', 'thursday_qty', 'friday_qty', 'saturday_qty'];
-        const dayColumn = dayColumns[dayOfWeek];
-
-        const { data: templateItems, error: itemsError } = await supabaseClient
-          .from('customer_template_items')
-          .select(`
-            id,
-            item_id,
-            unit_price,
-            ${dayColumn}
-          `)
-          .eq('template_id', template.id)
-          .eq('organization_id', organizationId);
-
-        if (itemsError) {
-          console.error(`Error fetching template items for ${template.id}:`, itemsError);
-          errors.push({ template_id: template.id, date: targetDate, error: itemsError.message });
-          continue;
-        }
-
-        // Filter items with quantity > 0 for this day
-        const itemsWithQuantity = templateItems?.filter((item: any) => {
-          const qty = item[dayColumn] || 0;
-          return qty > 0;
-        }) || [];
-
-        const isNoOrderToday = itemsWithQuantity.length === 0;
-        let subtotal = itemsWithQuantity.reduce((sum: number, item: any) => {
-          const qty = item[dayColumn] || 0;
-          return sum + (qty * item.unit_price);
-        }, 0);
-
-        console.log(`Creating order: ${itemsWithQuantity.length} items, no_order: ${isNoOrderToday}`);
-
-      // Create sales order with 0 totals - triggers will update after line items are inserted
-        const { data: newOrder, error: orderError } = await supabaseClient
-          .from('sales_order')
-          .insert({
-            organization_id: organizationId,
-            customer_id: template.customer_id,
-            order_date: new Date().toISOString().split('T')[0],
-            delivery_date: targetDate,
-            status: 'pending',
-            subtotal: 0,
-            total: 0,
-            is_no_order_today: isNoOrderToday,
-            invoiced: false,
-            memo: `Auto-generated from template: ${template.name}`,
-          })
-          .select()
-          .single();
-
-        if (orderError) {
-          console.error(`Error creating order for customer ${template.customer_id}:`, orderError);
-          errors.push({ customer_id: template.customer_id, date: targetDate, error: orderError.message });
-          continue;
-        }
-
-        console.log(`Order created: ${newOrder.id}`);
-
-        // Create line items if there are quantities
-        if (itemsWithQuantity.length > 0) {
-          const lineItems = itemsWithQuantity.map((item: any) => ({
-            organization_id: organizationId,
-            sales_order_id: newOrder.id,
-            item_id: item.item_id,
-            quantity: item[dayColumn],
-            unit_price: item.unit_price,
-          }));
-
-          const { error: lineItemsError } = await supabaseClient
-            .from('sales_order_line_item')
-            .insert(lineItems);
-
-          if (lineItemsError) {
-            console.error(`Error creating line items for order ${newOrder.id}:`, lineItemsError);
-            errors.push({ order_id: newOrder.id, date: targetDate, error: lineItemsError.message });
-            continue;
-          }
-
-          console.log(`Created ${lineItems.length} line items`);
-          
-          // Fetch the updated order with correct totals (calculated by triggers)
-          const { data: updatedOrder } = await supabaseClient
-            .from('sales_order')
-            .select('total')
-            .eq('id', newOrder.id)
-            .single();
-          
-          if (updatedOrder) {
-            subtotal = updatedOrder.total;
-          }
-        }
-
-        const customer = customerMap.get(template.customer_id);
-        ordersCreated.push({
-          order_id: newOrder.id,
-          order_number: newOrder.order_number,
-          customer_id: template.customer_id,
-          customer_name: customer?.company_name || 'Unknown',
-          delivery_date: targetDate,
-          total: subtotal,
-          is_no_order_today: isNoOrderToday,
-          line_items_count: itemsWithQuantity.length,
-        });
-        } catch (error) {
-          console.error(`Unexpected error processing template ${template.id}:`, error);
-          errors.push({ template_id: template.id, date: targetDate, error: error.message });
-        }
-      }
-    }
+    });
 
     console.log('=== Generation Complete ===');
     console.log(`Orders created: ${ordersCreated.length}`);
