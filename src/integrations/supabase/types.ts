@@ -4851,6 +4851,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_next_order_number: {
+        Args: { p_organization_id: string; p_year: number }
+        Returns: string
+      }
       get_qbo_connection_for_sync: {
         Args: { p_organization_id: string }
         Returns: {
