@@ -108,6 +108,8 @@ export function ModernSalesOrdersList() {
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
   const [showNoOrdersDialog, setShowNoOrdersDialog] = useState(false);
   const [groupByCustomer, setGroupByCustomer] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [allExpanded, setAllExpanded] = useState(true);
 
   const organizationId = profile?.organization_id;
 
@@ -484,6 +486,46 @@ export function ModernSalesOrdersList() {
   // Determine which grouping to use
   const finalGrouping = groupByCustomer ? groupedByCustomer : groupedByDate;
 
+  // Toggle expand/collapse all groups
+  const toggleAllGroups = () => {
+    if (finalGrouping) {
+      const allKeys = new Set(finalGrouping.map(([key]) => key));
+      if (allExpanded) {
+        setExpandedGroups(new Set());
+        setAllExpanded(false);
+      } else {
+        setExpandedGroups(allKeys);
+        setAllExpanded(true);
+      }
+    }
+  };
+
+  // Check if a group is expanded
+  const isGroupExpanded = (key: string) => {
+    return allExpanded ? !expandedGroups.has(key) : expandedGroups.has(key);
+  };
+
+  // Toggle individual group
+  const toggleGroup = (key: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (allExpanded) {
+      // In expand-all mode, track closed groups
+      if (newExpanded.has(key)) {
+        newExpanded.delete(key);
+      } else {
+        newExpanded.add(key);
+      }
+    } else {
+      // In collapse-all mode, track opened groups
+      if (newExpanded.has(key)) {
+        newExpanded.delete(key);
+      } else {
+        newExpanded.add(key);
+      }
+    }
+    setExpandedGroups(newExpanded);
+  };
+
   const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
 
   const getStatusBadge = (status: string) => {
@@ -710,16 +752,29 @@ export function ModernSalesOrdersList() {
               <div className="flex items-center gap-3">
                 {deliveryDateFilter !== "all" && getDeliveryBadge(deliveryDateFilter)}
                 {deliveryDateFilter === "all" && (
-                  <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
-                    <Switch
-                      id="group-by-customer"
-                      checked={groupByCustomer}
-                      onCheckedChange={setGroupByCustomer}
-                    />
-                    <Label htmlFor="group-by-customer" className="text-sm font-medium cursor-pointer">
-                      Group by Customer
-                    </Label>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
+                      <Switch
+                        id="group-by-customer"
+                        checked={groupByCustomer}
+                        onCheckedChange={setGroupByCustomer}
+                      />
+                      <Label htmlFor="group-by-customer" className="text-sm font-medium cursor-pointer">
+                        Group by Customer
+                      </Label>
+                    </div>
+                    {finalGrouping && finalGrouping.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleAllGroups}
+                        className="gap-2"
+                      >
+                        <ChevronDown className={`h-4 w-4 transition-transform ${allExpanded ? 'rotate-180' : ''}`} />
+                        {allExpanded ? 'Collapse All' : 'Expand All'}
+                      </Button>
+                    )}
+                  </>
                 )}
                 {filteredOrders.length > 0 && (
                   <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
@@ -739,7 +794,12 @@ export function ModernSalesOrdersList() {
             {finalGrouping ? (
               // Grouped view (by customer or by date)
               finalGrouping.map(([groupKey, orders]) => (
-                <Collapsible key={groupKey} defaultOpen className="space-y-3">
+                <Collapsible 
+                  key={groupKey} 
+                  open={isGroupExpanded(groupKey)}
+                  onOpenChange={() => toggleGroup(groupKey)}
+                  className="space-y-3"
+                >
                   <CollapsibleTrigger className="group flex items-center gap-3 px-4 py-3 rounded-lg border bg-card hover:bg-accent transition-all duration-200 w-full data-[state=closed]:bg-muted/50 data-[state=closed]:border-border/50">
                     <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 group-data-[state=closed]:rotate-0 group-data-[state=open]:rotate-180 text-muted-foreground group-hover:text-foreground" />
                     {groupByCustomer ? (
