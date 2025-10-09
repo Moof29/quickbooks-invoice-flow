@@ -122,25 +122,47 @@ async function createOrderFromTemplate(
 
     const isNoOrderToday = itemsWithQuantity.length === 0;
 
-    const { data: newOrder, error: orderError } = await supabaseClient
-      .from('sales_order')
-      .insert({
-        organization_id: organizationId,
-        customer_id: template.customer_id,
-        order_date: new Date().toISOString().split('T')[0],
-        delivery_date: targetDate,
-        status: 'pending',
-        subtotal: 0,
-        total: 0,
-        is_no_order_today: isNoOrderToday,
-        invoiced: false,
-        memo: `Auto-generated from template: ${template.name}`,
-      })
-      .select()
-      .single();
+    // Retry logic for order number conflicts
+    let newOrder = null;
+    let retryCount = 0;
+    const maxRetries = 5;
+    
+    while (retryCount < maxRetries) {
+      const { data, error: orderError } = await supabaseClient
+        .from('sales_order')
+        .insert({
+          organization_id: organizationId,
+          customer_id: template.customer_id,
+          order_date: new Date().toISOString().split('T')[0],
+          delivery_date: targetDate,
+          status: 'pending',
+          subtotal: 0,
+          total: 0,
+          is_no_order_today: isNoOrderToday,
+          invoiced: false,
+          memo: `Auto-generated from template: ${template.name}`,
+        })
+        .select()
+        .single();
 
-    if (orderError) {
+      if (!orderError) {
+        newOrder = data;
+        break;
+      }
+
+      // Retry on unique constraint violations
+      if (orderError.code === '23505' && retryCount < maxRetries - 1) {
+        retryCount++;
+        console.log(`Retry ${retryCount} for template ${template.id} due to order number conflict`);
+        await new Promise(resolve => setTimeout(resolve, 50 * retryCount)); // Exponential backoff
+        continue;
+      }
+
       throw new Error(`Failed to create order: ${orderError.message}`);
+    }
+
+    if (!newOrder) {
+      throw new Error('Failed to create order after retries');
     }
 
     console.log(`Order created: ${newOrder.id}`);
