@@ -106,6 +106,7 @@ export function ModernSalesOrdersList() {
   const { data: orders, isLoading } = useQuery({
     queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter],
     queryFn: async () => {
+      console.log('🔍 Fetching sales orders...');
       // Build base query
       let query = supabase
         .from("sales_order")
@@ -121,7 +122,8 @@ export function ModernSalesOrdersList() {
           invoiced,
           customer_profile!inner(company_name),
           sales_order_line_item(count)
-        `
+        `,
+          { count: 'exact' }
         )
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false })
@@ -136,8 +138,10 @@ export function ModernSalesOrdersList() {
         query = query.eq("status", statusFilter);
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
+
+      console.log(`📊 Fetched ${data?.length || 0} orders (Total count: ${count})`);
 
       // Show dialog if no orders for specific date
       if (deliveryDateFilter !== "all" && (!data || data.length === 0)) {
@@ -147,6 +151,7 @@ export function ModernSalesOrdersList() {
       return data as SalesOrder[];
     },
     enabled: !!organizationId,
+    staleTime: 0, // Always fetch fresh data
   });
 
   // Delete mutation (only for non-invoiced orders)
@@ -499,6 +504,8 @@ export function ModernSalesOrdersList() {
     filteredOrders?.find(o => o.id === id && o.status === "pending")
   ).length;
 
+  console.log(`🎯 Rendering component with ${filteredOrders?.length || 0} orders`);
+  
   if (isLoading) {
     return (
       <Card>
