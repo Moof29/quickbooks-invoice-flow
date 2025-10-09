@@ -6,10 +6,10 @@ const corsHeaders = {
 };
 
 interface GenerateOrdersRequest {
-  target_date?: string; // Single date (backwards compatibility)
-  target_dates?: string[]; // Array of dates
-  customer_id?: string; // Single customer (backwards compatibility)
-  customer_ids?: string[]; // Array of customer IDs
+  target_date?: string;
+  target_dates?: string[];
+  customer_id?: string;
+  customer_ids?: string[];
 }
 
 async function processDateOrders(
@@ -20,6 +20,7 @@ async function processDateOrders(
 ) {
   console.log(`\n=== Processing date: ${targetDate} ===`);
   
+  // Fetch templates
   let templatesQuery = supabaseClient
     .from('customer_templates')
     .select('id, customer_id, name')
@@ -43,26 +44,34 @@ async function processDateOrders(
   
   console.log(`Found ${templates?.length || 0} active templates for ${targetDate}`);
   
-  const customerIds = templates?.map((t) => t.customer_id) || [];
-  const { data: customers } = await supabaseClient
-    .from('customer_profile')
-    .select('id, company_name')
-    .in('id', customerIds);
+  if (!templates || templates.length === 0) {
+    return { date: targetDate, orders: [], errors: [] };
+  }
   
-  const customerMap = new Map(customers?.map((c) => [c.id, c]) || []);
+  const customerIds = templates.map((t) => t.customer_id);
   
-  const { data: duplicateResults } = await supabaseClient.rpc('check_duplicate_orders_batch', {
-    p_customer_ids: templates.map(t => t.customer_id),
-    p_delivery_date: targetDate,
-    p_organization_id: organizationId,
-  });
-
+  // Fetch customers and check for duplicates in parallel
+  const [customersResult, duplicateResults] = await Promise.all([
+    supabaseClient
+      .from('customer_profile')
+      .select('id, company_name')
+      .in('id', customerIds),
+    supabaseClient.rpc('check_duplicate_orders_batch', {
+      p_customer_ids: customerIds,
+      p_delivery_date: targetDate,
+      p_organization_id: organizationId,
+    })
+  ]);
+  
+  const customerMap = new Map(customersResult.data?.map((c: any) => [c.id, c]) || []);
+  
   const duplicateCustomerIds = new Set(
-    duplicateResults
+    duplicateResults.data
       ?.filter((r: any) => r.has_duplicate)
       .map((r: any) => r.customer_id) || []
   );
-
+  
+  // Filter out duplicate customers
   const validTemplates = templates.filter(t => {
     if (duplicateCustomerIds.has(t.customer_id)) {
       console.log(`Duplicate order exists for customer ${t.customer_id} on ${targetDate}, skipping`);
@@ -71,124 +80,123 @@ async function processDateOrders(
     return true;
   });
   
-  const templateResults = await Promise.allSettled(
-    validTemplates.map(template => 
-      createOrderFromTemplate(template, targetDate, organizationId, customerMap, supabaseClient)
-    )
+  if (validTemplates.length === 0) {
+    console.log('No valid templates to process (all duplicates)');
+    return { date: targetDate, orders: [], errors: [] };
+  }
+  
+  console.log(`Processing ${validTemplates.length} templates`);
+  
+  // Prepare all orders with line items in memory
+  const ordersToCreate = await prepareOrdersBatch(
+    validTemplates,
+    targetDate,
+    organizationId,
+    customerMap,
+    supabaseClient
   );
   
-  const orders = templateResults
-    .filter(r => r.status === 'fulfilled' && r.value)
-    .map(r => (r as PromiseFulfilledResult<any>).value);
+  if (ordersToCreate.length === 0) {
+    return { date: targetDate, orders: [], errors: [] };
+  }
   
-  const errors = templateResults
-    .filter(r => r.status === 'rejected')
-    .map(r => ({
+  // Bulk create all orders in one database call
+  console.log(`Creating ${ordersToCreate.length} orders in bulk`);
+  const { data: bulkResult, error: bulkError } = await supabaseClient.rpc(
+    'bulk_create_sales_orders_from_templates',
+    { p_orders: ordersToCreate }
+  );
+  
+  if (bulkError || !bulkResult?.success) {
+    console.error('Bulk creation error:', bulkError || bulkResult?.error);
+    return {
       date: targetDate,
-      error: (r as PromiseRejectedResult).reason?.message || 'Unknown error'
-    }));
+      orders: [],
+      errors: [{ date: targetDate, error: bulkError?.message || bulkResult?.error || 'Bulk creation failed' }]
+    };
+  }
   
-  return { date: targetDate, orders, errors };
+  console.log(`✅ Successfully created ${bulkResult.orders_created} orders`);
+  
+  // Format response
+  const orders = bulkResult.orders.map((order: any) => {
+    const customer = customerMap.get(order.customer_id);
+    return {
+      order_id: order.order_id,
+      order_number: order.order_number,
+      customer_id: order.customer_id,
+      customer_name: customer?.company_name || 'Unknown',
+      delivery_date: targetDate,
+    };
+  });
+  
+  return { date: targetDate, orders, errors: [] };
 }
 
-async function createOrderFromTemplate(
-  template: any,
+async function prepareOrdersBatch(
+  templates: any[],
   targetDate: string,
   organizationId: string,
   customerMap: Map<string, any>,
   supabaseClient: any
 ) {
-  try {
-    console.log(`Processing template ${template.id} for customer ${template.customer_id} on ${targetDate}`);
-
-    const dayOfWeek = new Date(targetDate).getDay();
-    const dayColumns = ['sunday_qty', 'monday_qty', 'tuesday_qty', 'wednesday_qty', 'thursday_qty', 'friday_qty', 'saturday_qty'];
-    const dayColumn = dayColumns[dayOfWeek];
-
-    const { data: templateItems, error: itemsError } = await supabaseClient
-      .from('customer_template_items')
-      .select(`id, item_id, unit_price, ${dayColumn}`)
-      .eq('template_id', template.id)
-      .eq('organization_id', organizationId);
-
-    if (itemsError) {
-      throw new Error(`Failed to fetch template items: ${itemsError.message}`);
-    }
-
-    const itemsWithQuantity = templateItems?.filter((item: any) => {
-      const qty = item[dayColumn] || 0;
-      return qty > 0;
-    }) || [];
-
-    const isNoOrderToday = itemsWithQuantity.length === 0;
-
-    // Create order atomically in database
-    const { data: newOrderData, error: orderError } = await supabaseClient
-      .rpc('create_sales_order_atomic', {
-        p_organization_id: organizationId,
-        p_customer_id: template.customer_id,
-        p_order_date: new Date().toISOString().split('T')[0],
-        p_delivery_date: targetDate,
-        p_status: 'pending',
-        p_is_no_order_today: isNoOrderToday,
-        p_memo: `Auto-generated from template: ${template.name}`
-      });
-
-    if (orderError) {
-      throw new Error(`Failed to create order: ${orderError.message}`);
-    }
-
-    // newOrderData returns a single-row array
-    const newOrder = {
-      id: newOrderData[0].order_id,
-      order_number: newOrderData[0].order_number
-    };
-
-    console.log(`Order created: ${newOrder.id} with number ${newOrder.order_number}`);
-
-    let calculatedTotal = 0;
-    if (itemsWithQuantity.length > 0) {
-      const lineItems = itemsWithQuantity.map((item: any) => ({
-        organization_id: organizationId,
-        sales_order_id: newOrder.id,
-        item_id: item.item_id,
-        quantity: item[dayColumn],
-        unit_price: item.unit_price,
-      }));
-
-      const { data: createdItems, error: lineItemsError } = await supabaseClient
-        .from('sales_order_line_item')
-        .insert(lineItems)
-        .select('amount');
-
-      if (lineItemsError) {
-        throw new Error(`Failed to create line items: ${lineItemsError.message}`);
-      }
-
-      calculatedTotal = createdItems?.reduce((sum: number, item: any) => sum + (item.amount || 0), 0) || 0;
-      
-      console.log(`Created ${lineItems.length} line items, total: ${calculatedTotal}`);
-    }
-
-    const customer = customerMap.get(template.customer_id);
-    return {
-      order_id: newOrder.id,
-      order_number: newOrder.order_number,
-      customer_id: template.customer_id,
-      customer_name: customer?.company_name || 'Unknown',
-      delivery_date: targetDate,
-      total: calculatedTotal,
-      is_no_order_today: isNoOrderToday,
-      line_items_count: itemsWithQuantity.length,
-    };
-  } catch (error: any) {
-    console.error(`Error processing template ${template.id}:`, error);
-    throw error;
+  const dayOfWeek = new Date(targetDate).getDay();
+  const dayColumns = ['sunday_qty', 'monday_qty', 'tuesday_qty', 'wednesday_qty', 'thursday_qty', 'friday_qty', 'saturday_qty'];
+  const dayColumn = dayColumns[dayOfWeek];
+  
+  // Fetch all template items for all templates in one query
+  const templateIds = templates.map(t => t.id);
+  const { data: allTemplateItems, error: itemsError } = await supabaseClient
+    .from('customer_template_items')
+    .select(`template_id, item_id, unit_price, ${dayColumn}`)
+    .in('template_id', templateIds)
+    .eq('organization_id', organizationId);
+  
+  if (itemsError) {
+    console.error('Error fetching template items:', itemsError);
+    return [];
   }
+  
+  // Group items by template
+  const itemsByTemplate = new Map();
+  allTemplateItems?.forEach((item: any) => {
+    if (!itemsByTemplate.has(item.template_id)) {
+      itemsByTemplate.set(item.template_id, []);
+    }
+    const qty = item[dayColumn] || 0;
+    if (qty > 0) {
+      itemsByTemplate.get(item.template_id).push({
+        item_id: item.item_id,
+        quantity: qty,
+        unit_price: item.unit_price
+      });
+    }
+  });
+  
+  // Build orders array
+  const ordersToCreate = [];
+  const orderDate = new Date().toISOString().split('T')[0];
+  
+  for (const template of templates) {
+    const lineItems = itemsByTemplate.get(template.id) || [];
+    const isNoOrderToday = lineItems.length === 0;
+    
+    ordersToCreate.push({
+      organization_id: organizationId,
+      customer_id: template.customer_id,
+      order_date: orderDate,
+      delivery_date: targetDate,
+      status: 'pending',
+      is_no_order_today: isNoOrderToday,
+      memo: `Auto-generated from template: ${template.name}`,
+      line_items: lineItems
+    });
+  }
+  
+  return ordersToCreate;
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -196,7 +204,6 @@ Deno.serve(async (req) => {
   try {
     console.log('=== Generate Daily Orders Function Started ===');
 
-    // Create Supabase client with user's auth
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -207,7 +214,7 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Verify authentication and get user's organization
+    // Verify authentication
     const {
       data: { user },
       error: authError,
@@ -223,7 +230,7 @@ Deno.serve(async (req) => {
 
     console.log('User authenticated:', user.id);
 
-    // Get user's profile and organization
+    // Get organization
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('organization_id')
@@ -241,10 +248,9 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
     console.log('Organization ID:', organizationId);
 
-    // Parse request body - NOW ACCEPTS ARRAYS
+    // Parse request
     const { target_date, target_dates, customer_id, customer_ids }: GenerateOrdersRequest = await req.json().catch(() => ({}));
 
-    // Convert to arrays for backwards compatibility
     const targetDates = target_dates 
       ? (Array.isArray(target_dates) ? target_dates : [target_dates])
       : (target_date ? [target_date] : [new Date().toISOString().split('T')[0]]);
@@ -256,25 +262,15 @@ Deno.serve(async (req) => {
     console.log('Target dates:', targetDates);
     console.log('Customer IDs filter:', customerIdsFilter);
 
-    const dateResults = await Promise.allSettled(
-      targetDates.map(targetDate => 
-        processDateOrders(targetDate, organizationId, customerIdsFilter, supabaseClient)
-      )
-    );
-
+    // Process all dates sequentially to avoid overwhelming the database
     const ordersCreated: any[] = [];
     const errors: any[] = [];
 
-    dateResults.forEach((result) => {
-      if (result.status === 'fulfilled') {
-        ordersCreated.push(...result.value.orders);
-        errors.push(...result.value.errors);
-      } else {
-        errors.push({
-          error: `Failed to process date: ${result.reason?.message || 'Unknown error'}`
-        });
-      }
-    });
+    for (const targetDate of targetDates) {
+      const result = await processDateOrders(targetDate, organizationId, customerIdsFilter, supabaseClient);
+      ordersCreated.push(...result.orders);
+      errors.push(...result.errors);
+    }
 
     console.log('=== Generation Complete ===');
     console.log(`Orders created: ${ordersCreated.length}`);

@@ -4799,6 +4799,10 @@ export type Database = {
         Args: { p_approved_by: string; p_sales_order_id: string }
         Returns: undefined
       }
+      bulk_create_sales_orders_from_templates: {
+        Args: { p_orders: Json }
+        Returns: Json
+      }
       can_delete_sales_order: {
         Args: { order_id: string }
         Returns: boolean
