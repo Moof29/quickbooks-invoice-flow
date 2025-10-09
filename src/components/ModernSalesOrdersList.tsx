@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
@@ -108,7 +108,7 @@ export function ModernSalesOrdersList() {
   const [showBatchDeleteDialog, setShowBatchDeleteDialog] = useState(false);
   const [showNoOrdersDialog, setShowNoOrdersDialog] = useState(false);
   const [groupByCustomer, setGroupByCustomer] = useState(false);
-  const [allExpanded, setAllExpanded] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const organizationId = profile?.organization_id;
 
@@ -485,9 +485,40 @@ export function ModernSalesOrdersList() {
   // Determine which grouping to use
   const finalGrouping = groupByCustomer ? groupedByCustomer : groupedByDate;
 
+  // Initialize expanded groups when grouping changes
+  useEffect(() => {
+    if (finalGrouping) {
+      const allKeys = new Set(finalGrouping.map(([key]) => key));
+      setExpandedGroups(allKeys);
+    }
+  }, [finalGrouping]);
+
+  // Check if all groups are expanded
+  const allExpanded = finalGrouping ? 
+    finalGrouping.every(([key]) => expandedGroups.has(key)) : 
+    false;
+
   // Toggle expand/collapse all groups
   const toggleAllGroups = () => {
-    setAllExpanded(!allExpanded);
+    if (finalGrouping) {
+      if (allExpanded) {
+        setExpandedGroups(new Set());
+      } else {
+        const allKeys = new Set(finalGrouping.map(([key]) => key));
+        setExpandedGroups(allKeys);
+      }
+    }
+  };
+
+  // Toggle individual group
+  const toggleGroup = (key: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedGroups(newExpanded);
   };
 
   const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
@@ -760,7 +791,8 @@ export function ModernSalesOrdersList() {
               finalGrouping.map(([groupKey, orders]) => (
                 <Collapsible 
                   key={groupKey} 
-                  open={allExpanded}
+                  open={expandedGroups.has(groupKey)}
+                  onOpenChange={() => toggleGroup(groupKey)}
                   className="space-y-3"
                 >
                   <CollapsibleTrigger className="group flex items-center gap-3 px-4 py-3 rounded-lg border bg-card hover:bg-accent transition-all duration-200 w-full data-[state=closed]:bg-muted/50 data-[state=closed]:border-border/50">
