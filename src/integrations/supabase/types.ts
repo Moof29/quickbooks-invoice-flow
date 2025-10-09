@@ -4802,6 +4802,21 @@ export type Database = {
           has_duplicate: boolean
         }[]
       }
+      create_sales_order_atomic: {
+        Args: {
+          p_customer_id: string
+          p_delivery_date: string
+          p_is_no_order_today: boolean
+          p_memo: string
+          p_order_date: string
+          p_organization_id: string
+          p_status: string
+        }
+        Returns: {
+          order_id: string
+          order_number: string
+        }[]
+      }
       generate_sales_order_number: {
         Args: { org_id: string }
         Returns: string

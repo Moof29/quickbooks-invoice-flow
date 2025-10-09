@@ -122,67 +122,29 @@ async function createOrderFromTemplate(
 
     const isNoOrderToday = itemsWithQuantity.length === 0;
 
-    // Pre-generate order number to avoid race conditions
-    let orderNumber = null;
-    let retryCount = 0;
-    const maxRetries = 10;
-    
-    while (retryCount < maxRetries && !orderNumber) {
-      const { data: generatedNumber, error: numberError } = await supabaseClient
-        .rpc('generate_sales_order_number', { org_id: organizationId });
-      
-      if (numberError) {
-        console.log(`Failed to generate order number: ${numberError.message}`);
-        retryCount++;
-        await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
-        continue;
-      }
-      
-      // Verify the number isn't already taken
-      const { data: existingOrder } = await supabaseClient
-        .from('sales_order')
-        .select('id')
-        .eq('order_number', generatedNumber)
-        .eq('organization_id', organizationId)
-        .maybeSingle();
-      
-      if (!existingOrder) {
-        orderNumber = generatedNumber;
-      } else {
-        console.log(`Order number ${generatedNumber} already exists, retrying...`);
-        retryCount++;
-        await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
-      }
-    }
-    
-    if (!orderNumber) {
-      throw new Error('Failed to generate unique order number after retries');
-    }
-
-    // Insert with pre-generated order number
-    const { data: newOrder, error: orderError } = await supabaseClient
-      .from('sales_order')
-      .insert({
-        organization_id: organizationId,
-        customer_id: template.customer_id,
-        order_number: orderNumber,
-        order_date: new Date().toISOString().split('T')[0],
-        delivery_date: targetDate,
-        status: 'pending',
-        subtotal: 0,
-        total: 0,
-        is_no_order_today: isNoOrderToday,
-        invoiced: false,
-        memo: `Auto-generated from template: ${template.name}`,
-      })
-      .select()
-      .single();
+    // Create order atomically in database
+    const { data: newOrderData, error: orderError } = await supabaseClient
+      .rpc('create_sales_order_atomic', {
+        p_organization_id: organizationId,
+        p_customer_id: template.customer_id,
+        p_order_date: new Date().toISOString().split('T')[0],
+        p_delivery_date: targetDate,
+        p_status: 'pending',
+        p_is_no_order_today: isNoOrderToday,
+        p_memo: `Auto-generated from template: ${template.name}`
+      });
 
     if (orderError) {
       throw new Error(`Failed to create order: ${orderError.message}`);
     }
 
-    console.log(`Order created: ${newOrder.id}`);
+    // newOrderData returns a single-row array
+    const newOrder = {
+      id: newOrderData[0].order_id,
+      order_number: newOrderData[0].order_number
+    };
+
+    console.log(`Order created: ${newOrder.id} with number ${newOrder.order_number}`);
 
     let calculatedTotal = 0;
     if (itemsWithQuantity.length > 0) {
