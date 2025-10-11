@@ -118,12 +118,13 @@ export function ModernSalesOrdersList() {
   const [groupByCustomer, setGroupByCustomer] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
 
   const organizationId = profile?.organization_id;
 
   // Fetch orders for selected delivery date
   const { data: orders, isLoading } = useQuery({
-    queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter],
+    queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter, selectedDates],
     queryFn: async () => {
       console.log('🔍 Fetching sales orders...');
       // Build base query
@@ -148,8 +149,13 @@ export function ModernSalesOrdersList() {
         .order("created_at", { ascending: false })
         .limit(10000); // Increased limit to handle large order volumes
 
-      // Only filter by delivery_date if not "all"
-      if (deliveryDateFilter !== "all") {
+      // Filter by delivery_date based on selection
+      if (selectedDates.length > 0) {
+        // Multiple dates selected
+        const dateStrings = selectedDates.map(date => format(date, "yyyy-MM-dd"));
+        query = query.in("delivery_date", dateStrings);
+      } else if (deliveryDateFilter !== "all") {
+        // Single date selected (legacy support)
         query = query.eq("delivery_date", deliveryDateFilter);
       }
 
@@ -636,39 +642,57 @@ export function ModernSalesOrdersList() {
                     variant="outline"
                     className={cn(
                       "w-full sm:w-[240px] justify-start text-left font-normal",
-                      !deliveryDateFilter && "text-muted-foreground"
+                      selectedDates.length === 0 && deliveryDateFilter === "all" && "text-muted-foreground"
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {deliveryDateFilter === "all" 
-                      ? "All Dates" 
-                      : format(parseISO(deliveryDateFilter), "PPP")
+                    {selectedDates.length > 0
+                      ? `${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''} selected`
+                      : deliveryDateFilter === "all" 
+                        ? "All Dates" 
+                        : format(parseISO(deliveryDateFilter), "PPP")
                     }
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <div className="p-3 border-b">
+                  <div className="p-3 border-b flex justify-between items-center gap-2">
                     <Button
                       variant="ghost"
-                      className="w-full justify-start"
+                      className="flex-1 justify-start"
                       onClick={() => {
                         setDeliveryDateFilter("all");
+                        setSelectedDates([]);
                         setSearchParams({ date: "all" });
-                        setIsDatePickerOpen(false);
                       }}
                     >
                       All Dates
                     </Button>
+                    {selectedDates.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDates([]);
+                          setDeliveryDateFilter("all");
+                          setSearchParams({ date: "all" });
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    )}
                   </div>
                   <CalendarComponent
-                    mode="single"
-                    selected={deliveryDateFilter !== "all" ? parseISO(deliveryDateFilter) : undefined}
-                    onSelect={(date) => {
-                      if (date) {
-                        const formattedDate = format(date, "yyyy-MM-dd");
-                        setDeliveryDateFilter(formattedDate);
-                        setSearchParams({ date: formattedDate });
-                        setIsDatePickerOpen(false);
+                    mode="multiple"
+                    selected={selectedDates}
+                    onSelect={(dates) => {
+                      if (dates) {
+                        setSelectedDates(dates);
+                        if (dates.length > 0) {
+                          setDeliveryDateFilter("custom");
+                        } else {
+                          setDeliveryDateFilter("all");
+                          setSearchParams({ date: "all" });
+                        }
                       }
                     }}
                     initialFocus
