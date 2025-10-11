@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
   Table,
   TableBody,
@@ -318,57 +319,43 @@ export default function InvoiceDetailsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Status Card */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge variant={getStatusVariant(invoice.status)} className="text-base px-3 py-1">
-              {invoice.status || 'draft'}
-            </Badge>
-            {daysUntilDue !== null && invoice.status?.toLowerCase() !== 'paid' && (
-              <p className="text-xs text-muted-foreground mt-2">
-                {daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : daysUntilDue === 0 ? 'Due today' : `Overdue by ${Math.abs(daysUntilDue)} days`}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Total Card */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      {/* Compact Summary */}
+      <Card className="border-0 shadow-sm">
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Status:</span>
+              <Badge variant={getStatusVariant(invoice.status)}>
+                {invoice.status || 'draft'}
+              </Badge>
+              {daysUntilDue !== null && invoice.status?.toLowerCase() !== 'paid' && (
+                <span className="text-xs text-muted-foreground">
+                  {daysUntilDue > 0 ? `(Due in ${daysUntilDue} days)` : daysUntilDue === 0 ? '(Due today)' : `(Overdue by ${Math.abs(daysUntilDue)} days)`}
+                </span>
+              )}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Dates Card */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Dates</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm">
-              <div className="flex justify-between mb-1">
-                <span className="text-muted-foreground">Invoice Date:</span>
+            <Separator orientation="vertical" className="h-6" />
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <span className="text-2xl font-bold">
+                ${invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <Separator orientation="vertical" className="h-6" />
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Invoice:</span>
                 <span className="font-medium">{invoice.invoice_date ? format(new Date(invoice.invoice_date), 'MMM d, yyyy') : 'N/A'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Due Date:</span>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Due:</span>
                 <span className="font-medium">{invoice.due_date ? format(new Date(invoice.due_date), 'MMM d, yyyy') : 'N/A'}</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Customer Information */}
@@ -403,34 +390,26 @@ export default function InvoiceDetailsPage() {
           </CardContent>
         </Card>
 
-        {/* Related Sales Orders */}
+        {/* Related Sales Orders - Compact */}
         <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle>Related Sales Orders</CardTitle>
-            <CardDescription>
-              Orders that were invoiced together
-            </CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Related Sales Orders</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {salesOrderLinks.length === 0 ? (
               <p className="text-sm text-muted-foreground">No related sales orders</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {salesOrderLinks.map((link) => (
                   <Link
                     key={link.id}
                     to={`/sales-orders/${link.sales_order_id}`}
-                    className="block p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors text-sm"
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{link.sales_order?.order_number}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Delivery: {link.sales_order?.delivery_date ? format(new Date(link.sales_order.delivery_date), 'MMM d, yyyy') : 'N/A'}
-                        </p>
-                      </div>
-                      <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
-                    </div>
+                    <span className="font-medium">{link.sales_order?.order_number}</span>
+                    <span className="text-muted-foreground">
+                      {link.sales_order?.delivery_date ? format(new Date(link.sales_order.delivery_date), 'MMM d') : 'N/A'}
+                    </span>
                   </Link>
                 ))}
               </div>
@@ -439,70 +418,67 @@ export default function InvoiceDetailsPage() {
         </Card>
       </div>
 
-      {/* Line Items */}
+      {/* Line Items - Compact Table */}
       <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle>Line Items</CardTitle>
-          <CardDescription>
-            {lineItems.length} item{lineItems.length !== 1 ? 's' : ''} on this invoice
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Line Items</CardTitle>
+            <span className="text-sm text-muted-foreground">{lineItems.length} item{lineItems.length !== 1 ? 's' : ''}</span>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lineItems.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{item.item_record?.name || 'Unknown Item'}</div>
-                      {item.item_record?.sku && (
-                        <div className="text-sm text-muted-foreground">SKU: {item.item_record.sku}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {item.description || '-'}
-                  </TableCell>
-                  <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right">
-                    ${item.unit_price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    ${item.amount?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-9">Item</TableHead>
+                  <TableHead className="h-9 text-right w-20">Qty</TableHead>
+                  <TableHead className="h-9 text-right w-24">Price</TableHead>
+                  <TableHead className="h-9 text-right w-24">Amount</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {lineItems.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-muted/50">
+                    <TableCell className="py-2">
+                      <div className="font-medium">{item.item_record?.name || 'Unknown Item'}</div>
+                      {item.description && (
+                        <div className="text-xs text-muted-foreground">{item.description}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2 text-right">{item.quantity}</TableCell>
+                    <TableCell className="py-2 text-right">
+                      ${item.unit_price?.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="py-2 text-right font-medium">
+                      ${item.amount?.toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
           {/* Totals */}
-          <div className="border-t p-6">
-            <div className="flex flex-col items-end space-y-2 max-w-sm ml-auto">
-              <div className="flex justify-between w-full text-sm">
+          <div className="border-t px-6 py-3 bg-muted/20">
+            <div className="flex flex-col items-end space-y-1 max-w-xs ml-auto text-sm">
+              <div className="flex justify-between w-full">
                 <span className="text-muted-foreground">Subtotal:</span>
                 <span className="font-medium">
-                  ${invoice.subtotal?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  ${invoice.subtotal?.toFixed(2) || '0.00'}
                 </span>
               </div>
-              <div className="flex justify-between w-full text-sm">
+              <div className="flex justify-between w-full">
                 <span className="text-muted-foreground">Tax:</span>
                 <span className="font-medium">
-                  ${invoice.tax_total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  ${invoice.tax_total?.toFixed(2) || '0.00'}
                 </span>
               </div>
-              <div className="flex justify-between w-full text-lg font-bold pt-2 border-t">
+              <Separator className="my-1" />
+              <div className="flex justify-between w-full font-bold">
                 <span>Total:</span>
                 <span>
-                  ${invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${invoice.total?.toFixed(2) || '0.00'}
                 </span>
               </div>
             </div>
