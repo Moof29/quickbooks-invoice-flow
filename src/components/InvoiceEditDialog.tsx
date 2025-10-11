@@ -202,13 +202,25 @@ export const InvoiceEditDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Invoice</DialogTitle>
-          <DialogDescription>
-            Update invoice details and line items below.
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Edit Invoice</DialogTitle>
+              <DialogDescription>
+                Update invoice details and line items below.
+              </DialogDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={loading} form="invoice-edit-form">
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="invoice-edit-form" onSubmit={handleSubmit} className="space-y-4">
           {/* Basic Information */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
@@ -254,8 +266,8 @@ export const InvoiceEditDialog = ({
 
           {/* Line Items */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex justify-between items-center">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex justify-between items-center">
                 Line Items
                 <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
                   <Plus className="w-4 h-4 mr-2" />
@@ -263,66 +275,68 @@ export const InvoiceEditDialog = ({
                 </Button>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="pt-0">
+              <div className="space-y-2">
                 {lineItems.map((item) => (
-                  <div key={item.id} className="grid grid-cols-12 gap-2 items-end">
+                  <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
                     <div className="col-span-2">
-                      <Label>Qty</Label>
                       <Input
                         type="number"
                         min="0"
                         step="0.01"
                         value={item.quantity}
                         onChange={(e) => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                        className="h-8 text-sm"
+                        placeholder="Qty"
                       />
                     </div>
                     <div className="col-span-4">
-                      <Label>Item *</Label>
                       <Input
                         placeholder="Item description"
                         value={item.description}
                         onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
                         required
+                        className="h-8 text-sm"
                       />
                     </div>
                     <div className="col-span-2">
-                      <Label>Price</Label>
                       <Input
                         type="number"
                         min="0"
                         step="0.01"
                         value={item.unit_price}
                         onChange={(e) => updateLineItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                        className="h-8 text-sm"
+                        placeholder="Price"
                       />
                     </div>
                     <div className="col-span-3">
-                      <Label>Amount</Label>
                       <Input
                         type="number"
                         value={item.amount.toFixed(2)}
                         readOnly
-                        className="bg-muted"
+                        className="bg-muted h-8 text-sm"
                       />
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-1 flex justify-center">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => removeLineItem(item.id)}
                         disabled={lineItems.length === 1}
+                        className="h-8 w-8 p-0"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </div>
                 ))}
               </div>
               
-              <div className="mt-6 flex justify-end">
+              <div className="mt-4 flex justify-end">
                 <div className="text-right">
-                  <div className="text-lg font-semibold">
+                  <div className="text-base font-semibold">
                     Total: ${calculateTotal().toFixed(2)}
                   </div>
                 </div>
@@ -332,24 +346,16 @@ export const InvoiceEditDialog = ({
 
           {/* Memo */}
           <div className="space-y-2">
-            <Label htmlFor="memo">Memo</Label>
+            <Label htmlFor="memo" className="text-sm">Memo</Label>
             <Textarea
               id="memo"
               placeholder="Additional notes or memo"
-              rows={3}
+              rows={2}
               value={formData.memo}
               onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
+              className="text-sm"
             />
           </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
