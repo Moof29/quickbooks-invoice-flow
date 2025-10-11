@@ -31,7 +31,7 @@ import {
 export function GenerateDailyOrdersButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [selectedDates, setSelectedDates] = useState<Date[]>([new Date()]);
+  const [selectedDates, setSelectedDates] = useState<Date[]>([addDays(new Date(), 1)]);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { profile } = useAuthProfile();
