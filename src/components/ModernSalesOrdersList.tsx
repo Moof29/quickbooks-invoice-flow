@@ -457,7 +457,7 @@ export function ModernSalesOrdersList() {
 
   // Group orders by delivery date (always enabled when viewing all dates)
   const groupedByDate = useMemo(() => {
-    if (deliveryDateFilter !== 'all') {
+    if (deliveryDateFilter !== 'all' && selectedDates.length === 0) {
       return null;
     }
 
@@ -478,7 +478,7 @@ export function ModernSalesOrdersList() {
 
   // Group orders by customer (optional when viewing all dates)
   const groupedByCustomer = useMemo(() => {
-    if (!groupByCustomer || deliveryDateFilter !== 'all') {
+    if (!groupByCustomer || (deliveryDateFilter !== 'all' && selectedDates.length === 0)) {
       return null;
     }
 
