@@ -22,10 +22,13 @@ import {
   FileText,
   Calendar,
   DollarSign,
+  Eye,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { pdf } from '@react-pdf/renderer';
+import { InvoicePDF } from '@/components/InvoicePDF';
 
 interface InvoiceLineItem {
   id: string;
@@ -248,6 +251,66 @@ export default function InvoiceDetailsPage() {
     return diffDays;
   };
 
+  const handleShowPDF = async () => {
+    if (!invoice) return;
+
+    try {
+      // Generate the PDF
+      const blob = await pdf(
+        <InvoicePDF invoice={invoice} lineItems={lineItems} />
+      ).toBlob();
+
+      // Create a URL for the blob and open in new tab
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+
+      // Clean up the URL after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!invoice) return;
+
+    try {
+      // Generate the PDF
+      const blob = await pdf(
+        <InvoicePDF invoice={invoice} lineItems={lineItems} />
+      ).toBlob();
+
+      // Create a download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${invoice.invoice_number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "PDF downloaded successfully",
+      });
+    } catch (error: any) {
+      console.error('Error downloading PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to download PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 space-y-4 p-8">
@@ -294,7 +357,11 @@ export default function InvoiceDetailsPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleShowPDF}>
+            <Eye className="h-4 w-4 mr-2" />
+            Show PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
             <Download className="h-4 w-4 mr-2" />
             Download PDF
           </Button>
