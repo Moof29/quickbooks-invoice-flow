@@ -793,9 +793,11 @@ export function ModernSalesOrdersList() {
                 <Calendar className="h-5 w-5 text-primary" />
                 <div>
                   <CardTitle>
-                    {deliveryDateFilter === "all" 
-                      ? "All Orders" 
-                      : format(parseISO(deliveryDateFilter), "EEEE, MMMM d, yyyy")
+                    {selectedDates.length > 0
+                      ? `${selectedDates.length} Date${selectedDates.length > 1 ? 's' : ''} Selected`
+                      : deliveryDateFilter === "all" || deliveryDateFilter === "custom"
+                        ? "All Orders" 
+                        : format(parseISO(deliveryDateFilter), "EEEE, MMMM d, yyyy")
                     }
                   </CardTitle>
                    <p className="text-sm text-muted-foreground mt-1">
@@ -1265,7 +1267,13 @@ export function ModernSalesOrdersList() {
           <AlertDialogHeader>
             <AlertDialogTitle>No Orders Found</AlertDialogTitle>
             <AlertDialogDescription>
-              There are no orders for the selected delivery date ({deliveryDateFilter !== "all" ? format(parseISO(deliveryDateFilter), "MMMM d, yyyy") : ""}).
+              There are no orders for the selected delivery date
+              {selectedDates.length > 0 
+                ? ` (${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''} selected)`
+                : deliveryDateFilter !== "all" && deliveryDateFilter !== "custom"
+                  ? ` (${format(parseISO(deliveryDateFilter), "MMMM d, yyyy")})`
+                  : ""
+              }.
               {" "}You can create a new order using the "New Order" button.
             </AlertDialogDescription>
           </AlertDialogHeader>
