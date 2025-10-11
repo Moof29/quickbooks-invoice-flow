@@ -322,12 +322,26 @@ export function ModernSalesOrdersList() {
   // Batch review mutation
   const batchReviewMutation = useMutation({
     mutationFn: async (orderIds: string[]) => {
-      const { error } = await supabase
-        .from("sales_order")
-        .update({ status: "reviewed", approved_at: new Date().toISOString() })
-        .in("id", orderIds);
-      if (error) throw error;
-      return orderIds.length;
+      // Process in chunks to avoid URL length limits (max ~50 IDs per request)
+      const CHUNK_SIZE = 50;
+      const chunks = [];
+      for (let i = 0; i < orderIds.length; i += CHUNK_SIZE) {
+        chunks.push(orderIds.slice(i, i + CHUNK_SIZE));
+      }
+
+      let totalUpdated = 0;
+
+      // Process each chunk
+      for (const chunk of chunks) {
+        const { error } = await supabase
+          .from("sales_order")
+          .update({ status: "reviewed", approved_at: new Date().toISOString() })
+          .in("id", chunk);
+        if (error) throw error;
+        totalUpdated += chunk.length;
+      }
+
+      return totalUpdated;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
@@ -353,31 +367,49 @@ export function ModernSalesOrdersList() {
   // Batch delete mutation
   const batchDeleteMutation = useMutation({
     mutationFn: async (orderIds: string[]) => {
-      // Check which orders are invoiced
-      const { data: ordersToCheck, error: checkError } = await supabase
-        .from("sales_order")
-        .select("id, invoiced, order_number")
-        .in("id", orderIds);
-      
-      if (checkError) throw checkError;
-      
-      const invoicedOrders = ordersToCheck?.filter(o => o.invoiced) || [];
-      const deletableOrders = ordersToCheck?.filter(o => !o.invoiced) || [];
-      
-      // Delete non-invoiced orders
-      if (deletableOrders.length > 0) {
-        const { error: deleteError } = await supabase
+      // Process in chunks to avoid URL length limits (max ~50 IDs per request)
+      const CHUNK_SIZE = 50;
+      const chunks = [];
+      for (let i = 0; i < orderIds.length; i += CHUNK_SIZE) {
+        chunks.push(orderIds.slice(i, i + CHUNK_SIZE));
+      }
+
+      let totalDeleted = 0;
+      let totalInvoiced = 0;
+      const allInvoicedOrderNumbers: string[] = [];
+
+      // Process each chunk
+      for (const chunk of chunks) {
+        // Check which orders are invoiced
+        const { data: ordersToCheck, error: checkError } = await supabase
           .from("sales_order")
-          .delete()
-          .in("id", deletableOrders.map(o => o.id));
+          .select("id, invoiced, order_number")
+          .in("id", chunk);
         
-        if (deleteError) throw deleteError;
+        if (checkError) throw checkError;
+        
+        const invoicedOrders = ordersToCheck?.filter(o => o.invoiced) || [];
+        const deletableOrders = ordersToCheck?.filter(o => !o.invoiced) || [];
+        
+        // Delete non-invoiced orders
+        if (deletableOrders.length > 0) {
+          const { error: deleteError } = await supabase
+            .from("sales_order")
+            .delete()
+            .in("id", deletableOrders.map(o => o.id));
+          
+          if (deleteError) throw deleteError;
+          totalDeleted += deletableOrders.length;
+        }
+        
+        totalInvoiced += invoicedOrders.length;
+        allInvoicedOrderNumbers.push(...invoicedOrders.map(o => o.order_number));
       }
       
       return {
-        deleted: deletableOrders.length,
-        invoiced: invoicedOrders.length,
-        invoicedOrderNumbers: invoicedOrders.map(o => o.order_number),
+        deleted: totalDeleted,
+        invoiced: totalInvoiced,
+        invoicedOrderNumbers: allInvoicedOrderNumbers,
       };
     },
     onSuccess: (result) => {
