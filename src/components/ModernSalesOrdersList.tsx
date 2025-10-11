@@ -648,7 +648,7 @@ export function ModernSalesOrdersList() {
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {selectedDates.length > 0
                       ? `${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''} selected`
-                      : deliveryDateFilter === "all" 
+                      : deliveryDateFilter === "all" || deliveryDateFilter === "custom"
                         ? "All Dates" 
                         : format(parseISO(deliveryDateFilter), "PPP")
                     }
