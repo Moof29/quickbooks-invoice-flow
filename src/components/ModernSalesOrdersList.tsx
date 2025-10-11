@@ -807,8 +807,8 @@ export function ModernSalesOrdersList() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {deliveryDateFilter !== "all" && getDeliveryBadge(deliveryDateFilter)}
-                {deliveryDateFilter === "all" && (
+                {deliveryDateFilter !== "all" && deliveryDateFilter !== "custom" && selectedDates.length === 0 && getDeliveryBadge(deliveryDateFilter)}
+                {(deliveryDateFilter === "all" || selectedDates.length > 0) && (
                   <>
                     <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
                       <Switch
