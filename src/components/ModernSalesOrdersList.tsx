@@ -30,6 +30,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -109,6 +117,7 @@ export function ModernSalesOrdersList() {
   const [showNoOrdersDialog, setShowNoOrdersDialog] = useState(false);
   const [groupByCustomer, setGroupByCustomer] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   const organizationId = profile?.organization_id;
 
@@ -621,25 +630,52 @@ export function ModernSalesOrdersList() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle>Filter Orders</CardTitle>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Select 
-                value={deliveryDateFilter} 
-                onValueChange={(value) => {
-                  setDeliveryDateFilter(value);
-                  setSearchParams({ date: value });
-                }}
-              >
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Dates</SelectItem>
-                  {deliveryDates.map((dateOption) => (
-                    <SelectItem key={dateOption.date} value={dateOption.date}>
-                      {dateOption.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full sm:w-[240px] justify-start text-left font-normal",
+                      !deliveryDateFilter && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {deliveryDateFilter === "all" 
+                      ? "All Dates" 
+                      : format(parseISO(deliveryDateFilter), "PPP")
+                    }
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-3 border-b">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setDeliveryDateFilter("all");
+                        setSearchParams({ date: "all" });
+                        setIsDatePickerOpen(false);
+                      }}
+                    >
+                      All Dates
+                    </Button>
+                  </div>
+                  <CalendarComponent
+                    mode="single"
+                    selected={deliveryDateFilter !== "all" ? parseISO(deliveryDateFilter) : undefined}
+                    onSelect={(date) => {
+                      if (date) {
+                        const formattedDate = format(date, "yyyy-MM-dd");
+                        setDeliveryDateFilter(formattedDate);
+                        setSearchParams({ date: formattedDate });
+                        setIsDatePickerOpen(false);
+                      }
+                    }}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
               <div className="relative flex-1 sm:flex-initial">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
