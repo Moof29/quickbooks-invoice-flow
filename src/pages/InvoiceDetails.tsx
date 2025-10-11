@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { pdf } from '@react-pdf/renderer';
 import { InvoicePDF } from '@/components/InvoicePDF';
+import { InvoiceEditDialog } from '@/components/InvoiceEditDialog';
 
 interface InvoiceLineItem {
   id: string;
@@ -81,6 +82,7 @@ export default function InvoiceDetailsPage() {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [salesOrderLinks, setSalesOrderLinks] = useState<SalesOrderLink[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -375,7 +377,7 @@ export default function InvoiceDetailsPage() {
               Mark as Paid
             </Button>
           )}
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
@@ -542,6 +544,23 @@ export default function InvoiceDetailsPage() {
             <p className="text-sm text-muted-foreground whitespace-pre-wrap">{invoice.memo}</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Edit Dialog */}
+      {invoice && (
+        <InvoiceEditDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          invoiceId={invoice.id}
+          initialData={{
+            invoice_date: invoice.invoice_date,
+            due_date: invoice.due_date,
+            status: invoice.status,
+            memo: invoice.memo,
+          }}
+          initialLineItems={lineItems}
+          onSuccess={loadInvoiceDetails}
+        />
       )}
     </div>
   );
