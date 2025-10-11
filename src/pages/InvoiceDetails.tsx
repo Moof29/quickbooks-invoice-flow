@@ -357,66 +357,37 @@ export default function InvoiceDetailsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Customer Information */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle>Customer Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div>
-              <p className="text-sm text-muted-foreground">Company Name</p>
-              <p className="font-medium">{invoice.customer_profile?.company_name || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Contact Name</p>
-              <p className="font-medium">{invoice.customer_profile?.display_name || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Email</p>
-              <p className="font-medium">{invoice.customer_profile?.email || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Phone</p>
-              <p className="font-medium">{invoice.customer_profile?.phone || 'N/A'}</p>
-            </div>
-            {invoice.customer_profile?.id && (
-              <Link to={`/customers/${invoice.customer_profile.id}`}>
-                <Button variant="link" size="sm" className="p-0 h-auto">
-                  View Customer Details →
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Related Sales Orders - Compact */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Related Sales Orders</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {salesOrderLinks.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No related sales orders</p>
-            ) : (
-              <div className="space-y-1">
-                {salesOrderLinks.map((link) => (
-                  <Link
-                    key={link.id}
-                    to={`/sales-orders/${link.sales_order_id}`}
-                    className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors text-sm"
-                  >
-                    <span className="font-medium">{link.sales_order?.order_number}</span>
-                    <span className="text-muted-foreground">
-                      {link.sales_order?.delivery_date ? format(new Date(link.sales_order.delivery_date), 'MMM d') : 'N/A'}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Customer Information */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle>Customer Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div>
+            <p className="text-sm text-muted-foreground">Company Name</p>
+            <p className="font-medium">{invoice.customer_profile?.company_name || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Contact Name</p>
+            <p className="font-medium">{invoice.customer_profile?.display_name || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Email</p>
+            <p className="font-medium">{invoice.customer_profile?.email || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Phone</p>
+            <p className="font-medium">{invoice.customer_profile?.phone || 'N/A'}</p>
+          </div>
+          {invoice.customer_profile?.id && (
+            <Link to={`/customers/${invoice.customer_profile.id}`}>
+              <Button variant="link" size="sm" className="p-0 h-auto">
+                View Customer Details →
+              </Button>
+            </Link>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Line Items - Compact Table */}
       <Card className="border-0 shadow-sm">
@@ -431,8 +402,8 @@ export default function InvoiceDetailsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-9 w-20">Qty</TableHead>
                   <TableHead className="h-9">Item</TableHead>
-                  <TableHead className="h-9 text-right w-20">Qty</TableHead>
                   <TableHead className="h-9 text-right w-24">Price</TableHead>
                   <TableHead className="h-9 text-right w-24">Amount</TableHead>
                 </TableRow>
@@ -440,13 +411,15 @@ export default function InvoiceDetailsPage() {
               <TableBody>
                 {lineItems.map((item) => (
                   <TableRow key={item.id} className="hover:bg-muted/50">
+                    <TableCell className="py-2">{item.quantity}</TableCell>
                     <TableCell className="py-2">
-                      <div className="font-medium">{item.item_record?.name || 'Unknown Item'}</div>
-                      {item.description && (
-                        <div className="text-xs text-muted-foreground">{item.description}</div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{item.item_record?.name || 'Unknown Item'}</span>
+                        {item.description && (
+                          <span className="text-xs text-muted-foreground">- {item.description}</span>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="py-2 text-right">{item.quantity}</TableCell>
                     <TableCell className="py-2 text-right">
                       ${item.unit_price?.toFixed(2)}
                     </TableCell>
