@@ -319,10 +319,10 @@ export default function InvoiceDetailsPage() {
         </div>
       </div>
 
-      {/* Compact Summary */}
+      {/* Compact Summary with Customer Info */}
       <Card className="border-0 shadow-sm">
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-6">
+          <div className="flex flex-wrap items-center gap-6 mb-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Status:</span>
               <Badge variant={getStatusVariant(invoice.status)}>
@@ -354,38 +354,44 @@ export default function InvoiceDetailsPage() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Customer Information */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle>Customer Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div>
-            <p className="text-sm text-muted-foreground">Company Name</p>
-            <p className="font-medium">{invoice.customer_profile?.company_name || 'N/A'}</p>
+          
+          <Separator className="my-3" />
+          
+          {/* Customer Info Inline */}
+          <div className="flex flex-wrap items-center gap-6 text-sm">
+            <div>
+              <span className="text-muted-foreground">Customer: </span>
+              <span className="font-medium">{invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'N/A'}</span>
+            </div>
+            {invoice.customer_profile?.email && (
+              <>
+                <Separator orientation="vertical" className="h-4" />
+                <div>
+                  <span className="text-muted-foreground">Email: </span>
+                  <span className="font-medium">{invoice.customer_profile.email}</span>
+                </div>
+              </>
+            )}
+            {invoice.customer_profile?.phone && (
+              <>
+                <Separator orientation="vertical" className="h-4" />
+                <div>
+                  <span className="text-muted-foreground">Phone: </span>
+                  <span className="font-medium">{invoice.customer_profile.phone}</span>
+                </div>
+              </>
+            )}
+            {invoice.customer_profile?.id && (
+              <>
+                <Separator orientation="vertical" className="h-4" />
+                <Link to={`/customers/${invoice.customer_profile.id}`}>
+                  <Button variant="link" size="sm" className="p-0 h-auto text-xs">
+                    View Customer →
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Contact Name</p>
-            <p className="font-medium">{invoice.customer_profile?.display_name || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Email</p>
-            <p className="font-medium">{invoice.customer_profile?.email || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Phone</p>
-            <p className="font-medium">{invoice.customer_profile?.phone || 'N/A'}</p>
-          </div>
-          {invoice.customer_profile?.id && (
-            <Link to={`/customers/${invoice.customer_profile.id}`}>
-              <Button variant="link" size="sm" className="p-0 h-auto">
-                View Customer Details →
-              </Button>
-            </Link>
-          )}
         </CardContent>
       </Card>
 
