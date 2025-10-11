@@ -267,17 +267,8 @@ export const InvoiceEditDialog = ({
               <div className="space-y-4">
                 {lineItems.map((item) => (
                   <div key={item.id} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-4">
-                      <Label>Description *</Label>
-                      <Input
-                        placeholder="Item description"
-                        value={item.description}
-                        onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
-                        required
-                      />
-                    </div>
                     <div className="col-span-2">
-                      <Label>Quantity</Label>
+                      <Label>Qty</Label>
                       <Input
                         type="number"
                         min="0"
@@ -286,8 +277,17 @@ export const InvoiceEditDialog = ({
                         onChange={(e) => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
                       />
                     </div>
+                    <div className="col-span-4">
+                      <Label>Item *</Label>
+                      <Input
+                        placeholder="Item description"
+                        value={item.description}
+                        onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
+                        required
+                      />
+                    </div>
                     <div className="col-span-2">
-                      <Label>Unit Price</Label>
+                      <Label>Price</Label>
                       <Input
                         type="number"
                         min="0"
