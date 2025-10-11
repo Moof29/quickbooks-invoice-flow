@@ -105,29 +105,11 @@ export const InvoiceEditDialog = ({
     setLoading(true);
 
     try {
-      const total = calculateTotal();
-      
-      // Update invoice header
-      const { error: invoiceError } = await supabase
-        .from('invoice_record')
-        .update({
-          invoice_date: formData.invoice_date,
-          due_date: formData.due_date || null,
-          status: formData.status,
-          memo: formData.memo || null,
-          subtotal: total,
-          total: total,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', invoiceId);
-
-      if (invoiceError) throw invoiceError;
-
       // Get existing line item IDs
       const existingIds = initialLineItems.map(item => item.id);
       const currentIds = lineItems.filter(item => !item.isNew).map(item => item.id);
       
-      // Delete removed line items
+      // STEP 1: Delete removed line items first
       const deletedIds = existingIds.filter(id => !currentIds.includes(id));
       if (deletedIds.length > 0) {
         const { error: deleteError } = await supabase
@@ -138,7 +120,7 @@ export const InvoiceEditDialog = ({
         if (deleteError) throw deleteError;
       }
 
-      // Update existing line items
+      // STEP 2: Update existing line items
       for (const item of lineItems.filter(item => !item.isNew)) {
         const { error: updateError } = await supabase
           .from('invoice_line_item')
@@ -152,7 +134,7 @@ export const InvoiceEditDialog = ({
         if (updateError) throw updateError;
       }
 
-      // Insert new line items
+      // STEP 3: Insert new line items
       const newItems = lineItems.filter(item => item.isNew && item.description.trim() !== '');
       if (newItems.length > 0) {
         const { data: invoiceData } = await supabase
@@ -178,6 +160,32 @@ export const InvoiceEditDialog = ({
 
         if (insertError) throw insertError;
       }
+
+      // STEP 4: Calculate totals from database (line items have generated amount column)
+      const { data: lineItemsData, error: lineItemsError } = await supabase
+        .from('invoice_line_item')
+        .select('amount')
+        .eq('invoice_id', invoiceId);
+
+      if (lineItemsError) throw lineItemsError;
+
+      const calculatedTotal = lineItemsData?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
+
+      // STEP 5: Update invoice header with calculated totals
+      const { error: invoiceError } = await supabase
+        .from('invoice_record')
+        .update({
+          invoice_date: formData.invoice_date,
+          due_date: formData.due_date || null,
+          status: formData.status,
+          memo: formData.memo || null,
+          subtotal: calculatedTotal,
+          total: calculatedTotal,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', invoiceId);
+
+      if (invoiceError) throw invoiceError;
 
       toast({
         title: "Success",
