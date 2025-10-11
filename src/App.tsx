@@ -15,6 +15,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Invoices from "./pages/Invoices";
+import InvoiceDetails from "./pages/InvoiceDetails";
 import SalesOrders from "./pages/SalesOrders";
 import SalesOrderDetails from "./pages/SalesOrderDetails";
 import Items from "./pages/Items";
@@ -120,6 +121,7 @@ const App = () => {
                 >
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/invoices" element={<Invoices />} />
+                  <Route path="/invoices/:id" element={<InvoiceDetails />} />
                   <Route path="/sales-orders" element={<SalesOrders />} />
                   <Route path="/sales-orders/:id" element={<SalesOrderDetails />} />
                   <Route path="/items" element={<Items />} />
