@@ -57,17 +57,8 @@ export function Combobox({
     )
   }, [options, searchQuery])
 
-  React.useEffect(() => {
-    if (open) {
-      const timeout = setTimeout(() => {
-        inputRef.current?.focus()
-      }, 0)
-      return () => clearTimeout(timeout)
-    }
-  }, [open])
-
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={false}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           ref={buttonRef}
@@ -85,12 +76,13 @@ export function Combobox({
         className="p-0 bg-popover border shadow-md" 
         align="start"
         style={{ 
-          zIndex: 100000,
           width: buttonRef.current?.offsetWidth || '200px',
-          pointerEvents: 'auto'
         }}
         sideOffset={4}
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          inputRef.current?.focus()
+        }}
         avoidCollisions={true}
       >
         <Command shouldFilter={false}>
@@ -100,17 +92,7 @@ export function Combobox({
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
-          <CommandList 
-            className="max-h-[300px] overflow-y-auto overflow-x-hidden"
-            style={{ 
-              overscrollBehavior: 'contain',
-              pointerEvents: 'auto',
-              WebkitOverflowScrolling: 'touch'
-            }}
-            onWheel={(e) => {
-              e.stopPropagation() // Prevent dialog from capturing scroll
-            }}
-          >
+          <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (

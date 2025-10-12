@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -41,6 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Combobox } from '@/components/ui/combobox';
 import { CalendarIcon, Plus, Trash2, Copy, AlertTriangle } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -128,6 +128,12 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
     },
   });
 
+  // Format customers for Combobox
+  const customerOptions = customers?.map(customer => ({
+    value: customer.id,
+    label: customer.company_name,
+  })) || [];
+
   // Fetch items for the dropdown
   const { data: items } = useQuery({
     queryKey: ['items'],
@@ -142,6 +148,12 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
       return data;
     },
   });
+
+  // Format items for Combobox
+  const itemOptions = items?.map(item => ({
+    value: item.id,
+    label: item.name,
+  })) || [];
 
   // Fetch yesterday's order for copy functionality
   const { data: yesterdayOrder } = useQuery({
@@ -405,21 +417,16 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Customer *</FormLabel>
-                  <div className="flex gap-2">
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a customer" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {customers?.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            {customer.company_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex gap-2 items-center">
+                    <Combobox
+                      options={customerOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select a customer..."
+                      searchPlaceholder="Search customers..."
+                      emptyText="No customers found."
+                      className="w-full"
+                    />
                     {yesterdayOrder && (
                       <Button
                         type="button"
@@ -635,21 +642,14 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
                   {/* Item Selection */}
                   <div className="col-span-4">
                     <label className="text-sm font-medium">Item *</label>
-                    <Select
+                    <Combobox
+                      options={itemOptions}
                       value={lineItem.item_id}
                       onValueChange={(value) => updateLineItem(index, 'item_id', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select item" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {items?.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select item..."
+                      searchPlaceholder="Search items..."
+                      emptyText="No items found."
+                    />
                   </div>
 
                   {/* Quantity */}
