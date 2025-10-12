@@ -57,6 +57,15 @@ export function Combobox({
     )
   }, [options, searchQuery])
 
+  React.useEffect(() => {
+    if (open) {
+      const timeout = setTimeout(() => {
+        inputRef.current?.focus()
+      }, 0)
+      return () => clearTimeout(timeout)
+    }
+  }, [open])
+
   return (
     <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
@@ -81,10 +90,7 @@ export function Combobox({
           pointerEvents: 'auto'
         }}
         sideOffset={4}
-        onOpenAutoFocus={(e) => {
-          e.preventDefault()
-          inputRef.current?.focus()
-        }}
+        onOpenAutoFocus={(e) => e.preventDefault()}
         avoidCollisions={true}
       >
         <Command shouldFilter={false}>
