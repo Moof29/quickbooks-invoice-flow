@@ -555,6 +555,20 @@ All colors MUST be HSL.
   pointer-events: auto !important;
 }
 
+/* NEW: Fix Command scrolling */
+[cmdk-list] {
+  max-height: 300px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  pointer-events: auto !important;
+}
+
+/* NEW: Ensure command input is interactive */
+[cmdk-input] {
+  pointer-events: auto !important;
+}
+
 /* Ensure command items are clickable */
 [cmdk-item] {
   cursor: pointer !important;

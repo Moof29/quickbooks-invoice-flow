@@ -43,9 +43,18 @@ export function Combobox({
   disabled = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState("")
   const buttonRef = React.useRef<HTMLButtonElement>(null)
 
   const selectedOption = options.find((option) => option.value === value)
+
+  // Filter options based on search
+  const filteredOptions = React.useMemo(() => {
+    if (!searchQuery) return options
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }, [options, searchQuery])
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={false}>
@@ -71,24 +80,41 @@ export function Combobox({
           pointerEvents: 'auto'
         }}
         sideOffset={4}
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          // Focus the search input after a brief delay
+          setTimeout(() => {
+            const input = document.querySelector('[cmdk-input]') as HTMLInputElement
+            if (input) input.focus()
+          }, 0)
+        }}
         avoidCollisions={true}
       >
-        <Command shouldFilter={true}>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder={searchPlaceholder}
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
+          <CommandList 
+            className="max-h-[300px] overflow-y-auto overflow-x-hidden"
+            style={{ 
+              overscrollBehavior: 'contain',
+              pointerEvents: 'auto'
+            }}
+          >
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
-                  keywords={[option.label.toLowerCase()]}
-                  onSelect={(currentValue) => {
-                    onValueChange(currentValue === value ? "" : currentValue)
+                  onSelect={() => {
+                    onValueChange(option.value === value ? "" : option.value)
+                    setSearchQuery("")
                     setOpen(false)
                   }}
-                  style={{ cursor: 'pointer' }}
+                  className="cursor-pointer"
                 >
                   <Check
                     className={cn(
