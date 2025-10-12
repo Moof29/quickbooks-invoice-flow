@@ -544,7 +544,9 @@ All colors MUST be HSL.
   }
 }
 
-/* Critical: Force popover content to be interactive */
+/* ===== COMBOBOX FIXES ===== */
+
+/* Force popover to be interactive and above dialog */
 [data-radix-popover-content] {
   z-index: 100000 !important;
   pointer-events: auto !important;
@@ -555,27 +557,31 @@ All colors MUST be HSL.
   pointer-events: auto !important;
 }
 
-/* NEW: Fix Command scrolling */
+/* Fix Command List scrolling - CRITICAL */
 [cmdk-list] {
   max-height: 300px !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   overscroll-behavior: contain !important;
   pointer-events: auto !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
-/* NEW: Ensure command input is interactive */
+/* Make Command Input interactive */
 [cmdk-input] {
   pointer-events: auto !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
-/* Ensure command items are clickable */
+/* Make Command Items clickable */
 [cmdk-item] {
   cursor: pointer !important;
   pointer-events: auto !important;
+  user-select: none !important;
 }
 
-/* Dialog should have lower z-index */
+/* Dialog z-index lower than popover */
 [data-radix-dialog-overlay] {
   z-index: 50 !important;
 }

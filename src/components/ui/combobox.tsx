@@ -100,7 +100,11 @@ export function Combobox({
             className="max-h-[300px] overflow-y-auto overflow-x-hidden"
             style={{ 
               overscrollBehavior: 'contain',
-              pointerEvents: 'auto'
+              pointerEvents: 'auto',
+              WebkitOverflowScrolling: 'touch'
+            }}
+            onWheel={(e) => {
+              e.stopPropagation() // Prevent dialog from capturing scroll
             }}
           >
             <CommandEmpty>{emptyText}</CommandEmpty>
