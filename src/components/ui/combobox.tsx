@@ -47,7 +47,7 @@ export function Combobox({
   const selectedOption = options.find((option) => option.value === value)
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -60,7 +60,12 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-50 bg-popover" align="start">
+      <PopoverContent 
+        className="w-[var(--radix-popover-trigger-width)] p-0 bg-popover" 
+        align="start"
+        style={{ zIndex: 9999 }}
+        sideOffset={4}
+      >
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
