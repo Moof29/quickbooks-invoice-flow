@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { ModernSalesOrdersList } from "@/components/ModernSalesOrdersList";
 import { CustomerTemplates } from "@/components/CustomerTemplates";
-import { CreateSalesOrderDialog } from "@/components/CreateSalesOrderDialog";
+import { CreateSalesOrderSheet } from "@/components/CreateSalesOrderSheet";
 import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
 import { GenerateTemplateTestDataButton } from "@/components/GenerateTemplateTestDataButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -113,7 +113,7 @@ export default function SalesOrders() {
         </TabsContent>
       </Tabs>
 
-      <CreateSalesOrderDialog 
+      <CreateSalesOrderSheet 
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
