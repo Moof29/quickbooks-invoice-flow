@@ -18,6 +18,7 @@ import Invoices from "./pages/Invoices";
 import InvoiceDetails from "./pages/InvoiceDetails";
 import SalesOrders from "./pages/SalesOrders";
 import SalesOrderDetails from "./pages/SalesOrderDetails";
+import NewSalesOrder from "./pages/NewSalesOrder";
 import Items from "./pages/Items";
 import Customers from "./pages/Customers";
 import QuickBooksIntegration from "./pages/QuickBooksIntegration";
@@ -123,6 +124,7 @@ const App = () => {
                   <Route path="/invoices" element={<Invoices />} />
                   <Route path="/invoices/:id" element={<InvoiceDetails />} />
                   <Route path="/sales-orders" element={<SalesOrders />} />
+                  <Route path="/sales-orders/new" element={<NewSalesOrder />} />
                   <Route path="/sales-orders/:id" element={<SalesOrderDetails />} />
                   <Route path="/items" element={<Items />} />
                   <Route path="/customers" element={<Customers />} />

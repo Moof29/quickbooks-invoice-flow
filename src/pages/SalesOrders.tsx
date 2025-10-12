@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { ModernSalesOrdersList } from "@/components/ModernSalesOrdersList";
 import { CustomerTemplates } from "@/components/CustomerTemplates";
-import { CreateSalesOrderSheet } from "@/components/CreateSalesOrderSheet";
 import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
 import { GenerateTemplateTestDataButton } from "@/components/GenerateTemplateTestDataButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function SalesOrders() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const navigate = useNavigate();
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const queryClient = useQueryClient();
@@ -91,7 +91,7 @@ export default function SalesOrders() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
+          <Button onClick={() => navigate('/sales-orders/new')} size="lg">
             <Plus className="h-4 w-4 mr-2" />
             New Order
           </Button>
@@ -112,11 +112,6 @@ export default function SalesOrders() {
           <CustomerTemplates />
         </TabsContent>
       </Tabs>
-
-      <CreateSalesOrderSheet 
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-      />
     </div>
   );
 }
