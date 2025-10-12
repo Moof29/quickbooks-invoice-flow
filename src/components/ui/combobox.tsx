@@ -45,6 +45,7 @@ export function Combobox({
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   const buttonRef = React.useRef<HTMLButtonElement>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null)
 
   const selectedOption = options.find((option) => option.value === value)
 
@@ -82,16 +83,13 @@ export function Combobox({
         sideOffset={4}
         onOpenAutoFocus={(e) => {
           e.preventDefault()
-          // Focus the search input after a brief delay
-          setTimeout(() => {
-            const input = document.querySelector('[cmdk-input]') as HTMLInputElement
-            if (input) input.focus()
-          }, 0)
+          inputRef.current?.focus()
         }}
         avoidCollisions={true}
       >
         <Command shouldFilter={false}>
           <CommandInput 
+            ref={inputRef}
             placeholder={searchPlaceholder}
             value={searchQuery}
             onValueChange={setSearchQuery}
