@@ -543,3 +543,29 @@ All colors MUST be HSL.
     @apply text-xs text-muted-foreground truncate w-full;
   }
 }
+
+/* Critical: Force popover content to be interactive */
+[data-radix-popover-content] {
+  z-index: 100000 !important;
+  pointer-events: auto !important;
+}
+
+[data-radix-popper-content-wrapper] {
+  z-index: 100000 !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure command items are clickable */
+[cmdk-item] {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+/* Dialog should have lower z-index */
+[data-radix-dialog-overlay] {
+  z-index: 50 !important;
+}
+
+[data-radix-dialog-content] {
+  z-index: 51 !important;
+}
