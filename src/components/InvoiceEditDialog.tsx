@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trash2, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Combobox } from '@/components/ui/combobox';
 
 interface InvoiceLineItem {
   id: string;
@@ -18,6 +19,12 @@ interface InvoiceLineItem {
   unit_price: number;
   amount: number;
   isNew?: boolean;
+  isTemplate?: boolean;
+}
+
+interface AvailableItem {
+  id: string;
+  name: string;
 }
 
 interface InvoiceEditDialogProps {
@@ -50,6 +57,7 @@ export const InvoiceEditDialog = ({
     memo: initialData.memo || '',
   });
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(initialLineItems);
+  const [availableItems, setAvailableItems] = useState<AvailableItem[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -60,9 +68,96 @@ export const InvoiceEditDialog = ({
         status: initialData.status,
         memo: initialData.memo || '',
       });
-      setLineItems(initialLineItems);
+      loadTemplateItemsAndMerge();
+      loadAvailableItems();
     }
   }, [open, initialData, initialLineItems]);
+
+  const loadAvailableItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('item_record')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setAvailableItems(data || []);
+    } catch (error) {
+      console.error('Error loading items:', error);
+    }
+  };
+
+  const loadTemplateItemsAndMerge = async () => {
+    try {
+      // Get invoice's customer_id
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from('invoice_record')
+        .select('customer_id')
+        .eq('id', invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Get customer's active template
+      const { data: template, error: templateError } = await supabase
+        .from('customer_templates')
+        .select('id')
+        .eq('customer_id', invoiceData.customer_id)
+        .eq('is_active', true)
+        .single();
+
+      if (templateError || !template) {
+        setLineItems(initialLineItems);
+        return;
+      }
+
+      // Get template items
+      const { data: templateItems, error: itemsError } = await supabase
+        .from('customer_template_items')
+        .select(`
+          item_id,
+          unit_price,
+          item_record:item_id (
+            id,
+            name
+          )
+        `)
+        .eq('template_id', template.id);
+
+      if (itemsError) throw itemsError;
+
+      // Merge template items with existing invoice line items
+      const mergedItems: InvoiceLineItem[] = [];
+      const existingItemIds = new Set(initialLineItems.map(li => li.item_id));
+
+      // Add existing invoice line items
+      initialLineItems.forEach(item => {
+        mergedItems.push(item);
+      });
+
+      // Add template items that aren't in the invoice yet (with 0 qty)
+      templateItems?.forEach(ti => {
+        if (ti.item_id && !existingItemIds.has(ti.item_id)) {
+          mergedItems.push({
+            id: `template-${ti.item_id}`,
+            item_id: ti.item_id,
+            description: (ti.item_record as any)?.name || '',
+            quantity: 0,
+            unit_price: ti.unit_price,
+            amount: 0,
+            isNew: true,
+            isTemplate: true,
+          });
+        }
+      });
+
+      setLineItems(mergedItems);
+    } catch (error) {
+      console.error('Error loading template items:', error);
+      setLineItems(initialLineItems);
+    }
+  };
 
   const addLineItem = () => {
     const newItem: InvoiceLineItem = {
@@ -73,6 +168,7 @@ export const InvoiceEditDialog = ({
       unit_price: 0,
       amount: 0,
       isNew: true,
+      isTemplate: false,
     };
     setLineItems([...lineItems, newItem]);
   };
@@ -87,9 +183,24 @@ export const InvoiceEditDialog = ({
     setLineItems(lineItems.map(item => {
       if (item.id === id) {
         const updated = { ...item, [field]: value };
+        
+        // If selecting an item from dropdown, populate name only
+        if (field === 'item_id' && value) {
+          const selectedItem = availableItems.find(i => i.id === value);
+          if (selectedItem) {
+            updated.description = selectedItem.name;
+          }
+        }
+        
         if (field === 'quantity' || field === 'unit_price') {
           updated.amount = updated.quantity * updated.unit_price;
         }
+        
+        // Remove template flag when editing
+        if (item.isTemplate && (field === 'quantity' || field === 'description')) {
+          updated.isTemplate = false;
+        }
+        
         return updated;
       }
       return item;
@@ -134,8 +245,13 @@ export const InvoiceEditDialog = ({
         if (updateError) throw updateError;
       }
 
-      // STEP 3: Insert new line items
-      const newItems = lineItems.filter(item => item.isNew && item.description.trim() !== '');
+      // STEP 3: Insert new line items (excluding template items with 0 qty)
+      const newItems = lineItems.filter(item => 
+        item.isNew && 
+        item.description.trim() !== '' && 
+        item.quantity > 0 && 
+        !item.isTemplate
+      );
       if (newItems.length > 0) {
         const { data: invoiceData } = await supabase
           .from('invoice_record')
@@ -284,9 +400,25 @@ export const InvoiceEditDialog = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="space-y-2">
+              {/* Column Headers */}
+              <div className="grid grid-cols-12 gap-2 items-center mb-2 px-1">
+                <div className="col-span-2 text-xs font-medium text-muted-foreground">Qty</div>
+                <div className="col-span-4 text-xs font-medium text-muted-foreground">Item</div>
+                <div className="col-span-2 text-xs font-medium text-muted-foreground">Price</div>
+                <div className="col-span-3 text-xs font-medium text-muted-foreground">Amount</div>
+                <div className="col-span-1"></div>
+              </div>
+              
+              <div className="space-y-1 max-h-[400px] overflow-y-auto">
                 {lineItems.map((item) => (
-                  <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                  <div 
+                    key={item.id} 
+                    className={`grid grid-cols-12 gap-2 items-center ${
+                      item.isTemplate && item.quantity === 0 
+                        ? 'opacity-40 hover:opacity-100 transition-opacity' 
+                        : ''
+                    }`}
+                  >
                     <div className="col-span-2">
                       <Input
                         type="number"
@@ -295,15 +427,17 @@ export const InvoiceEditDialog = ({
                         value={item.quantity}
                         onChange={(e) => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
                         className="h-8 text-sm"
-                        placeholder="Qty"
+                        placeholder="0"
                       />
                     </div>
                     <div className="col-span-4">
-                      <Input
-                        placeholder="Item description"
-                        value={item.description}
-                        onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
-                        required
+                      <Combobox
+                        options={availableItems.map(i => ({ value: i.id, label: i.name }))}
+                        value={item.item_id || ''}
+                        onValueChange={(value) => updateLineItem(item.id, 'item_id', value)}
+                        placeholder="Select item..."
+                        searchPlaceholder="Search items..."
+                        emptyText="No items found"
                         className="h-8 text-sm"
                       />
                     </div>
@@ -315,7 +449,7 @@ export const InvoiceEditDialog = ({
                         value={item.unit_price}
                         onChange={(e) => updateLineItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
                         className="h-8 text-sm"
-                        placeholder="Price"
+                        placeholder="0.00"
                       />
                     </div>
                     <div className="col-span-3">
