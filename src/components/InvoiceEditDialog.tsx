@@ -112,20 +112,27 @@ export const InvoiceEditDialog = ({
         return;
       }
 
-      // Get template items
+      // ✅ FIX: Get template items - just IDs and prices
       const { data: templateItems, error: itemsError } = await supabase
         .from('customer_template_items')
-        .select(`
-          item_id,
-          unit_price,
-          item_record:item_id (
-            id,
-            name
-          )
-        `)
+        .select('item_id, unit_price')
         .eq('template_id', template.id);
 
       if (itemsError) throw itemsError;
+
+      // ✅ FIX: Get item details separately
+      const itemIds = templateItems?.map(ti => ti.item_id).filter(Boolean) || [];
+      
+      let itemDetails: { id: string; name: string }[] = [];
+      if (itemIds.length > 0) {
+        const { data: items, error: itemsDetailError } = await supabase
+          .from('item_record')
+          .select('id, name')
+          .in('id', itemIds);
+        
+        if (itemsDetailError) throw itemsDetailError;
+        itemDetails = items || [];
+      }
 
       // Merge template items with existing invoice line items
       const mergedItems: InvoiceLineItem[] = [];
@@ -139,10 +146,11 @@ export const InvoiceEditDialog = ({
       // Add template items that aren't in the invoice yet (with 0 qty)
       templateItems?.forEach(ti => {
         if (ti.item_id && !existingItemIds.has(ti.item_id)) {
+          const itemDetail = itemDetails.find(item => item.id === ti.item_id);
           mergedItems.push({
             id: `template-${ti.item_id}`,
             item_id: ti.item_id,
-            description: (ti.item_record as any)?.name || '',
+            description: itemDetail?.name || '',
             quantity: 0,
             unit_price: ti.unit_price,
             amount: 0,
