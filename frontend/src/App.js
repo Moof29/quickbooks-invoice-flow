@@ -1,25 +1,17 @@
 import { useState } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import Inventory from "./pages/Inventory";
-import Sidebar from "./components/Sidebar";
+import DashboardV2 from "./pages/DashboardV2";
+import TopNav from "./components/TopNav";
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('dashboard');
-
   return (
     <div className="App">
       <BrowserRouter>
-        <div className="flex min-h-screen">
-          <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
-          <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/inventory" element={<Inventory />} />
-            </Routes>
-          </main>
-        </div>
+        <TopNav />
+        <Routes>
+          <Route path="/" element={<DashboardV2 />} />
+        </Routes>
       </BrowserRouter>
     </div>
   );
