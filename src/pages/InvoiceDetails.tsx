@@ -251,31 +251,53 @@ export default function InvoiceDetailsPage() {
     setQuantities(prev => ({ ...prev, [lineItemId]: value }));
   };
 
-  const handleQuantityBlur = (lineItemId: string, originalQuantity: number, unitPrice: number) => {
-    const newQuantity = parseFloat(quantities[lineItemId] || "0");
-    if (isNaN(newQuantity) || newQuantity < 0) {
-      // Reset to original if invalid
+  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, lineItemId: string, originalQuantity: number) => {
+    if (e.key === "Escape") {
       setQuantities(prev => ({ ...prev, [lineItemId]: originalQuantity.toString() }));
-      toast({
-        title: "Invalid quantity",
-        description: "Please enter a valid number",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Only update if changed
-    if (newQuantity !== originalQuantity) {
-      updateQuantityMutation.mutate({ lineItemId, quantity: newQuantity, unitPrice });
     }
   };
 
-  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, lineItemId: string, originalQuantity: number) => {
-    if (e.key === "Enter") {
-      e.currentTarget.blur();
-    } else if (e.key === "Escape") {
-      setQuantities(prev => ({ ...prev, [lineItemId]: originalQuantity.toString() }));
-      e.currentTarget.blur();
+  const handleSaveAll = async () => {
+    try {
+      // Validate all quantities first
+      const updates: Array<{ lineItemId: string; quantity: number; unitPrice: number }> = [];
+      for (const item of lineItems) {
+        const newQuantity = parseFloat(quantities[item.id] || "0");
+        if (isNaN(newQuantity) || newQuantity < 0) {
+          toast({
+            title: "Invalid quantity",
+            description: `Please enter a valid quantity for ${item.item_record?.name || 'item'}`,
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Only include if changed
+        if (newQuantity !== item.quantity) {
+          updates.push({ lineItemId: item.id, quantity: newQuantity, unitPrice: item.unit_price });
+        }
+      }
+
+      // Save invoice header data
+      await handleInvoiceSave(formData);
+
+      // Save all quantity updates
+      for (const update of updates) {
+        await updateQuantityMutation.mutateAsync(update);
+      }
+
+      if (updates.length > 0) {
+        toast({
+          title: "Success",
+          description: `Invoice updated with ${updates.length} quantity change${updates.length !== 1 ? 's' : ''}`,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save changes",
+        variant: "destructive",
+      });
     }
   };
 
@@ -492,20 +514,25 @@ export default function InvoiceDetailsPage() {
             </Button>
           ) : (
             <>
-              <Button variant="outline" size="sm" onClick={async () => {
-                await handleInvoiceSave(formData);
-              }}>
+              <Button variant="outline" size="sm" onClick={handleSaveAll}>
                 <Save className="h-4 w-4 mr-2" />
                 Save
               </Button>
               <Button variant="ghost" size="sm" onClick={() => {
                 setEditMode(false);
+                // Reset to original values
                 setFormData({
                   invoice_date: invoice.invoice_date,
                   due_date: invoice.due_date,
                   status: invoice.status,
                   memo: invoice.memo || '',
                 });
+                // Reset quantities
+                const initialQuantities: Record<string, string> = {};
+                lineItems.forEach(item => {
+                  initialQuantities[item.id] = item.quantity.toString();
+                });
+                setQuantities(initialQuantities);
               }}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
@@ -682,7 +709,6 @@ export default function InvoiceDetailsPage() {
                           step="0.01"
                           value={quantities[item.id] || ''}
                           onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                          onBlur={() => handleQuantityBlur(item.id, item.quantity, item.unit_price)}
                           onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
                           className="w-20 h-8 text-center"
                         />
