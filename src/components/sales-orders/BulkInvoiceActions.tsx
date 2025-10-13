@@ -119,18 +119,39 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
     }
   };
 
-  const handleJobComplete = () => {
+  const handleJobComplete = async () => {
+    // Fetch final job status to get accurate counts
+    if (jobId) {
+      const { data: finalJob } = await supabase
+        .from('batch_job_queue')
+        .select('successful_items, failed_items, total_items')
+        .eq('id', jobId)
+        .single();
+      
+      if (finalJob) {
+        const { successful_items = 0, failed_items = 0, total_items = 0 } = finalJob;
+        
+        if (failed_items > 0) {
+          toast({
+            title: "Batch invoicing completed with errors",
+            description: `${successful_items} of ${total_items} orders invoiced successfully. ${failed_items} failed.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Batch invoicing complete",
+            description: `${successful_items} orders invoiced successfully`,
+          });
+        }
+      }
+    }
+    
     setIsCreating(false);
     setJobId(null);
     
     // Invalidate queries
     queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
     queryClient.invalidateQueries({ queryKey: ['invoices'] });
-    
-    toast({
-      title: "Batch Complete",
-      description: "All invoices have been processed",
-    });
     
     onComplete();
   };
