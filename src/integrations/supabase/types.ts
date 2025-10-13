@@ -373,6 +373,9 @@ export type Database = {
       batch_job_queue: {
         Row: {
           actual_duration_seconds: number | null
+          can_cancel: boolean | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           completed_at: string | null
           created_at: string | null
           created_by: string | null
@@ -383,8 +386,12 @@ export type Database = {
           job_config: Json | null
           job_data: Json
           job_type: string
+          last_error: string | null
+          max_retries: number | null
           organization_id: string
           processed_items: number | null
+          progress_log: Json | null
+          retry_count: number | null
           started_at: string | null
           status: string
           successful_items: number | null
@@ -393,6 +400,9 @@ export type Database = {
         }
         Insert: {
           actual_duration_seconds?: number | null
+          can_cancel?: boolean | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -403,8 +413,12 @@ export type Database = {
           job_config?: Json | null
           job_data: Json
           job_type: string
+          last_error?: string | null
+          max_retries?: number | null
           organization_id: string
           processed_items?: number | null
+          progress_log?: Json | null
+          retry_count?: number | null
           started_at?: string | null
           status?: string
           successful_items?: number | null
@@ -413,6 +427,9 @@ export type Database = {
         }
         Update: {
           actual_duration_seconds?: number | null
+          can_cancel?: boolean | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -423,8 +440,12 @@ export type Database = {
           job_config?: Json | null
           job_data?: Json
           job_type?: string
+          last_error?: string | null
+          max_retries?: number | null
           organization_id?: string
           processed_items?: number | null
+          progress_log?: Json | null
+          retry_count?: number | null
           started_at?: string | null
           status?: string
           successful_items?: number | null
@@ -5049,6 +5070,10 @@ export type Database = {
       can_delete_sales_order: {
         Args: { order_id: string }
         Returns: boolean
+      }
+      cancel_batch_job: {
+        Args: { p_cancelled_by: string; p_job_id: string }
+        Returns: undefined
       }
       cancel_bulk_invoice_job: {
         Args: { p_job_id: string }

@@ -75,10 +75,25 @@ Deno.serve(async (req) => {
     console.log('Validation result:', validationResult);
 
     if (!validationResult?.can_invoice) {
+      console.log('❌ Order cannot be invoiced:', validationResult?.error_message);
+      
+      // Determine error code based on message
+      let errorCode = 'VALIDATION_FAILED';
+      if (validationResult?.error_message?.includes('already invoiced')) {
+        errorCode = 'ALREADY_INVOICED';
+      } else if (validationResult?.error_message?.includes('reviewed')) {
+        errorCode = 'NOT_REVIEWED';
+      }
+      
       return new Response(
-        JSON.stringify({
+        JSON.stringify({ 
           success: false,
-          error: validationResult?.error_message || 'Order cannot be invoiced',
+          sales_order_id: order_id,
+          error: {
+            code: errorCode,
+            message: validationResult?.error_message || 'Order cannot be invoiced',
+            details: validationResult
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -244,31 +259,35 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        invoice: {
-          id: invoice.id,
-          invoice_number: invoiceNumber,
-          total: invoice.total,
-          customer_name: (order.customer_profile as any)?.company_name,
-          delivery_date: order.delivery_date,
-        },
-        order: {
-          id: order.id,
-          order_number: order.order_number,
-        },
+        invoice_id: invoice.id,
+        invoice_number: invoiceNumber,
+        sales_order_id: order_id,
+        sales_order_number: order.order_number,
+        total: invoice.total,
       }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-  } catch (error) {
-    console.error('Fatal error:', error);
+  } catch (error: any) {
+    console.error('=== Fatal Error ===');
+    console.error(error);
+    
+    const { order_id } = await req.json().catch(() => ({ order_id: null }));
+    
+    // Return structured error response
     return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ 
+        success: false,
+        sales_order_id: order_id,
+        error: {
+          code: 'DATABASE_ERROR',
+          message: error.message || 'An unexpected error occurred',
+          details: { stack: error.stack }
+        }
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
