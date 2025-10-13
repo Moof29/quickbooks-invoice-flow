@@ -710,7 +710,7 @@ export default function InvoiceDetailsPage() {
                           value={quantities[item.id] || ''}
                           onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                           onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
-                          className="w-20 h-8 text-center"
+                          className="w-20 h-8 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       ) : (
                         <span>{item.quantity}</span>
