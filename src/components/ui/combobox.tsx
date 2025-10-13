@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -82,26 +82,29 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="p-0 bg-background border-border z-50" 
+        className="p-0 bg-background border shadow-lg z-50" 
         align="start"
         style={{ 
           width: buttonRef.current?.offsetWidth || '200px',
         }}
-        sideOffset={8}
+        sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
         avoidCollisions={true}
       >
-        <Command shouldFilter={false} className="border-0">
-          <CommandInput 
-            ref={inputRef}
-            placeholder={searchPlaceholder}
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            className="h-11 border-b"
-          />
-          <CommandList className="max-h-[300px]">
+        <Command shouldFilter={false} className="border-0 rounded-lg">
+          <div className="flex items-center border-b px-3">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <CommandInput 
+              ref={inputRef}
+              placeholder={searchPlaceholder}
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0"
+            />
+          </div>
+          <CommandList className="max-h-[300px] overflow-y-auto">
             <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">{emptyText}</CommandEmpty>
-            <CommandGroup className="p-2">
+            <CommandGroup className="p-1">
               {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
@@ -111,7 +114,7 @@ export function Combobox({
                     setSearchQuery("")
                     setOpen(false)
                   }}
-                  className="cursor-pointer rounded-sm px-2 py-2.5 hover:bg-accent"
+                  className="cursor-pointer rounded-sm px-2 py-2 aria-selected:bg-accent hover:bg-accent/50"
                 >
                   <Check
                     className={cn(
