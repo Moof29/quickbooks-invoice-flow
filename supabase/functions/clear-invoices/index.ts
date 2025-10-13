@@ -57,26 +57,64 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
     console.log('Organization ID:', organizationId);
 
-    // Use RPC function to delete everything in one transaction
-    console.log('Clearing all invoice data...');
-    const { data: result, error: clearError } = await supabase.rpc('clear_all_invoices', {
-      p_organization_id: organizationId
-    });
+    // Delete in direct SQL operations using service role for speed
+    console.log('Deleting invoice line items...');
+    const { error: lineItemError } = await supabase
+      .from('invoice_line_item')
+      .delete()
+      .eq('organization_id', organizationId);
+    
+    if (lineItemError) {
+      console.error('Error deleting line items:', lineItemError);
+      throw lineItemError;
+    }
 
-    if (clearError) {
-      console.error('Error clearing invoices:', clearError);
-      throw clearError;
+    console.log('Deleting sales order invoice links...');
+    const { error: linkError } = await supabase
+      .from('sales_order_invoice_link')
+      .delete()
+      .eq('organization_id', organizationId);
+    
+    if (linkError) {
+      console.error('Error deleting links:', linkError);
+      throw linkError;
+    }
+
+    console.log('Deleting invoices...');
+    const { error: invoiceError } = await supabase
+      .from('invoice_record')
+      .delete()
+      .eq('organization_id', organizationId);
+    
+    if (invoiceError) {
+      console.error('Error deleting invoices:', invoiceError);
+      throw invoiceError;
+    }
+
+    console.log('Resetting sales orders...');
+    const { error: orderError } = await supabase
+      .from('sales_order')
+      .update({ 
+        status: 'reviewed',
+        invoiced: false,
+        invoice_id: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('organization_id', organizationId)
+      .eq('invoiced', true);
+    
+    if (orderError) {
+      console.error('Error resetting orders:', orderError);
+      throw orderError;
     }
 
     console.log('=== Clear Invoices Completed ===');
-    console.log(`Result:`, result);
 
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'All invoices cleared successfully',
-        result
+        message: 'All invoices cleared successfully'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

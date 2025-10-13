@@ -29,7 +29,7 @@ export function ClearInvoicesButton() {
       if (data?.success) {
         toast({
           title: 'Invoices Cleared',
-          description: `All invoices cleared. ${data.reviewed_orders} orders reset to reviewed status.`,
+          description: 'All invoices have been cleared and orders reset to reviewed status.',
         });
         
         // Refresh the page to show updated data
