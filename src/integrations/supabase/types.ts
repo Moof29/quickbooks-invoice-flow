@@ -275,6 +275,65 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          changed_fields: string[] | null
+          created_at: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          new_values: Json | null
+          old_values: Json | null
+          organization_id: string
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changed_fields?: string[] | null
+          created_at?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          new_values?: Json | null
+          old_values?: Json | null
+          organization_id: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changed_fields?: string[] | null
+          created_at?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          new_values?: Json | null
+          old_values?: Json | null
+          organization_id?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log_entries: {
         Row: {
           after_data: Json | null
@@ -310,6 +369,146 @@ export type Database = {
           table_name?: string
         }
         Relationships: []
+      }
+      batch_job_queue: {
+        Row: {
+          actual_duration_seconds: number | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          errors: Json | null
+          estimated_duration_seconds: number | null
+          failed_items: number | null
+          id: string
+          job_config: Json | null
+          job_data: Json
+          job_type: string
+          organization_id: string
+          processed_items: number | null
+          started_at: string | null
+          status: string
+          successful_items: number | null
+          total_items: number
+          updated_at: string | null
+        }
+        Insert: {
+          actual_duration_seconds?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          errors?: Json | null
+          estimated_duration_seconds?: number | null
+          failed_items?: number | null
+          id?: string
+          job_config?: Json | null
+          job_data: Json
+          job_type: string
+          organization_id: string
+          processed_items?: number | null
+          started_at?: string | null
+          status?: string
+          successful_items?: number | null
+          total_items: number
+          updated_at?: string | null
+        }
+        Update: {
+          actual_duration_seconds?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          errors?: Json | null
+          estimated_duration_seconds?: number | null
+          failed_items?: number | null
+          id?: string
+          job_config?: Json | null
+          job_data?: Json
+          job_type?: string
+          organization_id?: string
+          processed_items?: number | null
+          started_at?: string | null
+          status?: string
+          successful_items?: number | null
+          total_items?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_job_queue_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_job_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      batch_processing_queue: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          error_message: string | null
+          id: string
+          job_type: string
+          max_retries: number | null
+          organization_id: string
+          payload: Json
+          priority: number | null
+          result: Json | null
+          retry_count: number | null
+          started_at: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          job_type: string
+          max_retries?: number | null
+          organization_id: string
+          payload: Json
+          priority?: number | null
+          result?: Json | null
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          max_retries?: number | null
+          organization_id?: string
+          payload?: Json
+          priority?: number | null
+          result?: Json | null
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_processing_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bill_line_item: {
         Row: {
@@ -477,6 +676,77 @@ export type Database = {
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bulk_invoice_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          created_by_metadata: Json | null
+          due_days: number | null
+          error_summary: Json | null
+          failed_count: number | null
+          failed_order_ids: string[] | null
+          id: string
+          invoice_date: string | null
+          organization_id: string
+          processed_count: number | null
+          progress_percentage: number | null
+          started_at: string | null
+          status: string
+          successful_count: number | null
+          total_orders: number
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          created_by_metadata?: Json | null
+          due_days?: number | null
+          error_summary?: Json | null
+          failed_count?: number | null
+          failed_order_ids?: string[] | null
+          id?: string
+          invoice_date?: string | null
+          organization_id: string
+          processed_count?: number | null
+          progress_percentage?: number | null
+          started_at?: string | null
+          status?: string
+          successful_count?: number | null
+          total_orders: number
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          created_by_metadata?: Json | null
+          due_days?: number | null
+          error_summary?: Json | null
+          failed_count?: number | null
+          failed_order_ids?: string[] | null
+          id?: string
+          invoice_date?: string | null
+          organization_id?: string
+          processed_count?: number | null
+          progress_percentage?: number | null
+          started_at?: string | null
+          status?: string
+          successful_count?: number | null
+          total_orders?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_invoice_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -3665,6 +3935,7 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          created_by_metadata: Json | null
           id: string
           invoice_id: string | null
           organization_id: string
@@ -3674,6 +3945,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          created_by_metadata?: Json | null
           id?: string
           invoice_id?: string | null
           organization_id: string
@@ -3683,6 +3955,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          created_by_metadata?: Json | null
           id?: string
           invoice_id?: string | null
           organization_id?: string
@@ -4799,12 +5072,39 @@ export type Database = {
         Args: { p_approved_by: string; p_sales_order_id: string }
         Returns: undefined
       }
+      batch_create_invoices_from_orders: {
+        Args: {
+          p_due_days?: number
+          p_invoice_date?: string
+          p_sales_order_ids: string[]
+          p_user_context?: Json
+        }
+        Returns: {
+          error_message: string
+          invoice_id: string
+          sales_order_id: string
+          success: boolean
+        }[]
+      }
       bulk_create_sales_orders_from_templates: {
         Args: { p_orders: Json }
         Returns: Json
       }
+      calculate_sales_order_totals: {
+        Args: { p_sales_order_id: string }
+        Returns: {
+          shipping_amount: number
+          subtotal: number
+          tax_amount: number
+          total: number
+        }[]
+      }
       can_delete_sales_order: {
         Args: { order_id: string }
+        Returns: boolean
+      }
+      cancel_bulk_invoice_job: {
+        Args: { p_job_id: string }
         Returns: boolean
       }
       check_duplicate_orders: {
@@ -4827,6 +5127,41 @@ export type Database = {
           has_duplicate: boolean
         }[]
       }
+      complete_batch_job: {
+        Args: { p_job_id: string; p_result?: Json }
+        Returns: undefined
+      }
+      create_audit_log: {
+        Args: {
+          p_action: string
+          p_entity_id: string
+          p_entity_type: string
+          p_metadata?: Json
+          p_new_values?: Json
+          p_old_values?: Json
+          p_organization_id: string
+        }
+        Returns: string
+      }
+      create_bulk_invoice_job: {
+        Args: {
+          p_due_days: number
+          p_invoice_date: string
+          p_organization_id: string
+          p_sales_order_ids: string[]
+          p_user_context: Json
+        }
+        Returns: string
+      }
+      create_invoice_from_sales_order: {
+        Args: {
+          p_due_days?: number
+          p_invoice_date?: string
+          p_sales_order_id: string
+          p_user_context?: Json
+        }
+        Returns: string
+      }
       create_sales_order_atomic: {
         Args: {
           p_customer_id: string
@@ -4842,6 +5177,19 @@ export type Database = {
           order_number: string
         }[]
       }
+      enqueue_batch_job: {
+        Args: {
+          p_job_type: string
+          p_organization_id: string
+          p_payload: Json
+          p_priority?: number
+        }
+        Returns: string
+      }
+      fail_batch_job: {
+        Args: { p_error_message: string; p_job_id: string }
+        Returns: undefined
+      }
       generate_sales_order_number: {
         Args: { org_id: string }
         Returns: string
@@ -4855,9 +5203,49 @@ export type Database = {
         }
         Returns: Json
       }
+      get_bulk_invoice_job_status: {
+        Args: { p_job_id: string }
+        Returns: {
+          completed_at: string
+          created_at: string
+          error_summary: Json
+          failed_count: number
+          failed_order_ids: string[]
+          job_id: string
+          processed_count: number
+          progress_percentage: number
+          started_at: string
+          status: string
+          successful_count: number
+          total_orders: number
+        }[]
+      }
+      get_next_batch_job: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          job_id: string
+          job_type: string
+          organization_id: string
+          payload: Json
+        }[]
+      }
+      get_next_invoice_number: {
+        Args: { p_organization_id: string }
+        Returns: string
+      }
       get_next_order_number: {
         Args: { p_organization_id: string; p_year: number }
         Returns: string
+      }
+      get_qb_sync_status: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: {
+          is_synced: boolean
+          last_sync_at: string
+          needs_sync: boolean
+          qb_id: string
+          sync_errors: string
+        }[]
       }
       get_qbo_connection_for_sync: {
         Args: { p_organization_id: string }
@@ -4916,6 +5304,18 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      needs_qb_sync: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_organization_id: string
+        }
+        Returns: boolean
+      }
+      process_invoice_batch: {
+        Args: { p_batch_payload: Json }
+        Returns: Json
+      }
       qbo_enqueue_sync_operation: {
         Args: {
           p_entity_id: string
@@ -4927,8 +5327,42 @@ export type Database = {
         }
         Returns: string
       }
+      queue_qb_sync: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_operation?: string
+          p_organization_id: string
+          p_priority?: number
+        }
+        Returns: string
+      }
       setup_table_rls: {
         Args: { table_name: string }
+        Returns: undefined
+      }
+      start_batch_job: {
+        Args: { p_job_id: string }
+        Returns: undefined
+      }
+      update_batch_job_progress: {
+        Args: {
+          p_errors?: Json
+          p_failed: number
+          p_job_id: string
+          p_processed: number
+          p_successful: number
+        }
+        Returns: undefined
+      }
+      update_qb_mapping: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_organization_id: string
+          p_qb_id: string
+          p_sync_token?: string
+        }
         Returns: undefined
       }
       update_qbo_connection_tokens: {
@@ -4949,6 +5383,37 @@ export type Database = {
             }
           | { permission: string }
         Returns: boolean
+      }
+      validate_customer_credit_limit: {
+        Args: { p_customer_id: string; p_new_order_total?: number }
+        Returns: {
+          available_credit: number
+          credit_limit: number
+          current_outstanding: number
+          is_valid: boolean
+          would_exceed: boolean
+        }[]
+      }
+      validate_inventory_availability: {
+        Args: {
+          p_item_id: string
+          p_organization_id: string
+          p_quantity: number
+        }
+        Returns: {
+          available_quantity: number
+          current_stock: number
+          is_available: boolean
+          reserved_quantity: number
+          shortage: number
+        }[]
+      }
+      validate_invoice_for_sending: {
+        Args: { p_invoice_id: string }
+        Returns: {
+          is_valid: boolean
+          validation_errors: string[]
+        }[]
       }
       validate_order_before_invoice: {
         Args: { p_order_id: string }

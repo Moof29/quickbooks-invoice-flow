@@ -5,12 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface BatchInvoiceRequest {
-  order_ids: string[];
-}
-
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -18,23 +13,13 @@ Deno.serve(async (req) => {
   try {
     console.log('=== Batch Invoice Orders Function Started ===');
 
-    // Create Supabase client with user's auth
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     );
 
-    // Verify authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser();
-
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) {
       console.error('Authentication error:', authError);
       return new Response(
@@ -45,96 +30,77 @@ Deno.serve(async (req) => {
 
     console.log('User authenticated:', user.id);
 
-    // Parse request body
-    const { order_ids }: BatchInvoiceRequest = await req.json();
+    // Get user's organization
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single();
 
-    if (!order_ids || !Array.isArray(order_ids) || order_ids.length === 0) {
+    if (!profile) {
+      console.error('User profile not found');
       return new Response(
-        JSON.stringify({ error: 'order_ids array is required and must not be empty' }),
+        JSON.stringify({ error: 'User profile not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { sales_order_ids, invoice_date, due_days } = await req.json();
+
+    if (!sales_order_ids || !Array.isArray(sales_order_ids) || sales_order_ids.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'sales_order_ids array is required and must not be empty' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Processing ${order_ids.length} orders`);
+    console.log(`Queueing ${sales_order_ids.length} invoices for user ${user.id}`);
 
-    const results = {
-      successful: [] as any[],
-      failed: [] as any[],
+    const userContext = {
+      user_id: user.id,
+      email: user.email,
+      source: 'batch-invoice-orders',
+      timestamp: new Date().toISOString(),
     };
 
-    // Process each order sequentially
-    for (const orderId of order_ids) {
-      try {
-        console.log(`\n--- Processing order: ${orderId} ---`);
+    // Use service role to create bulk job
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-        // Call the create-invoice-from-order function
-        const { data: invoiceResult, error: invoiceError } = await supabaseClient.functions.invoke(
-          'create-invoice-from-order',
-          {
-            body: { order_id: orderId },
-          }
-        );
+    const { data: jobId, error } = await supabaseAdmin.rpc('create_bulk_invoice_job', {
+      p_sales_order_ids: sales_order_ids,
+      p_organization_id: profile.organization_id,
+      p_invoice_date: invoice_date || new Date().toISOString().split('T')[0],
+      p_due_days: due_days || 30,
+      p_user_context: userContext,
+    });
 
-        if (invoiceError) {
-          console.error(`Error invoicing order ${orderId}:`, invoiceError);
-          results.failed.push({
-            order_id: orderId,
-            error: invoiceError.message || 'Unknown error',
-          });
-          continue;
-        }
-
-        if (!invoiceResult?.success) {
-          console.error(`Invoice creation failed for order ${orderId}:`, invoiceResult?.error);
-          results.failed.push({
-            order_id: orderId,
-            error: invoiceResult?.error || 'Invoice creation failed',
-          });
-          continue;
-        }
-
-        console.log(`Successfully invoiced order ${orderId}`);
-        results.successful.push({
-          order_id: orderId,
-          order_number: invoiceResult.order?.order_number,
-          invoice_id: invoiceResult.invoice?.id,
-          invoice_number: invoiceResult.invoice?.invoice_number,
-          total: invoiceResult.invoice?.total,
-        });
-      } catch (error) {
-        console.error(`Unexpected error processing order ${orderId}:`, error);
-        results.failed.push({
-          order_id: orderId,
-          error: error.message,
-        });
-      }
+    if (error) {
+      console.error('Error creating bulk job:', error);
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    console.log('\n=== Batch Invoice Complete ===');
-    console.log(`Successful: ${results.successful.length}`);
-    console.log(`Failed: ${results.failed.length}`);
+    console.log(`Bulk job created: ${jobId}, processing ${sales_order_ids.length} orders`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        total_processed: order_ids.length,
-        successful_count: results.successful.length,
-        failed_count: results.failed.length,
-        results: results,
+        job_id: jobId,
+        total_orders: sales_order_ids.length,
+        message: 'Job queued successfully. Processing will begin shortly.',
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Fatal error:', error);
+    console.error('Error queueing bulk job:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

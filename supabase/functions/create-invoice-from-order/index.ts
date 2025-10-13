@@ -7,6 +7,7 @@ const corsHeaders = {
 
 interface CreateInvoiceRequest {
   order_id: string;
+  user_id?: string; // Optional: for batch jobs with user context
 }
 
 Deno.serve(async (req) => {
@@ -46,7 +47,7 @@ Deno.serve(async (req) => {
     console.log('User authenticated:', user.id);
 
     // Parse request body
-    const { order_id }: CreateInvoiceRequest = await req.json();
+    const { order_id, user_id }: CreateInvoiceRequest = await req.json();
 
     if (!order_id) {
       return new Response(
@@ -56,6 +57,10 @@ Deno.serve(async (req) => {
     }
 
     console.log('Order ID:', order_id);
+    
+    // Use provided user_id or fall back to authenticated user
+    const createdBy = user_id || user.id;
+    console.log('Created by user:', createdBy);
 
     // Validate order can be invoiced
     const { data: validationResult } = await supabaseClient.rpc('validate_order_before_invoice', {
@@ -205,7 +210,7 @@ Deno.serve(async (req) => {
         organization_id: order.organization_id,
         sales_order_id: order_id,
         invoice_id: invoice.id,
-        created_by: user.id,
+        created_by: createdBy,
       });
 
     if (linkError) {

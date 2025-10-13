@@ -49,6 +49,7 @@ serve(async (req) => {
     let result;
     switch (job.job_type) {
       case 'invoice_generation':
+      case 'bulk_invoice_generation':
         result = await processInvoiceGeneration(supabase, job);
         break;
       case 'qb_sync':
@@ -108,34 +109,57 @@ serve(async (req) => {
 async function processInvoiceGeneration(supabase: any, job: any) {
   console.log('=== Processing Invoice Generation ===');
   
-  const orderIds = job.payload.sales_order_ids || [];
-  console.log(`Processing ${orderIds.length} orders`);
-
-  if (!orderIds || orderIds.length === 0) {
-    throw new Error('No sales order IDs provided in job payload');
+  const { sales_order_ids, user_context } = job.payload;
+  const userId = user_context?.user_id;
+  
+  if (!sales_order_ids || !Array.isArray(sales_order_ids)) {
+    throw new Error('Invalid payload: sales_order_ids array required');
   }
-
-  const { data, error } = await supabase.rpc('batch_create_invoices_from_orders', {
-    p_sales_order_ids: orderIds,
-    p_invoice_date: job.payload.invoice_date || new Date().toISOString().split('T')[0],
-    p_due_days: job.payload.due_days || 30,
-  });
-
-  if (error) {
-    console.error('Invoice generation error:', error);
-    throw error;
+  
+  console.log(`Creating ${sales_order_ids.length} invoices for user ${userId}`);
+  
+  const results = {
+    successful: [] as string[],
+    failed: [] as any[],
+  };
+  
+  // Process each order
+  for (const orderId of sales_order_ids) {
+    try {
+      console.log(`Processing order ${orderId}...`);
+      
+      // Call create-invoice-from-order with user_id from context
+      const { data, error } = await supabase.functions.invoke(
+        'create-invoice-from-order',
+        {
+          body: { 
+            order_id: orderId,
+            user_id: userId // Pass user_id from batch job context
+          }
+        }
+      );
+      
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Invoice creation failed');
+      
+      results.successful.push(orderId);
+      console.log(`✓ Invoice created for order ${orderId}`);
+    } catch (error: any) {
+      console.error(`✗ Failed to invoice order ${orderId}:`, error);
+      results.failed.push({
+        order_id: orderId,
+        error: error.message,
+      });
+    }
   }
-
-  const successful = data?.filter((r: any) => r.success).length || 0;
-  const failed = data?.filter((r: any) => !r.success).length || 0;
-
-  console.log(`Invoice generation complete: ${successful} succeeded, ${failed} failed`);
-
+  
+  console.log(`Batch complete: ${results.successful.length} successful, ${results.failed.length} failed`);
+  
   return {
-    total: orderIds.length,
-    successful,
-    failed,
-    results: data,
+    total: sales_order_ids.length,
+    successful: results.successful.length,
+    failed: results.failed.length,
+    results,
   };
 }
 
