@@ -19,32 +19,37 @@ Deno.serve(async (req) => {
   try {
     console.log('=== Create Invoice from Order Function Started ===');
 
-    // Create Supabase client with user's auth
+    // Check if this is a service role call (from batch processor)
+    const authHeader = req.headers.get('Authorization');
+    const isServiceRole = authHeader?.includes(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    
+    // Create Supabase client - use service role if called from batch processor
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      isServiceRole ? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' : Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
+          headers: authHeader ? { Authorization: authHeader } : {},
         },
       }
     );
 
-    // Verify authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser();
-
-    if (authError || !user) {
-      console.error('Authentication error:', authError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('User authenticated:', user.id);
+    // For non-service role calls, verify authentication
+    let user = null;
+    if (!isServiceRole) {
+      const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser();
+      
+      if (authError || !authUser) {
+        console.error('Authentication error:', authError);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      user = authUser;
+      console.log('User authenticated:', user.id);
+    } else {
+      console.log('Service role call - skipping user auth');
 
     // Parse request body
     const { order_id, user_id }: CreateInvoiceRequest = await req.json();
@@ -56,10 +61,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Order ID:', order_id);
     
-    // Use provided user_id or fall back to authenticated user
-    const createdBy = user_id || user.id;
+    // Use provided user_id or fall back to authenticated user (or null for service role)
+    const createdBy = user_id || user?.id;
     console.log('Created by user:', createdBy);
 
     // Validate order can be invoiced
