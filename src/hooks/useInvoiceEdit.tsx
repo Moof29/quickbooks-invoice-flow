@@ -19,7 +19,7 @@ interface LineItem {
   amount: number;
 }
 
-export const useInvoiceEdit = (invoiceId: string) => {
+export const useInvoiceEdit = (invoiceId: string, onDataChange?: () => void) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [editMode, setEditMode] = useState(false);
@@ -51,6 +51,7 @@ export const useInvoiceEdit = (invoiceId: string) => {
       setEditMode(false);
       queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      onDataChange?.();
     },
     onError: (error: any) => {
       toast({
@@ -78,6 +79,7 @@ export const useInvoiceEdit = (invoiceId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoice-line-items', invoiceId] });
       queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+      onDataChange?.();
     },
   });
 
@@ -98,6 +100,7 @@ export const useInvoiceEdit = (invoiceId: string) => {
       });
       queryClient.invalidateQueries({ queryKey: ['invoice-line-items', invoiceId] });
       queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+      onDataChange?.();
     },
   });
 
@@ -133,6 +136,7 @@ export const useInvoiceEdit = (invoiceId: string) => {
       });
       queryClient.invalidateQueries({ queryKey: ['invoice-line-items', invoiceId] });
       queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+      onDataChange?.();
     },
   });
 

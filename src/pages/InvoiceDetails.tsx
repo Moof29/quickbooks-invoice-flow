@@ -111,38 +111,6 @@ export default function InvoiceDetailsPage() {
     memo: '',
   });
 
-  const {
-    editMode,
-    setEditMode,
-    editingQuantity,
-    tempQuantity,
-    setTempQuantity,
-    handleQuantityEdit,
-    handleQuantitySave,
-    handleQuantityCancel,
-    handleInvoiceSave,
-    deleteLineItemMutation,
-    addLineItemMutation,
-  } = useInvoiceEdit(id || '');
-
-  useEffect(() => {
-    if (id) {
-      loadInvoiceDetails();
-      loadAvailableItems();
-    }
-  }, [id]);
-
-  useEffect(() => {
-    if (invoice && !editMode) {
-      setFormData({
-        invoice_date: invoice.invoice_date,
-        due_date: invoice.due_date,
-        status: invoice.status,
-        memo: invoice.memo || '',
-      });
-    }
-  }, [invoice, editMode]);
-
   const loadAvailableItems = async () => {
     try {
       const { data, error } = await supabase
@@ -238,6 +206,39 @@ export default function InvoiceDetailsPage() {
       setLoading(false);
     }
   };
+
+  // Initialize the invoice edit hook with the loadInvoiceDetails callback
+  const {
+    editMode,
+    setEditMode,
+    editingQuantity,
+    tempQuantity,
+    setTempQuantity,
+    handleQuantityEdit,
+    handleQuantitySave,
+    handleQuantityCancel,
+    handleInvoiceSave,
+    deleteLineItemMutation,
+    addLineItemMutation,
+  } = useInvoiceEdit(id || '', loadInvoiceDetails);
+
+  useEffect(() => {
+    if (id) {
+      loadInvoiceDetails();
+      loadAvailableItems();
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (invoice && !editMode) {
+      setFormData({
+        invoice_date: invoice.invoice_date,
+        due_date: invoice.due_date,
+        status: invoice.status,
+        memo: invoice.memo || '',
+      });
+    }
+  }, [invoice, editMode]);
 
   const handleDelete = async () => {
     if (!invoice) return;
