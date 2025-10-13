@@ -436,7 +436,7 @@ export type Database = {
             foreignKeyName: "batch_job_queue_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -676,77 +676,6 @@ export type Database = {
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendor_profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      bulk_invoice_jobs: {
-        Row: {
-          completed_at: string | null
-          created_at: string | null
-          created_by: string | null
-          created_by_metadata: Json | null
-          due_days: number | null
-          error_summary: Json | null
-          failed_count: number | null
-          failed_order_ids: string[] | null
-          id: string
-          invoice_date: string | null
-          organization_id: string
-          processed_count: number | null
-          progress_percentage: number | null
-          started_at: string | null
-          status: string
-          successful_count: number | null
-          total_orders: number
-          updated_at: string | null
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          created_by_metadata?: Json | null
-          due_days?: number | null
-          error_summary?: Json | null
-          failed_count?: number | null
-          failed_order_ids?: string[] | null
-          id?: string
-          invoice_date?: string | null
-          organization_id: string
-          processed_count?: number | null
-          progress_percentage?: number | null
-          started_at?: string | null
-          status?: string
-          successful_count?: number | null
-          total_orders: number
-          updated_at?: string | null
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          created_by_metadata?: Json | null
-          due_days?: number | null
-          error_summary?: Json | null
-          failed_count?: number | null
-          failed_order_ids?: string[] | null
-          id?: string
-          invoice_date?: string | null
-          organization_id?: string
-          processed_count?: number | null
-          progress_percentage?: number | null
-          started_at?: string | null
-          status?: string
-          successful_count?: number | null
-          total_orders?: number
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bulk_invoice_jobs_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -5145,11 +5074,11 @@ export type Database = {
       }
       create_bulk_invoice_job: {
         Args: {
-          p_due_days: number
-          p_invoice_date: string
+          p_due_days?: number
+          p_invoice_date?: string
           p_organization_id: string
           p_sales_order_ids: string[]
-          p_user_context: Json
+          p_user_context?: Json
         }
         Returns: string
       }
@@ -5206,18 +5135,18 @@ export type Database = {
       get_bulk_invoice_job_status: {
         Args: { p_job_id: string }
         Returns: {
+          actual_duration_seconds: number
           completed_at: string
           created_at: string
-          error_summary: Json
-          failed_count: number
-          failed_order_ids: string[]
+          errors: Json
+          failed_items: number
           job_id: string
-          processed_count: number
+          processed_items: number
           progress_percentage: number
           started_at: string
           status: string
-          successful_count: number
-          total_orders: number
+          successful_items: number
+          total_items: number
         }[]
       }
       get_next_batch_job: {

@@ -101,21 +101,24 @@ export function BulkJobProgress({ jobId, onComplete }: BulkJobProgressProps) {
 
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold">{status.processed_count || 0}</div>
+            <div className="text-2xl font-bold">{status.processed_items || 0}</div>
             <div className="text-sm text-muted-foreground">Processed</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-green-600">{status.successful_count || 0}</div>
+            <div className="text-2xl font-bold text-green-600">{status.successful_items || 0}</div>
             <div className="text-sm text-muted-foreground">Successful</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-red-600">{status.failed_count || 0}</div>
+            <div className="text-2xl font-bold text-red-600">{status.failed_items || 0}</div>
             <div className="text-sm text-muted-foreground">Failed</div>
           </div>
         </div>
 
         <div className="space-y-1 text-sm text-muted-foreground">
-          <div>Total Orders: {status.total_orders}</div>
+          <div>Total Orders: {status.total_items}</div>
+          {status.actual_duration_seconds && (
+            <div>Duration: {formatDuration(status.actual_duration_seconds)}</div>
+          )}
         </div>
 
         {status.status === 'processing' && (
@@ -124,29 +127,29 @@ export function BulkJobProgress({ jobId, onComplete }: BulkJobProgressProps) {
           </Button>
         )}
 
-        {status.failed_count > 0 && status.error_summary && (
+        {status.failed_items > 0 && status.errors && (
           <div className="text-sm">
             <div className="font-semibold mb-2 text-red-600">
-              Errors ({status.failed_count}):
+              Errors ({status.failed_items}):
             </div>
             <div className="max-h-40 overflow-y-auto space-y-1 bg-muted p-2 rounded">
-              {Array.isArray(status.error_summary) && (status.error_summary as any[]).slice(0, 10).map((err: any, i: number) => (
+              {Array.isArray(status.errors) && (status.errors as any[]).slice(0, 10).map((err: any, i: number) => (
                 <div key={i} className="text-xs font-mono">
                   <span className="text-red-600">Order:</span> {err.order_id?.slice(0, 8)}...
                   <br />
                   <span className="text-muted-foreground">{err.error}</span>
                 </div>
               ))}
-              {Array.isArray(status.error_summary) && (status.error_summary as any[]).length > 10 && (
+              {Array.isArray(status.errors) && (status.errors as any[]).length > 10 && (
                 <div className="text-xs text-muted-foreground">
-                  ... and {(status.error_summary as any[]).length - 10} more errors
+                  ... and {(status.errors as any[]).length - 10} more errors
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {status.status === 'completed' && status.failed_count === 0 && (
+        {status.status === 'completed' && status.failed_items === 0 && (
           <div className="text-sm text-green-600 font-medium">
             ✓ All invoices created successfully!
           </div>
