@@ -5099,6 +5099,10 @@ export type Database = {
           has_duplicate: boolean
         }[]
       }
+      clear_all_invoices: {
+        Args: { p_organization_id: string }
+        Returns: Json
+      }
       complete_batch_job: {
         Args: { p_job_id: string; p_result?: Json }
         Returns: undefined

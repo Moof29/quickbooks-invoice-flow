@@ -57,75 +57,26 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
     console.log('Organization ID:', organizationId);
 
-    // Delete invoice line items first (foreign key constraint)
-    console.log('Deleting invoice line items...');
-    const { error: lineItemsError } = await supabase
-      .from('invoice_line_item')
-      .delete()
-      .eq('organization_id', organizationId);
+    // Use RPC function to delete everything in one transaction
+    console.log('Clearing all invoice data...');
+    const { data: result, error: clearError } = await supabase.rpc('clear_all_invoices', {
+      p_organization_id: organizationId
+    });
 
-    if (lineItemsError) {
-      console.error('Error deleting line items:', lineItemsError);
-      throw lineItemsError;
+    if (clearError) {
+      console.error('Error clearing invoices:', clearError);
+      throw clearError;
     }
-
-    // Delete sales order invoice links
-    console.log('Deleting sales order invoice links...');
-    const { error: linksError } = await supabase
-      .from('sales_order_invoice_link')
-      .delete()
-      .eq('organization_id', organizationId);
-
-    if (linksError) {
-      console.error('Error deleting links:', linksError);
-      throw linksError;
-    }
-
-    // Delete all invoices
-    console.log('Deleting invoices...');
-    const { error: invoicesError } = await supabase
-      .from('invoice_record')
-      .delete()
-      .eq('organization_id', organizationId);
-
-    if (invoicesError) {
-      console.error('Error deleting invoices:', invoicesError);
-      throw invoicesError;
-    }
-
-    // Reset sales orders back to reviewed status
-    console.log('Resetting sales orders...');
-    const { error: resetError } = await supabase
-      .from('sales_order')
-      .update({
-        status: 'reviewed',
-        invoiced: false,
-        invoice_id: null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('organization_id', organizationId)
-      .eq('invoiced', true);
-
-    if (resetError) {
-      console.error('Error resetting orders:', resetError);
-      throw resetError;
-    }
-
-    // Get counts
-    const { count: reviewedCount } = await supabase
-      .from('sales_order')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', organizationId)
-      .eq('status', 'reviewed');
 
     console.log('=== Clear Invoices Completed ===');
-    console.log(`Reset ${reviewedCount} orders to reviewed status`);
+    console.log(`Result:`, result);
+
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'All invoices cleared successfully',
-        reviewed_orders: reviewedCount
+        result
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
