@@ -1943,13 +1943,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "invoice_record_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "invoice_record_currency_id_fkey"
             columns: ["currency_id"]
             isOneToOne: false
@@ -3924,13 +3917,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "sales_order_invoice_link_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "sales_order_invoice_link_invoice_id_fkey"
             columns: ["invoice_id"]
