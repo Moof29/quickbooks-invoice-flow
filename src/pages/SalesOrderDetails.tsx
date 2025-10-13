@@ -4,6 +4,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
 import { format, parseISO } from "date-fns";
+import { Combobox } from "@/components/ui/combobox";
 import {
   ArrowLeft,
   Save,
@@ -758,18 +759,18 @@ export default function SalesOrderDetails() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Select value={newItem.item_id} onValueChange={(value) => setNewItem({ ...newItem, item_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select item..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableItems.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={availableItems.map(item => ({
+                        value: item.id,
+                        label: item.name
+                      }))}
+                      value={newItem.item_id}
+                      onValueChange={(value) => setNewItem({ ...newItem, item_id: value })}
+                      placeholder="Select item..."
+                      searchPlaceholder="Search items..."
+                      emptyText="No items found."
+                      className="w-full"
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     <span className="font-mono text-sm text-muted-foreground">$0.00</span>
