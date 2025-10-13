@@ -706,10 +706,10 @@ const Invoices = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                        {invoice.invoice_date ? format(new Date(invoice.invoice_date + 'T00:00:00'), 'MMM dd, yyyy') : 'N/A'}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                        {invoice.due_date ? format(new Date(invoice.due_date + 'T00:00:00'), 'MMM dd, yyyy') : 'N/A'}
                       </TableCell>
                       <TableCell>
                         <span className="font-semibold text-sm">
