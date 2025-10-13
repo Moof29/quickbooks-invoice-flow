@@ -1791,6 +1791,38 @@ export type Database = {
           },
         ]
       }
+      invoice_number_sequences: {
+        Row: {
+          created_at: string
+          next_number: number
+          organization_id: string
+          prefix: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          next_number?: number
+          organization_id: string
+          prefix?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          next_number?: number
+          organization_id?: string
+          prefix?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_number_sequences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_record: {
         Row: {
           balance_due: number | null
