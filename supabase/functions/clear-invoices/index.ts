@@ -5,6 +5,113 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function clearInvoicesInBackground(organizationId: string) {
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+
+  const batchSize = 500;
+  let deletedLineItems = 0;
+  let deletedLinks = 0;
+  let deletedInvoices = 0;
+
+  try {
+    // Delete invoice line items in batches
+    console.log('Starting batched deletion of invoice line items...');
+    while (true) {
+      const { data: items, error: fetchError } = await supabase
+        .from('invoice_line_item')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .limit(batchSize);
+
+      if (fetchError) throw fetchError;
+      if (!items || items.length === 0) break;
+
+      const ids = items.map(item => item.id);
+      const { error: deleteError } = await supabase
+        .from('invoice_line_item')
+        .delete()
+        .in('id', ids);
+
+      if (deleteError) throw deleteError;
+      
+      deletedLineItems += items.length;
+      console.log(`Deleted ${deletedLineItems} line items so far...`);
+    }
+
+    // Delete sales order invoice links in batches
+    console.log('Starting batched deletion of invoice links...');
+    while (true) {
+      const { data: links, error: fetchError } = await supabase
+        .from('sales_order_invoice_link')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .limit(batchSize);
+
+      if (fetchError) throw fetchError;
+      if (!links || links.length === 0) break;
+
+      const ids = links.map(link => link.id);
+      const { error: deleteError } = await supabase
+        .from('sales_order_invoice_link')
+        .delete()
+        .in('id', ids);
+
+      if (deleteError) throw deleteError;
+      
+      deletedLinks += links.length;
+      console.log(`Deleted ${deletedLinks} links so far...`);
+    }
+
+    // Delete invoices in batches
+    console.log('Starting batched deletion of invoices...');
+    while (true) {
+      const { data: invoices, error: fetchError } = await supabase
+        .from('invoice_record')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .limit(batchSize);
+
+      if (fetchError) throw fetchError;
+      if (!invoices || invoices.length === 0) break;
+
+      const ids = invoices.map(inv => inv.id);
+      const { error: deleteError } = await supabase
+        .from('invoice_record')
+        .delete()
+        .in('id', ids);
+
+      if (deleteError) throw deleteError;
+      
+      deletedInvoices += invoices.length;
+      console.log(`Deleted ${deletedInvoices} invoices so far...`);
+    }
+
+    // Reset sales orders
+    console.log('Resetting sales orders...');
+    const { error: orderError } = await supabase
+      .from('sales_order')
+      .update({ 
+        status: 'reviewed',
+        invoiced: false,
+        invoice_id: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('organization_id', organizationId)
+      .eq('invoiced', true);
+
+    if (orderError) throw orderError;
+
+    console.log('=== Background Clear Completed ===');
+    console.log(`Total deleted: ${deletedLineItems} line items, ${deletedLinks} links, ${deletedInvoices} invoices`);
+  } catch (error) {
+    console.error('=== Background Clear Error ===');
+    console.error(error);
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -57,64 +164,15 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
     console.log('Organization ID:', organizationId);
 
-    // Delete in direct SQL operations using service role for speed
-    console.log('Deleting invoice line items...');
-    const { error: lineItemError } = await supabase
-      .from('invoice_line_item')
-      .delete()
-      .eq('organization_id', organizationId);
-    
-    if (lineItemError) {
-      console.error('Error deleting line items:', lineItemError);
-      throw lineItemError;
-    }
+    // Start background task for clearing invoices
+    console.log('Starting background clear task...');
+    EdgeRuntime.waitUntil(clearInvoicesInBackground(organizationId));
 
-    console.log('Deleting sales order invoice links...');
-    const { error: linkError } = await supabase
-      .from('sales_order_invoice_link')
-      .delete()
-      .eq('organization_id', organizationId);
-    
-    if (linkError) {
-      console.error('Error deleting links:', linkError);
-      throw linkError;
-    }
-
-    console.log('Deleting invoices...');
-    const { error: invoiceError } = await supabase
-      .from('invoice_record')
-      .delete()
-      .eq('organization_id', organizationId);
-    
-    if (invoiceError) {
-      console.error('Error deleting invoices:', invoiceError);
-      throw invoiceError;
-    }
-
-    console.log('Resetting sales orders...');
-    const { error: orderError } = await supabase
-      .from('sales_order')
-      .update({ 
-        status: 'reviewed',
-        invoiced: false,
-        invoice_id: null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('organization_id', organizationId)
-      .eq('invoiced', true);
-    
-    if (orderError) {
-      console.error('Error resetting orders:', orderError);
-      throw orderError;
-    }
-
-    console.log('=== Clear Invoices Completed ===');
-
-
+    // Return immediately
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'All invoices cleared successfully'
+        message: 'Invoice clearing started in background. This may take a few minutes.'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
