@@ -17,12 +17,20 @@ export function BulkJobProgress({ jobId, onComplete }: BulkJobProgressProps) {
   const { data: status, isLoading } = useQuery({
     queryKey: ['bulk-job-status', jobId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_bulk_invoice_job_status', {
-        p_job_id: jobId,
-      });
+      const { data, error } = await supabase
+        .from('batch_job_queue')
+        .select('*')
+        .eq('id', jobId)
+        .single();
       
       if (error) throw error;
-      return data?.[0];
+      
+      // Calculate progress percentage
+      const progress_percentage = data.total_items > 0 
+        ? Math.round((data.processed_items / data.total_items) * 100) 
+        : 0;
+      
+      return { ...data, progress_percentage };
     },
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -39,9 +47,14 @@ export function BulkJobProgress({ jobId, onComplete }: BulkJobProgressProps) {
 
   const handleCancel = async () => {
     try {
-      const { error } = await supabase.rpc('cancel_bulk_invoice_job', {
-        p_job_id: jobId,
-      });
+      const { error } = await supabase
+        .from('batch_job_queue')
+        .update({ 
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
       
       if (error) throw error;
       
