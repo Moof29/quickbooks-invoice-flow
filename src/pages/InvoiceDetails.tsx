@@ -782,10 +782,11 @@ export default function InvoiceDetailsPage() {
                     <TableCell className="py-2">
                       <Input
                         type="number"
-                        min="1"
+                        min="0"
+                        step="0.01"
                         value={newItem.quantity}
                         onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                        className="w-16 h-8"
+                        className="w-20 h-8 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         placeholder="0"
                       />
                     </TableCell>
