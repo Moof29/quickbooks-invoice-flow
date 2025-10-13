@@ -29,6 +29,17 @@ export const useInvoiceEdit = (invoiceId: string) => {
   // Update invoice header mutation
   const updateInvoiceMutation = useMutation({
     mutationFn: async (formData: InvoiceDetails) => {
+      // First, recalculate totals from line items
+      const { data: lineItemsData, error: lineItemsError } = await supabase
+        .from('invoice_line_item')
+        .select('amount')
+        .eq('invoice_id', invoiceId);
+
+      if (lineItemsError) throw lineItemsError;
+
+      const calculatedTotal = lineItemsData?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
+
+      // Update invoice with recalculated totals
       const { error } = await supabase
         .from('invoice_record')
         .update({
@@ -36,6 +47,8 @@ export const useInvoiceEdit = (invoiceId: string) => {
           due_date: formData.due_date || null,
           status: formData.status,
           memo: formData.memo || null,
+          subtotal: calculatedTotal,
+          total: calculatedTotal,
           updated_at: new Date().toISOString(),
         })
         .eq('id', invoiceId);
