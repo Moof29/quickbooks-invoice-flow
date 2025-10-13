@@ -19,8 +19,13 @@ Deno.serve(async (req) => {
   try {
     console.log('=== Batch Job Processor Starting ===');
 
-    // Get next pending job
-    const { data: jobs, error: jobError } = await supabase.rpc('get_next_batch_job');
+    // Get next pending job directly from table
+    const { data: jobs, error: jobError } = await supabase
+      .from('batch_job_queue')
+      .select('*')
+      .in('status', ['pending'])
+      .order('created_at', { ascending: true })
+      .limit(1);
     
     if (jobError) {
       console.error('Error fetching batch job:', jobError);
@@ -38,13 +43,28 @@ Deno.serve(async (req) => {
     }
 
     const job = jobs[0];
-    console.log(`Processing job ${job.job_id} - type: ${job.job_type}`);
+    console.log(`Processing job ${job.id} - type: ${job.job_type}`);
+
+    // Mark job as processing
+    const { error: updateError } = await supabase
+      .from('batch_job_queue')
+      .update({ 
+        status: 'processing',
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', job.id);
+
+    if (updateError) {
+      console.error('Error updating job status:', updateError);
+      throw updateError;
+    }
 
     // Process invoice generation jobs with incremental progress
     if (job.job_type === 'bulk_invoice_generation' || job.job_type === 'invoice_generation') {
       console.log('Processing invoice generation batch with incremental updates...');
       
-      const orderIds = job.payload?.sales_order_ids || [];
+      const orderIds = job.job_data?.sales_order_ids || [];
       const CHUNK_SIZE = 10; // Process 10 orders at a time
       
       let processed = 0;
@@ -60,7 +80,7 @@ Deno.serve(async (req) => {
         const { data: jobStatus } = await supabase
           .from('batch_job_queue')
           .select('status')
-          .eq('id', job.job_id)
+          .eq('id', job.id)
           .single();
         
         if (jobStatus?.status === 'cancelled') {
@@ -68,7 +88,7 @@ Deno.serve(async (req) => {
           return new Response(
             JSON.stringify({ 
               success: true, 
-              job_id: job.job_id,
+              job_id: job.id,
               message: 'Job cancelled',
               processed,
               successful,
@@ -154,26 +174,36 @@ Deno.serve(async (req) => {
 
         // Update progress after each chunk
         console.log(`Progress: ${processed}/${orderIds.length} (${successful} successful, ${failed} failed)`);
-        await supabase.rpc('update_batch_job_progress', {
-          p_job_id: job.job_id,
-          p_processed: processed,
-          p_successful: successful,
-          p_failed: failed,
-          p_errors: errors
-        });
+        const { error: progressError } = await supabase
+          .from('batch_job_queue')
+          .update({
+            processed_items: processed,
+            successful_items: successful,
+            failed_items: failed,
+            errors: errors,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', job.id);
+
+        if (progressError) {
+          console.error('Error updating progress:', progressError);
+        }
       }
 
       // Mark job as completed
-      console.log(`Marking job ${job.job_id} as completed...`);
-      const { error: completeError } = await supabase.rpc('complete_batch_job', {
-        p_job_id: job.job_id,
-        p_result: {
-          total: orderIds.length,
-          successful,
-          failed,
-          errors: errors.slice(0, 100) // Limit stored errors to first 100
-        }
-      });
+      console.log(`Marking job ${job.id} as completed...`);
+      const { error: completeError } = await supabase
+        .from('batch_job_queue')
+        .update({
+          status: 'completed',
+          processed_items: processed,
+          successful_items: successful,
+          failed_items: failed,
+          errors: errors.slice(0, 100),
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.id);
 
       if (completeError) {
         console.error('Error marking job as complete:', completeError);
@@ -186,7 +216,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          job_id: job.job_id,
+          job_id: job.id,
           processed,
           successful,
           failed,
