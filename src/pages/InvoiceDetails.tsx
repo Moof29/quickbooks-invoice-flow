@@ -4,6 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -23,13 +33,19 @@ import {
   Calendar,
   DollarSign,
   Eye,
+  Save,
+  X,
+  Plus,
+  Check,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 import { format } from 'date-fns';
 import { pdf } from '@react-pdf/renderer';
 import { InvoicePDF } from '@/components/InvoicePDF';
-import { InvoiceEditDialog } from '@/components/InvoiceEditDialog';
+import { useInvoiceEdit } from '@/hooks/useInvoiceEdit';
+import { Combobox } from '@/components/ui/combobox';
 
 interface InvoiceLineItem {
   id: string;
@@ -77,18 +93,70 @@ export default function InvoiceDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useAuthProfile();
   
   const [invoice, setInvoice] = useState<InvoiceDetails | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [salesOrderLinks, setSalesOrderLinks] = useState<SalesOrderLink[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [availableItems, setAvailableItems] = useState<{ id: string; name: string }[]>([]);
+  const [newItem, setNewItem] = useState({ item_id: '', quantity: '1' });
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  
+  // Form state for editing
+  const [formData, setFormData] = useState({
+    invoice_date: '',
+    due_date: '',
+    status: '',
+    memo: '',
+  });
+
+  const {
+    editMode,
+    setEditMode,
+    editingQuantity,
+    tempQuantity,
+    setTempQuantity,
+    handleQuantityEdit,
+    handleQuantitySave,
+    handleQuantityCancel,
+    handleInvoiceSave,
+    deleteLineItemMutation,
+    addLineItemMutation,
+  } = useInvoiceEdit(id || '');
 
   useEffect(() => {
     if (id) {
       loadInvoiceDetails();
+      loadAvailableItems();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (invoice && !editMode) {
+      setFormData({
+        invoice_date: invoice.invoice_date,
+        due_date: invoice.due_date,
+        status: invoice.status,
+        memo: invoice.memo || '',
+      });
+    }
+  }, [invoice, editMode]);
+
+  const loadAvailableItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('item_record')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setAvailableItems(data || []);
+    } catch (error) {
+      console.error('Error loading items:', error);
+    }
+  };
 
   const loadInvoiceDetails = async () => {
     try {
@@ -377,10 +445,33 @@ export default function InvoiceDetailsPage() {
               Mark as Paid
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
+          {!editMode ? (
+            <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={async () => {
+                await handleInvoiceSave(formData);
+              }}>
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => {
+                setEditMode(false);
+                setFormData({
+                  invoice_date: invoice.invoice_date,
+                  due_date: invoice.due_date,
+                  status: invoice.status,
+                  memo: invoice.memo || '',
+                });
+              }}>
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+            </>
+          )}
           <Button variant="destructive" size="sm" onClick={handleDelete}>
             <Trash2 className="h-4 w-4 mr-2" />
             Delete
@@ -391,38 +482,82 @@ export default function InvoiceDetailsPage() {
       {/* Compact Summary with Customer Info */}
       <Card className="border-0 shadow-sm">
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-6 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Status:</span>
-              <Badge variant={getStatusVariant(invoice.status)}>
-                {invoice.status || 'draft'}
-              </Badge>
-              {daysUntilDue !== null && invoice.status?.toLowerCase() !== 'paid' && (
-                <span className="text-xs text-muted-foreground">
-                  {daysUntilDue > 0 ? `(Due in ${daysUntilDue} days)` : daysUntilDue === 0 ? '(Due today)' : `(Overdue by ${Math.abs(daysUntilDue)} days)`}
+          {editMode ? (
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="space-y-2">
+                <Label htmlFor="invoice_date">Invoice Date *</Label>
+                <Input
+                  id="invoice_date"
+                  type="date"
+                  value={formData.invoice_date}
+                  onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="due_date">Due Date</Label>
+                <Input
+                  id="due_date"
+                  type="date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-6 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Status:</span>
+                <Badge variant={getStatusVariant(invoice.status)}>
+                  {invoice.status || 'draft'}
+                </Badge>
+                {daysUntilDue !== null && invoice.status?.toLowerCase() !== 'paid' && (
+                  <span className="text-xs text-muted-foreground">
+                    {daysUntilDue > 0 ? `(Due in ${daysUntilDue} days)` : daysUntilDue === 0 ? '(Due today)' : `(Overdue by ${Math.abs(daysUntilDue)} days)`}
+                  </span>
+                )}
+              </div>
+              <Separator orientation="vertical" className="h-6" />
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-2xl font-bold">
+                  ${invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-              )}
-            </div>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              <span className="text-2xl font-bold">
-                ${invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Invoice:</span>
-                <span className="font-medium">{invoice.invoice_date ? format(new Date(invoice.invoice_date), 'MMM d, yyyy') : 'N/A'}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Due:</span>
-                <span className="font-medium">{invoice.due_date ? format(new Date(invoice.due_date), 'MMM d, yyyy') : 'N/A'}</span>
+              <Separator orientation="vertical" className="h-6" />
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Invoice:</span>
+                  <span className="font-medium">{invoice.invoice_date ? format(new Date(invoice.invoice_date), 'MMM d, yyyy') : 'N/A'}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground">Due:</span>
+                  <span className="font-medium">{invoice.due_date ? format(new Date(invoice.due_date), 'MMM d, yyyy') : 'N/A'}</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
           
           <Separator className="my-3" />
           
@@ -469,7 +604,19 @@ export default function InvoiceDetailsPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Line Items</CardTitle>
-            <span className="text-sm text-muted-foreground">{lineItems.length} item{lineItems.length !== 1 ? 's' : ''}</span>
+            <div className="flex gap-2 items-center">
+              <span className="text-sm text-muted-foreground">{lineItems.length} item{lineItems.length !== 1 ? 's' : ''}</span>
+              {editMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddingItem(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -481,12 +628,34 @@ export default function InvoiceDetailsPage() {
                   <TableHead className="h-9">Item</TableHead>
                   <TableHead className="h-9 text-right w-24">Price</TableHead>
                   <TableHead className="h-9 text-right w-24">Amount</TableHead>
+                  {editMode && <TableHead className="h-9 text-center w-24">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {lineItems.map((item) => (
                   <TableRow key={item.id} className="hover:bg-muted/50">
-                    <TableCell className="py-2">{item.quantity}</TableCell>
+                    <TableCell className="py-2">
+                      {editMode && editingQuantity === item.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={tempQuantity}
+                            onChange={(e) => setTempQuantity(e.target.value)}
+                            className="w-16 h-8"
+                            autoFocus
+                          />
+                        </div>
+                      ) : (
+                        <span
+                          className={editMode ? 'cursor-pointer hover:text-primary' : ''}
+                          onClick={() => editMode && handleQuantityEdit(item.id, item.quantity)}
+                        >
+                          {item.quantity}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="py-2">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{item.item_record?.name || 'Unknown Item'}</span>
@@ -501,8 +670,115 @@ export default function InvoiceDetailsPage() {
                     <TableCell className="py-2 text-right font-medium">
                       ${item.amount?.toFixed(2)}
                     </TableCell>
+                    {editMode && (
+                      <TableCell className="py-2 text-center">
+                        {editingQuantity === item.id ? (
+                          <div className="flex justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleQuantitySave(item.id, item.unit_price)}
+                              className="h-7 w-7 p-0"
+                            >
+                              <Check className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleQuantityCancel}
+                              className="h-7 w-7 p-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteLineItemMutation.mutate(item.id)}
+                            className="h-7 w-7 p-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
+                {isAddingItem && editMode && (
+                  <TableRow className="hover:bg-muted/50 bg-muted/20">
+                    <TableCell className="py-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={newItem.quantity}
+                        onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                        className="w-16 h-8"
+                        placeholder="0"
+                      />
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Combobox
+                        options={availableItems.map(item => ({
+                          value: item.id,
+                          label: item.name
+                        }))}
+                        value={newItem.item_id}
+                        onValueChange={(value) => setNewItem({ ...newItem, item_id: value })}
+                        placeholder="Select item..."
+                        searchPlaceholder="Search items..."
+                        emptyText="No items found."
+                        className="h-8"
+                      />
+                    </TableCell>
+                    <TableCell className="py-2 text-right">
+                      <span className="text-xs text-muted-foreground">Auto</span>
+                    </TableCell>
+                    <TableCell className="py-2 text-right">
+                      <span className="text-xs text-muted-foreground">Auto</span>
+                    </TableCell>
+                    <TableCell className="py-2 text-center">
+                      <div className="flex justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            if (!newItem.item_id || !newItem.quantity) {
+                              toast({
+                                title: 'Error',
+                                description: 'Please select an item and enter quantity',
+                                variant: 'destructive',
+                              });
+                              return;
+                            }
+                            await addLineItemMutation.mutateAsync({
+                              item_id: newItem.item_id,
+                              quantity: parseFloat(newItem.quantity),
+                              organization_id: profile?.organization_id || '',
+                            });
+                            setNewItem({ item_id: '', quantity: '1' });
+                            setIsAddingItem(false);
+                            loadInvoiceDetails();
+                          }}
+                          className="h-7 w-7 p-0"
+                        >
+                          <Check className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIsAddingItem(false);
+                            setNewItem({ item_id: '', quantity: '1' });
+                          }}
+                          className="h-7 w-7 p-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -535,32 +811,24 @@ export default function InvoiceDetailsPage() {
       </Card>
 
       {/* Memo */}
-      {invoice.memo && (
+      {(invoice.memo || editMode) && (
         <Card className="border-0 shadow-sm">
           <CardHeader>
             <CardTitle>Memo</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{invoice.memo}</p>
+            {editMode ? (
+              <Textarea
+                value={formData.memo}
+                onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
+                placeholder="Add memo..."
+                rows={3}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{invoice.memo}</p>
+            )}
           </CardContent>
         </Card>
-      )}
-
-      {/* Edit Dialog */}
-      {invoice && (
-        <InvoiceEditDialog
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          invoiceId={invoice.id}
-          initialData={{
-            invoice_date: invoice.invoice_date,
-            due_date: invoice.due_date,
-            status: invoice.status,
-            memo: invoice.memo,
-          }}
-          initialLineItems={lineItems}
-          onSuccess={loadInvoiceDetails}
-        />
       )}
     </div>
   );
