@@ -102,11 +102,12 @@ Deno.serve(async (req) => {
                 console.log(`✓ Invoice created for order ${orderId}${retryCount > 0 ? ` (after ${retryCount} retries)` : ''}`);
               } else {
                 lastError = result?.error;
+                console.log(`Invoice creation failed for ${orderId}:`, JSON.stringify(result));
                 
                 // Don't retry validation errors (permanent failures)
                 const nonRetryableCodes = ['ALREADY_INVOICED', 'NOT_REVIEWED', 'VALIDATION_FAILED'];
-                if (nonRetryableCodes.includes(result?.error?.code)) {
-                  console.log(`✗ Permanent error for order ${orderId}: ${result?.error?.code}`);
+                if (result?.error?.code && nonRetryableCodes.includes(result.error.code)) {
+                  console.log(`✗ Permanent error for order ${orderId}: ${result.error.code} - skipping retries`);
                   break; // Skip retries for validation errors
                 }
 
