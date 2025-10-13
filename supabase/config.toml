@@ -30,3 +30,6 @@ verify_jwt = false
 
 [functions.generate-template-test-data]
 verify_jwt = true
+
+[functions.batch-processor]
+verify_jwt = false
