@@ -6,6 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -43,8 +49,12 @@ import {
   CheckCircle2,
   Search,
   ArrowUpDown,
-  Filter
+  Filter,
+  CalendarIcon,
+  X
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceDialog } from '@/components/InvoiceDialog';
@@ -73,6 +83,9 @@ const Invoices = () => {
   const [customerFilter, setCustomerFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [dateType, setDateType] = useState<'invoice_date' | 'due_date'>('invoice_date');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -149,7 +162,24 @@ const Invoices = () => {
     const customerName = invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'Unknown';
     const matchesCustomer = customerFilter === 'all' || customerName === customerFilter;
     
-    return matchesSearch && matchesStatus && matchesCustomer;
+    // Date range filter
+    let matchesDateRange = true;
+    if (dateFrom || dateTo) {
+      const dateToCheck = dateType === 'invoice_date' ? invoice.invoice_date : invoice.due_date;
+      if (dateToCheck) {
+        const invoiceDate = new Date(dateToCheck);
+        if (dateFrom && invoiceDate < dateFrom) {
+          matchesDateRange = false;
+        }
+        if (dateTo && invoiceDate > dateTo) {
+          matchesDateRange = false;
+        }
+      } else {
+        matchesDateRange = false;
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesCustomer && matchesDateRange;
   }).sort((a, b) => {
     let aValue: any;
     let bValue: any;
@@ -287,6 +317,81 @@ const Invoices = () => {
                 className="pl-9"
               />
             </div>
+
+            {/* Date Type Selector */}
+            <Select value={dateType} onValueChange={(value: 'invoice_date' | 'due_date') => setDateType(value)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="invoice_date">Invoice Date</SelectItem>
+                <SelectItem value="due_date">Due Date</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Date From */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[150px] justify-start text-left font-normal",
+                    !dateFrom && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFrom ? format(dateFrom, "MMM dd, yyyy") : "From date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateFrom}
+                  onSelect={setDateFrom}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* Date To */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[150px] justify-start text-left font-normal",
+                    !dateTo && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateTo ? format(dateTo, "MMM dd, yyyy") : "To date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateTo}
+                  onSelect={setDateTo}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* Clear Date Filter */}
+            {(dateFrom || dateTo) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setDateFrom(undefined);
+                  setDateTo(undefined);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
 
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
