@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
+import { ClearInvoicesButton } from '@/components/ClearInvoicesButton';
 import {
   Popover,
   PopoverContent,
@@ -321,10 +322,13 @@ const Invoices = () => {
           <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
           <p className="text-muted-foreground mt-1">Manage and track all your invoices</p>
         </div>
-        <Button onClick={() => setShowInvoiceDialog(true)} size="default">
-          <Plus className="w-4 h-4 mr-2" />
-          Create New Invoice
-        </Button>
+        <div className="flex gap-2">
+          <ClearInvoicesButton />
+          <Button onClick={() => setShowInvoiceDialog(true)} size="default">
+            <Plus className="w-4 h-4 mr-2" />
+            Create New Invoice
+          </Button>
+        </div>
       </div>
 
       {/* Search, Filter, and Sort */}
