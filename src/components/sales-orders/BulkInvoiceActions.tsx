@@ -120,16 +120,25 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
   };
 
   const handleJobComplete = async () => {
+    console.log('🎯 handleJobComplete called for jobId:', jobId);
+    
+    // Add small delay to ensure database has been updated
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     // Fetch final job status to get accurate counts
     if (jobId) {
-      const { data: finalJob } = await supabase
+      const { data: finalJob, error } = await supabase
         .from('batch_job_queue')
-        .select('successful_items, failed_items, total_items')
+        .select('successful_items, failed_items, total_items, status')
         .eq('id', jobId)
         .single();
       
+      console.log('📊 Final job data:', { finalJob, error });
+      
       if (finalJob) {
         const { successful_items = 0, failed_items = 0, total_items = 0 } = finalJob;
+        
+        console.log('✅ Showing toast with counts:', { successful_items, failed_items, total_items });
         
         if (failed_items > 0) {
           toast({
@@ -143,6 +152,8 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
             description: `${successful_items} orders invoiced successfully`,
           });
         }
+      } else {
+        console.error('❌ No finalJob data returned');
       }
     }
     
