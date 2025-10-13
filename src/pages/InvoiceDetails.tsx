@@ -102,6 +102,7 @@ export default function InvoiceDetailsPage() {
   const [availableItems, setAvailableItems] = useState<{ id: string; name: string }[]>([]);
   const [newItem, setNewItem] = useState({ item_id: '', quantity: '1' });
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [quantities, setQuantities] = useState<Record<string, string>>({});
   
   // Form state for editing
   const [formData, setFormData] = useState({
@@ -211,15 +212,10 @@ export default function InvoiceDetailsPage() {
   const {
     editMode,
     setEditMode,
-    editingQuantity,
-    tempQuantity,
-    setTempQuantity,
-    handleQuantityEdit,
-    handleQuantitySave,
-    handleQuantityCancel,
     handleInvoiceSave,
     deleteLineItemMutation,
     addLineItemMutation,
+    updateQuantityMutation,
   } = useInvoiceEdit(id || '', loadInvoiceDetails);
 
   useEffect(() => {
@@ -239,6 +235,49 @@ export default function InvoiceDetailsPage() {
       });
     }
   }, [invoice, editMode]);
+
+  // Initialize quantities when line items load
+  useEffect(() => {
+    if (lineItems.length > 0) {
+      const initialQuantities: Record<string, string> = {};
+      lineItems.forEach(item => {
+        initialQuantities[item.id] = item.quantity.toString();
+      });
+      setQuantities(initialQuantities);
+    }
+  }, [lineItems]);
+
+  const handleQuantityChange = (lineItemId: string, value: string) => {
+    setQuantities(prev => ({ ...prev, [lineItemId]: value }));
+  };
+
+  const handleQuantityBlur = (lineItemId: string, originalQuantity: number, unitPrice: number) => {
+    const newQuantity = parseFloat(quantities[lineItemId] || "0");
+    if (isNaN(newQuantity) || newQuantity < 0) {
+      // Reset to original if invalid
+      setQuantities(prev => ({ ...prev, [lineItemId]: originalQuantity.toString() }));
+      toast({
+        title: "Invalid quantity",
+        description: "Please enter a valid number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Only update if changed
+    if (newQuantity !== originalQuantity) {
+      updateQuantityMutation.mutate({ lineItemId, quantity: newQuantity, unitPrice });
+    }
+  };
+
+  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, lineItemId: string, originalQuantity: number) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    } else if (e.key === "Escape") {
+      setQuantities(prev => ({ ...prev, [lineItemId]: originalQuantity.toString() }));
+      e.currentTarget.blur();
+    }
+  };
 
   const handleDelete = async () => {
     if (!invoice) return;
@@ -636,25 +675,19 @@ export default function InvoiceDetailsPage() {
                 {lineItems.map((item) => (
                   <TableRow key={item.id} className="hover:bg-muted/50">
                     <TableCell className="py-2">
-                      {editMode && editingQuantity === item.id ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={tempQuantity}
-                            onChange={(e) => setTempQuantity(e.target.value)}
-                            className="w-16 h-8"
-                            autoFocus
-                          />
-                        </div>
+                      {editMode ? (
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={quantities[item.id] || ''}
+                          onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                          onBlur={() => handleQuantityBlur(item.id, item.quantity, item.unit_price)}
+                          onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
+                          className="w-20 h-8 text-center"
+                        />
                       ) : (
-                        <span
-                          className={editMode ? 'cursor-pointer hover:text-primary' : ''}
-                          onClick={() => editMode && handleQuantityEdit(item.id, item.quantity)}
-                        >
-                          {item.quantity}
-                        </span>
+                        <span>{item.quantity}</span>
                       )}
                     </TableCell>
                     <TableCell className="py-2">
@@ -673,35 +706,14 @@ export default function InvoiceDetailsPage() {
                     </TableCell>
                     {editMode && (
                       <TableCell className="py-2 text-center">
-                        {editingQuantity === item.id ? (
-                          <div className="flex justify-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleQuantitySave(item.id, item.unit_price)}
-                              className="h-7 w-7 p-0"
-                            >
-                              <Check className="h-4 w-4 text-green-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleQuantityCancel}
-                              className="h-7 w-7 p-0"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteLineItemMutation.mutate(item.id)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteLineItemMutation.mutate(item.id)}
+                          className="h-7 w-7 p-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     )}
                   </TableRow>

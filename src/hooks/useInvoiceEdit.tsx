@@ -23,8 +23,6 @@ export const useInvoiceEdit = (invoiceId: string, onDataChange?: () => void) => 
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [editMode, setEditMode] = useState(false);
-  const [editingQuantity, setEditingQuantity] = useState<string | null>(null);
-  const [tempQuantity, setTempQuantity] = useState<string>('');
 
   // Update invoice header mutation
   const updateInvoiceMutation = useMutation({
@@ -62,24 +60,33 @@ export const useInvoiceEdit = (invoiceId: string, onDataChange?: () => void) => 
     },
   });
 
-  // Update line item quantity mutation
-  const updateLineItemMutation = useMutation({
-    mutationFn: async ({ lineItemId, quantity, unit_price }: { lineItemId: string; quantity: number; unit_price: number }) => {
+  // Update quantity mutation
+  const updateQuantityMutation = useMutation({
+    mutationFn: async ({ lineItemId, quantity, unitPrice }: { 
+      lineItemId: string; 
+      quantity: number;
+      unitPrice: number;
+    }) => {
       const { error } = await supabase
         .from('invoice_line_item')
-        .update({ 
-          quantity,
-          unit_price,
-        })
+        .update({ quantity, unit_price: unitPrice })
         .eq('id', lineItemId);
-
+      
       if (error) throw error;
-      return { success: true, quantity, unit_price };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoice-line-items', invoiceId] });
       queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast({ title: 'Quantity updated successfully' });
       onDataChange?.();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error updating quantity',
+        description: error.message,
+        variant: 'destructive',
+      });
     },
   });
 
@@ -140,32 +147,6 @@ export const useInvoiceEdit = (invoiceId: string, onDataChange?: () => void) => 
     },
   });
 
-  const handleQuantityEdit = (lineItemId: string, currentQuantity: number) => {
-    setEditingQuantity(lineItemId);
-    setTempQuantity(currentQuantity.toString());
-  };
-
-  const handleQuantitySave = async (lineItemId: string, unit_price: number) => {
-    const quantity = parseFloat(tempQuantity);
-    if (isNaN(quantity) || quantity < 0) {
-      toast({
-        title: 'Invalid Input',
-        description: 'Please enter a valid quantity',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    await updateLineItemMutation.mutateAsync({ lineItemId, quantity, unit_price });
-    setEditingQuantity(null);
-    setTempQuantity('');
-  };
-
-  const handleQuantityCancel = () => {
-    setEditingQuantity(null);
-    setTempQuantity('');
-  };
-
   const handleInvoiceSave = async (formData: InvoiceDetails) => {
     await updateInvoiceMutation.mutateAsync(formData);
   };
@@ -173,15 +154,9 @@ export const useInvoiceEdit = (invoiceId: string, onDataChange?: () => void) => 
   return {
     editMode,
     setEditMode,
-    editingQuantity,
-    tempQuantity,
-    setTempQuantity,
-    handleQuantityEdit,
-    handleQuantitySave,
-    handleQuantityCancel,
     handleInvoiceSave,
     updateInvoiceMutation,
-    updateLineItemMutation,
+    updateQuantityMutation,
     deleteLineItemMutation,
     addLineItemMutation,
   };
