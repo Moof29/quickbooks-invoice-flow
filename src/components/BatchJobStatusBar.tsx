@@ -140,8 +140,32 @@ export function BatchJobStatusBar() {
     };
   }, [profile?.organization_id, toast, fetchActiveJobs]);
 
-  const handleDismiss = (jobId: string) => {
-    setActiveJobs(prev => prev.filter(j => j.id !== jobId));
+  const handleDismiss = async (jobId: string) => {
+    try {
+      // Cancel the job in the database so it doesn't reappear
+      const { error } = await supabase
+        .from('batch_job_queue')
+        .update({ 
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancelled_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      // Remove from local state
+      setActiveJobs(prev => prev.filter(j => j.id !== jobId));
+      
+      toast({
+        title: 'Job Dismissed',
+        description: 'The batch job has been cancelled',
+      });
+    } catch (error: any) {
+      console.error('Error dismissing job:', error);
+      // Still remove from UI even if database update fails
+      setActiveJobs(prev => prev.filter(j => j.id !== jobId));
+    }
   };
 
   const getJobTitle = (jobType: string) => {
