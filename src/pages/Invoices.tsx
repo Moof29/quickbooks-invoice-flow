@@ -79,7 +79,7 @@ const Invoices = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [customerFilter, setCustomerFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -87,6 +87,14 @@ const Invoices = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const { toast } = useToast();
+
+  const statusOptions = [
+    { value: 'paid', label: 'Paid' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'overdue', label: 'Overdue' },
+    { value: 'draft', label: 'Draft' },
+    { value: 'sent', label: 'Sent' },
+  ];
 
   useEffect(() => {
     loadInvoices();
@@ -156,8 +164,8 @@ const Invoices = () => {
       invoice.customer_profile?.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.customer_profile?.display_name?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || 
-      invoice.status?.toLowerCase() === statusFilter.toLowerCase();
+    const matchesStatus = statusFilter.length === 0 || 
+      statusFilter.includes(invoice.status?.toLowerCase() || '');
     
     const customerName = invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'Unknown';
     const matchesCustomer = customerFilter === 'all' || customerName === customerFilter;
@@ -227,6 +235,14 @@ const Invoices = () => {
       setSortField(field);
       setSortOrder('asc');
     }
+  };
+
+  const toggleStatus = (status: string) => {
+    setStatusFilter(prev =>
+      prev.includes(status)
+        ? prev.filter(s => s !== status)
+        : [...prev, status]
+    );
   };
 
   const toggleInvoiceSelection = (invoiceId: string) => {
@@ -393,20 +409,49 @@ const Invoices = () => {
               </Button>
             )}
 
-            {/* Status Filter */}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Status Filter - Multi-select */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-[180px] justify-start">
+                  <Filter className="h-4 w-4 mr-2" />
+                  {statusFilter.length === 0
+                    ? "All Status"
+                    : statusFilter.length === 1
+                    ? statusOptions.find(s => s.value === statusFilter[0])?.label
+                    : `${statusFilter.length} statuses`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0" align="start">
+                <div className="p-4 space-y-2 bg-popover">
+                  <div className="font-medium text-sm mb-2">Filter by Status</div>
+                  {statusOptions.map((status) => (
+                    <div key={status.value} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={status.value}
+                        checked={statusFilter.includes(status.value)}
+                        onCheckedChange={() => toggleStatus(status.value)}
+                      />
+                      <label
+                        htmlFor={status.value}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {status.label}
+                      </label>
+                    </div>
+                  ))}
+                  {statusFilter.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => setStatusFilter([])}
+                    >
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
 
             {/* Customer Filter */}
             <Select value={customerFilter} onValueChange={setCustomerFilter}>
