@@ -6,10 +6,53 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* Light mode colors */
+  --background: #fafbfc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #fef3c7;
+  --accent-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --gradient-from: #fef2f2;
+  --gradient-via: #fff7ed;
+  --gradient-to: #fef3c7;
+}
+
+.dark {
+  /* Dark mode colors */
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+  --secondary: #334155;
+  --secondary-foreground: #f1f5f9;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --accent: #451a03;
+  --accent-foreground: #fef3c7;
+  --border: #334155;
+  --input: #334155;
+  --gradient-from: #1e293b;
+  --gradient-via: #1e293b;
+  --gradient-to: #334155;
+}
+
 body {
   font-family: 'Fira Sans', sans-serif;
-  background: #fafbfc;
-  color: #0f172a;
+  background: var(--background);
+  color: var(--foreground);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -18,4 +61,16 @@ h1, h2, h3, h4, h5, h6 {
 
 .App {
   min-height: 100vh;
+}
+
+/* Card styles */
+.card-themed {
+  background: var(--card);
+  color: var(--card-foreground);
+  border-color: var(--border);
+}
+
+/* Gradient backgrounds */
+.gradient-bg {
+  background: linear-gradient(135deg, var(--gradient-from) 0%, var(--gradient-via) 50%, var(--gradient-to) 100%);
 }

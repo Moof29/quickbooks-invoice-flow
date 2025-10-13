@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -9,12 +8,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Search, Settings, User, LogOut, HelpCircle } from 'lucide-react';
+import { Bell, Search, Settings, User, LogOut, HelpCircle, Moon, Sun } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const TopNav = () => {
+  const { theme, toggleTheme } = useTheme();
+
   return (
-    <header className="border-b bg-white sticky top-0 z-50 shadow-sm">
+    <header className="border-b sticky top-0 z-50 shadow-sm card-themed">
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3">
@@ -22,24 +24,38 @@ const TopNav = () => {
               <span className="text-white font-bold text-xl">E</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Enterprise ERP</h1>
-              <p className="text-xs text-gray-500">Operations Dashboard</p>
+              <h1 className="text-xl font-bold">Enterprise ERP</h1>
+              <p className="text-xs text-muted-foreground">Operations Dashboard</p>
             </div>
           </div>
         </div>
 
         <div className="flex-1 max-w-md mx-8">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search anything..."
-              className="pl-10 bg-gray-50 border-gray-200"
+              className="pl-10"
               data-testid="global-search-input"
             />
           </div>
         </div>
 
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            data-testid="theme-toggle-btn"
+            className="transition-transform hover:rotate-12"
+          >
+            {theme === 'light' ? (
+              <Moon className="w-5 h-5" />
+            ) : (
+              <Sun className="w-5 h-5" />
+            )}
+          </Button>
+
           <Button variant="ghost" size="icon" className="relative" data-testid="notifications-btn">
             <Bell className="w-5 h-5" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span>

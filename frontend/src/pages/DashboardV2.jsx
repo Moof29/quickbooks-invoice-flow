@@ -37,7 +37,7 @@ const DashboardV2 = () => {
       trend: 'up',
       icon: DollarSign,
       color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
+      bgColor: 'bg-emerald-50 dark:bg-emerald-950',
     },
     {
       label: 'Orders',
@@ -46,7 +46,7 @@ const DashboardV2 = () => {
       trend: 'up',
       icon: ShoppingBag,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
+      bgColor: 'bg-blue-50 dark:bg-blue-950',
     },
     {
       label: 'Customers',
@@ -55,7 +55,7 @@ const DashboardV2 = () => {
       trend: 'up',
       icon: Users2,
       color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
+      bgColor: 'bg-purple-50 dark:bg-purple-950',
     },
     {
       label: 'Inventory',
@@ -64,7 +64,7 @@ const DashboardV2 = () => {
       trend: 'down',
       icon: Package2,
       color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
+      bgColor: 'bg-orange-50 dark:bg-orange-950',
     },
   ];
 
@@ -85,12 +85,12 @@ const DashboardV2 = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50 to-amber-50" data-testid="dashboard-v2-page">
+    <div className="min-h-screen gradient-bg" data-testid="dashboard-v2-page">
       <div className="p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Business Overview</h1>
-            <p className="text-gray-600">Monitor your business performance in real-time</p>
+            <h1 className="text-4xl font-bold mb-2">Business Overview</h1>
+            <p className="text-muted-foreground">Monitor your business performance in real-time</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" data-testid="filter-btn">
@@ -116,7 +116,7 @@ const DashboardV2 = () => {
             const Icon = metric.icon;
             const TrendIcon = metric.trend === 'up' ? ArrowUpRight : ArrowDownRight;
             return (
-              <Card key={index} className="border-none shadow-md hover:shadow-lg transition-shadow" data-testid={`metric-card-${index}`}>
+              <Card key={index} className="border-none shadow-md hover:shadow-lg transition-shadow card-themed" data-testid={`metric-card-${index}`}>
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className={`p-3 rounded-xl ${metric.bgColor}`}>
@@ -126,8 +126,8 @@ const DashboardV2 = () => {
                       variant="secondary"
                       className={`${
                         metric.trend === 'up'
-                          ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                          : 'bg-red-100 text-red-700 hover:bg-red-100'
+                          ? 'bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-400'
+                          : 'bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950 dark:text-red-400'
                       }`}
                     >
                       <TrendIcon className="w-3 h-3 mr-1" />
@@ -135,8 +135,8 @@ const DashboardV2 = () => {
                     </Badge>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">{metric.label}</p>
-                    <p className="text-3xl font-bold text-gray-900">{metric.value}</p>
+                    <p className="text-sm text-muted-foreground mb-1">{metric.label}</p>
+                    <p className="text-3xl font-bold">{metric.value}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -145,7 +145,7 @@ const DashboardV2 = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3 bg-white">
+          <TabsList className="grid w-full max-w-md grid-cols-3 card-themed">
             <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
             <TabsTrigger value="products" data-testid="tab-products">Top Products</TabsTrigger>
             <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
@@ -153,7 +153,7 @@ const DashboardV2 = () => {
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="border-none shadow-md" data-testid="revenue-card">
+              <Card className="border-none shadow-md card-themed" data-testid="revenue-card">
                 <CardHeader>
                   <CardTitle className="text-xl">Revenue Breakdown</CardTitle>
                   <CardDescription>Performance by category this month</CardDescription>
@@ -190,7 +190,7 @@ const DashboardV2 = () => {
                 </CardContent>
               </Card>
 
-              <Card className="border-none shadow-md" data-testid="targets-card">
+              <Card className="border-none shadow-md card-themed" data-testid="targets-card">
                 <CardHeader>
                   <CardTitle className="text-xl">Monthly Targets</CardTitle>
                   <CardDescription>Progress towards goals</CardDescription>
@@ -202,7 +202,7 @@ const DashboardV2 = () => {
                       <span className="text-sm font-bold">$124K / $150K</span>
                     </div>
                     <Progress value={83} className="h-2" />
-                    <p className="text-xs text-gray-500 mt-1">83% completed</p>
+                    <p className="text-xs text-muted-foreground mt-1">83% completed</p>
                   </div>
                   <div>
                     <div className="flex justify-between mb-2">
@@ -210,7 +210,7 @@ const DashboardV2 = () => {
                       <span className="text-sm font-bold">856 / 1000</span>
                     </div>
                     <Progress value={86} className="h-2" />
-                    <p className="text-xs text-gray-500 mt-1">86% completed</p>
+                    <p className="text-xs text-muted-foreground mt-1">86% completed</p>
                   </div>
                   <div>
                     <div className="flex justify-between mb-2">
@@ -218,7 +218,7 @@ const DashboardV2 = () => {
                       <span className="text-sm font-bold">12 / 15</span>
                     </div>
                     <Progress value={80} className="h-2" />
-                    <p className="text-xs text-gray-500 mt-1">80% completed</p>
+                    <p className="text-xs text-muted-foreground mt-1">80% completed</p>
                   </div>
                 </CardContent>
               </Card>
@@ -226,7 +226,7 @@ const DashboardV2 = () => {
           </TabsContent>
 
           <TabsContent value="products">
-            <Card className="border-none shadow-md" data-testid="top-products-card">
+            <Card className="border-none shadow-md card-themed" data-testid="top-products-card">
               <CardHeader>
                 <CardTitle className="text-xl">Best Selling Products</CardTitle>
                 <CardDescription>Top 5 products by revenue this month</CardDescription>
@@ -250,7 +250,7 @@ const DashboardV2 = () => {
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Progress value={product.growth} className="h-1.5 w-16" />
-                            <span className="text-sm font-medium text-green-600">+{product.growth}%</span>
+                            <span className="text-sm font-medium text-green-600 dark:text-green-400">+{product.growth}%</span>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -262,7 +262,7 @@ const DashboardV2 = () => {
           </TabsContent>
 
           <TabsContent value="activity">
-            <Card className="border-none shadow-md" data-testid="activity-card">
+            <Card className="border-none shadow-md card-themed" data-testid="activity-card">
               <CardHeader>
                 <CardTitle className="text-xl">Recent Activity</CardTitle>
                 <CardDescription>Latest updates and transactions</CardDescription>
@@ -272,23 +272,23 @@ const DashboardV2 = () => {
                   {recentActivity.map((activity, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between p-4 rounded-lg bg-white border hover:border-orange-200 transition-colors"
+                      className="flex items-center justify-between p-4 rounded-lg border transition-colors hover:border-orange-200 dark:hover:border-orange-800"
                       data-testid={`activity-item-${index}`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-950 dark:to-amber-950 flex items-center justify-center">
                           <Activity className="w-5 h-5 text-orange-600" />
                         </div>
                         <div>
-                          <p className="font-semibold text-gray-900">{activity.user}</p>
-                          <p className="text-sm text-gray-600">{activity.action}</p>
+                          <p className="font-semibold">{activity.user}</p>
+                          <p className="text-sm text-muted-foreground">{activity.action}</p>
                         </div>
                       </div>
                       <div className="text-right">
                         {activity.amount && (
-                          <p className="font-bold text-gray-900 mb-1">{activity.amount}</p>
+                          <p className="font-bold mb-1">{activity.amount}</p>
                         )}
-                        <p className="text-xs text-gray-500">{activity.time}</p>
+                        <p className="text-xs text-muted-foreground">{activity.time}</p>
                       </div>
                     </div>
                   ))}
