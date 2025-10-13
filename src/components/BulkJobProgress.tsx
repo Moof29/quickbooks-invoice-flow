@@ -17,28 +17,12 @@ export function BulkJobProgress({ jobId, onComplete }: BulkJobProgressProps) {
   const { data: status, isLoading } = useQuery({
     queryKey: ['bulk-job-status', jobId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('batch_job_queue')
-        .select('*')
-        .eq('id', jobId)
-        .single();
+      const { data, error } = await supabase.rpc('get_bulk_invoice_job_status', {
+        p_job_id: jobId,
+      });
       
       if (error) throw error;
-      
-      // Calculate progress percentage
-      const progressPercentage = data.total_items > 0 
-        ? Math.round((data.processed_items / data.total_items) * 100)
-        : 0;
-      
-      return {
-        ...data,
-        progress_percentage: progressPercentage,
-        processed_count: data.processed_items,
-        successful_count: data.successful_items,
-        failed_count: data.failed_items,
-        total_orders: data.total_items,
-        error_summary: data.errors,
-      };
+      return data?.[0];
     },
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -55,10 +39,9 @@ export function BulkJobProgress({ jobId, onComplete }: BulkJobProgressProps) {
 
   const handleCancel = async () => {
     try {
-      const { error } = await supabase
-        .from('batch_job_queue')
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-        .eq('id', jobId);
+      const { error } = await supabase.rpc('cancel_bulk_invoice_job', {
+        p_job_id: jobId,
+      });
       
       if (error) throw error;
       
@@ -92,19 +75,11 @@ export function BulkJobProgress({ jobId, onComplete }: BulkJobProgressProps) {
     }
   };
 
-  const getStatusLabel = () => {
-    switch (status.status) {
-      case 'completed':
-        return 'Completed';
-      case 'failed':
-        return 'Failed';
-      case 'cancelled':
-        return 'Cancelled';
-      case 'processing':
-        return 'Processing';
-      default:
-        return 'Pending';
-    }
+  const formatDuration = (seconds: number | null) => {
+    if (!seconds) return 'N/A';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
   };
 
   return (
@@ -112,7 +87,7 @@ export function BulkJobProgress({ jobId, onComplete }: BulkJobProgressProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           {getStatusIcon()}
-          <span>Bulk Invoice Creation - {getStatusLabel()}</span>
+          <span>Bulk Invoice Creation</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -126,48 +101,52 @@ export function BulkJobProgress({ jobId, onComplete }: BulkJobProgressProps) {
 
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold">{status.processed_count}</div>
+            <div className="text-2xl font-bold">{status.processed_count || 0}</div>
             <div className="text-sm text-muted-foreground">Processed</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-green-600">{status.successful_count}</div>
+            <div className="text-2xl font-bold text-green-600">{status.successful_count || 0}</div>
             <div className="text-sm text-muted-foreground">Successful</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-red-600">{status.failed_count}</div>
+            <div className="text-2xl font-bold text-red-600">{status.failed_count || 0}</div>
             <div className="text-sm text-muted-foreground">Failed</div>
           </div>
         </div>
 
-        <div className="text-sm text-muted-foreground">
-          Total Orders: {status.total_orders}
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <div>Total Orders: {status.total_orders}</div>
         </div>
 
         {status.status === 'processing' && (
-          <Button onClick={handleCancel} variant="destructive" size="sm">
+          <Button onClick={handleCancel} variant="destructive" size="sm" className="w-full">
             Cancel Job
           </Button>
         )}
 
         {status.failed_count > 0 && status.error_summary && (
-          <div className="text-sm text-red-600">
-            <div className="font-semibold mb-1">Errors:</div>
-            <div className="max-h-32 overflow-y-auto">
-              {Array.isArray(status.error_summary) && status.error_summary.slice(0, 5).map((err: any, i: number) => (
-                <div key={i} className="text-xs mb-1">
-                  Order {err.order_id}: {err.error}
+          <div className="text-sm">
+            <div className="font-semibold mb-2 text-red-600">
+              Errors ({status.failed_count}):
+            </div>
+            <div className="max-h-40 overflow-y-auto space-y-1 bg-muted p-2 rounded">
+              {Array.isArray(status.error_summary) && (status.error_summary as any[]).slice(0, 10).map((err: any, i: number) => (
+                <div key={i} className="text-xs font-mono">
+                  <span className="text-red-600">Order:</span> {err.order_id?.slice(0, 8)}...
+                  <br />
+                  <span className="text-muted-foreground">{err.error}</span>
                 </div>
               ))}
-              {Array.isArray(status.error_summary) && status.error_summary.length > 5 && (
-                <div className="text-xs mt-1 font-medium">
-                  ... and {status.error_summary.length - 5} more errors
+              {Array.isArray(status.error_summary) && (status.error_summary as any[]).length > 10 && (
+                <div className="text-xs text-muted-foreground">
+                  ... and {(status.error_summary as any[]).length - 10} more errors
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {status.status === 'completed' && (
+        {status.status === 'completed' && status.failed_count === 0 && (
           <div className="text-sm text-green-600 font-medium">
             ✓ All invoices created successfully!
           </div>
