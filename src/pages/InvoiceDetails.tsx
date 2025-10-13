@@ -15,6 +15,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -103,6 +113,8 @@ export default function InvoiceDetailsPage() {
   const [newItem, setNewItem] = useState({ item_id: '', quantity: '1' });
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletionReason, setDeletionReason] = useState('');
   
   // Form state for editing
   const [formData, setFormData] = useState({
@@ -301,14 +313,32 @@ export default function InvoiceDetailsPage() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     if (!invoice) return;
-    
-    if (!confirm(`Are you sure you want to delete invoice ${invoice.invoice_number}? This action cannot be undone.`)) {
-      return;
-    }
 
     try {
+      // Log deletion reason to audit_events
+      if (deletionReason.trim()) {
+        await supabase
+          .from('audit_events')
+          .insert({
+            organization_id: profile?.organization_id,
+            user_id: profile?.id,
+            entity_type: 'invoice_record',
+            entity_id: invoice.id,
+            event_type: 'delete',
+            detail: {
+              invoice_number: invoice.invoice_number,
+              deletion_reason: deletionReason.trim(),
+            },
+          });
+      }
+
+      // Delete the invoice
       const { error } = await supabase
         .from('invoice_record')
         .delete()
@@ -329,6 +359,9 @@ export default function InvoiceDetailsPage() {
         description: error.message || "Failed to delete invoice",
         variant: "destructive",
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setDeletionReason('');
     }
   };
 
@@ -539,7 +572,7 @@ export default function InvoiceDetailsPage() {
               </Button>
             </>
           )}
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
+          <Button variant="destructive" size="sm" onClick={handleDeleteClick}>
             <Trash2 className="h-4 w-4 mr-2" />
             Delete
           </Button>
@@ -869,6 +902,40 @@ export default function InvoiceDetailsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete invoice {invoice?.invoice_number}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="deletion-reason" className="text-sm font-medium">
+              Reason for deletion (optional)
+            </Label>
+            <Textarea
+              id="deletion-reason"
+              value={deletionReason}
+              onChange={(e) => setDeletionReason(e.target.value)}
+              placeholder="Enter reason for deleting this invoice..."
+              rows={3}
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletionReason('')}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Invoice
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
