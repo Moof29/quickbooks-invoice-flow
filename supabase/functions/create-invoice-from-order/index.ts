@@ -50,6 +50,7 @@ Deno.serve(async (req) => {
       console.log('User authenticated:', user.id);
     } else {
       console.log('Service role call - skipping user auth');
+    }
 
     // Parse request body
     const { order_id, user_id }: CreateInvoiceRequest = await req.json();
