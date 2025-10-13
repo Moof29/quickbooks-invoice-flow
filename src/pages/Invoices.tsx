@@ -80,7 +80,8 @@ const Invoices = () => {
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [customerFilter, setCustomerFilter] = useState<string>('all');
+  const [customerFilter, setCustomerFilter] = useState<string[]>([]);
+  const [customerSearch, setCustomerSearch] = useState('');
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [dateType, setDateType] = useState<'invoice_date' | 'due_date'>('invoice_date');
@@ -168,7 +169,7 @@ const Invoices = () => {
       statusFilter.includes(invoice.status?.toLowerCase() || '');
     
     const customerName = invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'Unknown';
-    const matchesCustomer = customerFilter === 'all' || customerName === customerFilter;
+    const matchesCustomer = customerFilter.length === 0 || customerFilter.includes(customerName);
     
     // Date range filter
     let matchesDateRange = true;
@@ -242,6 +243,14 @@ const Invoices = () => {
       prev.includes(status)
         ? prev.filter(s => s !== status)
         : [...prev, status]
+    );
+  };
+
+  const toggleCustomer = (customer: string) => {
+    setCustomerFilter(prev =>
+      prev.includes(customer)
+        ? prev.filter(c => c !== customer)
+        : [...prev, customer]
     );
   };
 
@@ -453,20 +462,88 @@ const Invoices = () => {
               </PopoverContent>
             </Popover>
 
-            {/* Customer Filter */}
-            <Select value={customerFilter} onValueChange={setCustomerFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Customer" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Customers</SelectItem>
-                {uniqueCustomers.map((customer) => (
-                  <SelectItem key={customer} value={customer}>
-                    {customer}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Customer Filter - Multi-select with Search */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-[200px] justify-start">
+                  <Filter className="h-4 w-4 mr-2" />
+                  {customerFilter.length === 0
+                    ? "All Customers"
+                    : customerFilter.length === 1
+                    ? customerFilter[0]
+                    : `${customerFilter.length} customers`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[280px] p-0" align="start">
+                <div className="p-4 space-y-3 bg-popover">
+                  <div className="font-medium text-sm">Filter by Customer</div>
+                  
+                  {/* Customer Search */}
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Search customers..."
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      className="pl-8 h-9"
+                    />
+                  </div>
+
+                  {/* Customer List */}
+                  <div className="max-h-[240px] overflow-y-auto space-y-2">
+                    {uniqueCustomers
+                      .filter(customer => 
+                        customer.toLowerCase().includes(customerSearch.toLowerCase())
+                      )
+                      .map((customer) => (
+                        <div key={customer} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`customer-${customer}`}
+                            checked={customerFilter.includes(customer)}
+                            onCheckedChange={() => toggleCustomer(customer)}
+                          />
+                          <label
+                            htmlFor={`customer-${customer}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                          >
+                            {customer}
+                          </label>
+                        </div>
+                      ))}
+                    {uniqueCustomers.filter(customer => 
+                      customer.toLowerCase().includes(customerSearch.toLowerCase())
+                    ).length === 0 && (
+                      <div className="text-sm text-muted-foreground text-center py-4">
+                        No customers found
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2 border-t">
+                    {customerFilter.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setCustomerFilter([])}
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setCustomerSearch('')}
+                    >
+                      Reset Search
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
 
             {/* Export Button */}
             <Button variant="outline" size="default">
