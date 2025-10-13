@@ -77,11 +77,11 @@ const Invoices = () => {
 
   useEffect(() => {
     loadInvoices();
-  }, [searchTerm]);
+  }, []);
 
   const loadInvoices = async () => {
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('invoice_record')
         .select(`
           id, 
@@ -97,12 +97,6 @@ const Invoices = () => {
           )
         `)
         .order('created_at', { ascending: false });
-
-      if (searchTerm) {
-        query = query.or(`invoice_number.ilike.%${searchTerm}%,customer_profile.display_name.ilike.%${searchTerm}%`);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       setInvoices(data || []);
