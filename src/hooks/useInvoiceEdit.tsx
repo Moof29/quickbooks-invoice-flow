@@ -113,11 +113,11 @@ export const useInvoiceEdit = (invoiceId: string, onDataChange?: () => void) => 
 
   // Add line item mutation
   const addLineItemMutation = useMutation({
-    mutationFn: async (newItem: { item_id: string; quantity: number; organization_id: string }) => {
+    mutationFn: async (newItem: { item_id: string; quantity: number; unit_price: number; organization_id: string }) => {
       // Get item details first
       const { data: itemData, error: itemError } = await supabase
         .from('item_record')
-        .select('name, unit_price: purchase_cost')
+        .select('name')
         .eq('id', newItem.item_id)
         .single();
 
@@ -131,7 +131,7 @@ export const useInvoiceEdit = (invoiceId: string, onDataChange?: () => void) => 
           item_id: newItem.item_id,
           description: itemData.name,
           quantity: newItem.quantity,
-          unit_price: itemData.unit_price || 0,
+          unit_price: newItem.unit_price,
         });
 
       if (error) throw error;

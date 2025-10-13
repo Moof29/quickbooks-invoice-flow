@@ -109,8 +109,8 @@ export default function InvoiceDetailsPage() {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [salesOrderLinks, setSalesOrderLinks] = useState<SalesOrderLink[]>([]);
   const [loading, setLoading] = useState(true);
-  const [availableItems, setAvailableItems] = useState<{ id: string; name: string }[]>([]);
-  const [newItem, setNewItem] = useState({ item_id: '', quantity: '1' });
+  const [availableItems, setAvailableItems] = useState<{ id: string; name: string; unit_price: number }[]>([]);
+  const [newItem, setNewItem] = useState({ item_id: '', quantity: '1', unit_price: '0' });
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -128,12 +128,16 @@ export default function InvoiceDetailsPage() {
     try {
       const { data, error } = await supabase
         .from('item_record')
-        .select('id, name')
+        .select('id, name, purchase_cost')
         .eq('is_active', true)
         .order('name');
 
       if (error) throw error;
-      setAvailableItems(data || []);
+      setAvailableItems((data || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        unit_price: item.purchase_cost || 0
+      })));
     } catch (error) {
       console.error('Error loading items:', error);
     }
@@ -797,7 +801,14 @@ export default function InvoiceDetailsPage() {
                           label: item.name
                         }))}
                         value={newItem.item_id}
-                        onValueChange={(value) => setNewItem({ ...newItem, item_id: value })}
+                        onValueChange={(value) => {
+                          const selectedItem = availableItems.find(item => item.id === value);
+                          setNewItem({ 
+                            ...newItem, 
+                            item_id: value,
+                            unit_price: selectedItem?.unit_price?.toString() || '0'
+                          });
+                        }}
                         placeholder="Select item..."
                         searchPlaceholder="Search items..."
                         emptyText="No items found."
@@ -805,10 +816,20 @@ export default function InvoiceDetailsPage() {
                       />
                     </TableCell>
                     <TableCell className="py-2 text-right">
-                      <span className="text-xs text-muted-foreground">Auto</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newItem.unit_price}
+                        onChange={(e) => setNewItem({ ...newItem, unit_price: e.target.value })}
+                        className="w-24 h-8 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        placeholder="0.00"
+                      />
                     </TableCell>
                     <TableCell className="py-2 text-right">
-                      <span className="text-xs text-muted-foreground">Auto</span>
+                      <span className="font-medium">
+                        ${(parseFloat(newItem.quantity || '0') * parseFloat(newItem.unit_price || '0')).toFixed(2)}
+                      </span>
                     </TableCell>
                     <TableCell className="py-2 text-center">
                       <div className="flex justify-center gap-1">
@@ -816,10 +837,10 @@ export default function InvoiceDetailsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={async () => {
-                            if (!newItem.item_id || !newItem.quantity) {
+                            if (!newItem.item_id || !newItem.quantity || !newItem.unit_price) {
                               toast({
                                 title: 'Error',
-                                description: 'Please select an item and enter quantity',
+                                description: 'Please select an item, enter quantity and price',
                                 variant: 'destructive',
                               });
                               return;
@@ -827,9 +848,10 @@ export default function InvoiceDetailsPage() {
                             await addLineItemMutation.mutateAsync({
                               item_id: newItem.item_id,
                               quantity: parseFloat(newItem.quantity),
+                              unit_price: parseFloat(newItem.unit_price),
                               organization_id: profile?.organization_id || '',
                             });
-                            setNewItem({ item_id: '', quantity: '1' });
+                            setNewItem({ item_id: '', quantity: '1', unit_price: '0' });
                             setIsAddingItem(false);
                             loadInvoiceDetails();
                           }}
@@ -842,7 +864,7 @@ export default function InvoiceDetailsPage() {
                           size="sm"
                           onClick={() => {
                             setIsAddingItem(false);
-                            setNewItem({ item_id: '', quantity: '1' });
+                            setNewItem({ item_id: '', quantity: '1', unit_price: '0' });
                           }}
                           className="h-7 w-7 p-0"
                         >
