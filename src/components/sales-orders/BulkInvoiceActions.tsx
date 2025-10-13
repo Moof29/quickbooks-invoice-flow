@@ -29,13 +29,20 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
 
     setIsCreating(true);
     try {
+      const requestBody = {
+        sales_order_ids: selectedOrders,
+        invoice_date: new Date().toISOString().split('T')[0],
+        due_days: 30,
+      };
+      
+      console.log('Sending batch invoice request:', {
+        orderCount: selectedOrders.length,
+        body: requestBody
+      });
+
       // Call the batch-invoice-orders edge function
       const { data, error } = await supabase.functions.invoke('batch-invoice-orders', {
-        body: {
-          sales_order_ids: selectedOrders,
-          invoice_date: new Date().toISOString().split('T')[0],
-          due_days: 30,
-        },
+        body: requestBody,
       });
 
       if (error) throw error;
