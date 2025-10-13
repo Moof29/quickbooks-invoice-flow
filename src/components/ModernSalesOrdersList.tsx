@@ -255,7 +255,11 @@ export function ModernSalesOrdersList() {
   const batchInvoiceMutation = useMutation({
     mutationFn: async (orderIds: string[]) => {
       const { data, error } = await supabase.functions.invoke("batch-invoice-orders", {
-        body: { order_ids: orderIds },
+        body: { 
+          sales_order_ids: orderIds,
+          invoice_date: new Date().toISOString().split('T')[0],
+          due_days: 30,
+        },
       });
       if (error) throw error;
       return data;
