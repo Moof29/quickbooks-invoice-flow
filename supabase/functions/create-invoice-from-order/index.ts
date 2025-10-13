@@ -67,6 +67,43 @@ Deno.serve(async (req) => {
     const createdBy = user_id || user?.id;
     console.log('Created by user:', createdBy);
 
+    // Idempotency check - see if invoice already exists for this order
+    console.log('Checking for existing invoice...');
+    const { data: existingLink, error: linkCheckError } = await supabaseClient
+      .from('sales_order_invoice_link')
+      .select('invoice_id')
+      .eq('sales_order_id', order_id)
+      .maybeSingle();
+
+    if (linkCheckError) {
+      console.error('Error checking existing invoice:', linkCheckError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          sales_order_id: order_id,
+          error: {
+            code: 'DATABASE_ERROR',
+            message: 'Failed to check for existing invoice',
+            details: linkCheckError
+          }
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (existingLink?.invoice_id) {
+      console.log('✓ Invoice already exists for this order:', existingLink.invoice_id);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          invoice_id: existingLink.invoice_id,
+          sales_order_id: order_id,
+          message: 'Invoice already exists (idempotent)'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Validate order can be invoiced
     const { data: validationResult } = await supabaseClient.rpc('validate_order_before_invoice', {
       p_order_id: order_id,

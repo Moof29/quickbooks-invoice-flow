@@ -81,43 +81,73 @@ Deno.serve(async (req) => {
         const chunk = orderIds.slice(i, Math.min(i + CHUNK_SIZE, orderIds.length));
         console.log(`Processing chunk ${Math.floor(i / CHUNK_SIZE) + 1}: orders ${i + 1}-${i + chunk.length}`);
 
-        // Process each order in the chunk
+        // Process each order in the chunk with retry logic
         for (const orderId of chunk) {
-          try {
-            const { data: result, error: invoiceError } = await supabase.functions.invoke(
-              'create-invoice-from-order',
-              {
-                body: { order_id: orderId },
+          let retryCount = 0;
+          let success = false;
+          let lastError: any = null;
+
+          while (retryCount <= 3 && !success) {
+            try {
+              const { data: result, error: invoiceError } = await supabase.functions.invoke(
+                'create-invoice-from-order',
+                {
+                  body: { order_id: orderId },
+                }
+              );
+
+              if (result?.success) {
+                successful++;
+                success = true;
+                console.log(`✓ Invoice created for order ${orderId}${retryCount > 0 ? ` (after ${retryCount} retries)` : ''}`);
+              } else {
+                lastError = result?.error;
+                
+                // Don't retry validation errors (permanent failures)
+                const nonRetryableCodes = ['ALREADY_INVOICED', 'NOT_REVIEWED', 'VALIDATION_FAILED'];
+                if (nonRetryableCodes.includes(result?.error?.code)) {
+                  console.log(`✗ Permanent error for order ${orderId}: ${result?.error?.code}`);
+                  break; // Skip retries for validation errors
+                }
+
+                // Retry transient errors with exponential backoff
+                if (retryCount < 3) {
+                  const backoffMs = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+                  console.log(`Retrying order ${orderId} in ${backoffMs}ms (attempt ${retryCount + 1}/3)`);
+                  await new Promise(resolve => setTimeout(resolve, backoffMs));
+                  retryCount++;
+                } else {
+                  break; // Max retries reached
+                }
               }
-            );
-
-            processed++;
-
-            if (result?.success) {
-              successful++;
-              console.log(`✓ Invoice created for order ${orderId}`);
-            } else {
-              failed++;
-              const errorInfo = {
-                order_id: orderId,
-                error_code: result?.error?.code || 'UNKNOWN',
-                message: result?.error?.message || 'Unknown error',
-                timestamp: new Date().toISOString()
-              };
-              errors.push(errorInfo);
-              console.log(`✗ Failed to create invoice for order ${orderId}:`, errorInfo.message);
+            } catch (err: any) {
+              lastError = err;
+              
+              // Retry network/timeout errors
+              if (retryCount < 3) {
+                const backoffMs = Math.pow(2, retryCount) * 1000;
+                console.log(`Network error for order ${orderId}, retrying in ${backoffMs}ms`);
+                await new Promise(resolve => setTimeout(resolve, backoffMs));
+                retryCount++;
+              } else {
+                break; // Max retries reached
+              }
             }
-          } catch (err: any) {
-            processed++;
+          }
+
+          processed++;
+
+          if (!success) {
             failed++;
             const errorInfo = {
               order_id: orderId,
-              error_code: 'PROCESSING_ERROR',
-              message: err.message || 'Failed to process order',
+              error_code: lastError?.code || 'PROCESSING_ERROR',
+              message: lastError?.message || lastError?.toString() || 'Failed after retries',
+              retry_count: retryCount,
               timestamp: new Date().toISOString()
             };
             errors.push(errorInfo);
-            console.error(`✗ Error processing order ${orderId}:`, err);
+            console.error(`✗ Failed to create invoice for order ${orderId} after ${retryCount} retries:`, errorInfo.message);
           }
         }
 
