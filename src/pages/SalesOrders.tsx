@@ -7,6 +7,7 @@ import { ModernSalesOrdersList } from "@/components/ModernSalesOrdersList";
 import { CustomerTemplates } from "@/components/CustomerTemplates";
 import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
 import { GenerateTemplateTestDataButton } from "@/components/GenerateTemplateTestDataButton";
+import { BatchJobStatusBar } from "@/components/BatchJobStatusBar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -53,9 +54,11 @@ export default function SalesOrders() {
   };
 
   return (
-    <div className="space-y-6 p-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <>
+      <BatchJobStatusBar />
+      <div className="space-y-6 p-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
           <p className="text-muted-foreground mt-1">
@@ -111,7 +114,8 @@ export default function SalesOrders() {
         <TabsContent value="templates" className="mt-6">
           <CustomerTemplates />
         </TabsContent>
-      </Tabs>
-    </div>
+        </Tabs>
+      </div>
+    </>
   );
 }
