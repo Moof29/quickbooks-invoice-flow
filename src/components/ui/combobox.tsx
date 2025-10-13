@@ -82,25 +82,26 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="p-0 bg-popover border shadow-md" 
+        className="p-0 bg-background border-border z-50" 
         align="start"
         style={{ 
           width: buttonRef.current?.offsetWidth || '200px',
         }}
-        sideOffset={4}
+        sideOffset={8}
         onOpenAutoFocus={(e) => e.preventDefault()}
         avoidCollisions={true}
       >
-        <Command shouldFilter={false}>
+        <Command shouldFilter={false} className="border-0">
           <CommandInput 
             ref={inputRef}
             placeholder={searchPlaceholder}
             value={searchQuery}
             onValueChange={setSearchQuery}
+            className="h-11 border-b"
           />
-          <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup>
+          <CommandList className="max-h-[300px]">
+            <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">{emptyText}</CommandEmpty>
+            <CommandGroup className="p-2">
               {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
@@ -110,15 +111,15 @@ export function Combobox({
                     setSearchQuery("")
                     setOpen(false)
                   }}
-                  className="cursor-pointer"
+                  className="cursor-pointer rounded-sm px-2 py-2.5 hover:bg-accent"
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-4 w-4 shrink-0",
                       value === option.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {option.label}
+                  <span className="truncate">{option.label}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
