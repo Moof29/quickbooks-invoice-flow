@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, FileText } from 'lucide-react';
-import { BulkJobProgress } from '@/components/BulkJobProgress';
+import { BatchJobProgressDialog } from '@/components/BatchJobProgressDialog';
 
 interface BulkInvoiceActionsProps {
   selectedOrders: string[];
@@ -14,6 +14,7 @@ interface BulkInvoiceActionsProps {
 export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceActionsProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [validationResult, setValidationResult] = useState<{
     valid: any[];
@@ -102,9 +103,10 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
       if (data?.success && data?.job_id) {
         setJobId(data.job_id);
         setShowValidation(false);
+        setShowProgressDialog(true);
         toast({
           title: "Batch Job Started",
-          description: `Processing ${orderIds.length} orders. Monitor progress below.`,
+          description: `Processing ${orderIds.length} orders.`,
         });
       } else {
         throw new Error('Failed to start batch job');
@@ -119,44 +121,8 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
     }
   };
 
-  const handleJobComplete = async () => {
-    console.log('🎯 handleJobComplete called for jobId:', jobId);
-    
-    // Add small delay to ensure database has been updated
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Fetch final job status to get accurate counts
-    if (jobId) {
-      const { data: finalJob, error } = await supabase
-        .from('batch_job_queue')
-        .select('successful_items, failed_items, total_items, status')
-        .eq('id', jobId)
-        .single();
-      
-      console.log('📊 Final job data:', { finalJob, error });
-      
-      if (finalJob) {
-        const { successful_items = 0, failed_items = 0, total_items = 0 } = finalJob;
-        
-        console.log('✅ Showing toast with counts:', { successful_items, failed_items, total_items });
-        
-        if (failed_items > 0) {
-          toast({
-            title: "Batch invoicing completed with errors",
-            description: `${successful_items} of ${total_items} orders invoiced successfully. ${failed_items} failed.`,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Batch invoicing complete",
-            description: `${successful_items} orders invoiced successfully`,
-          });
-        }
-      } else {
-        console.error('❌ No finalJob data returned');
-      }
-    }
-    
+  const handleDialogClose = () => {
+    setShowProgressDialog(false);
     setIsCreating(false);
     setJobId(null);
     
@@ -225,9 +191,13 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
         </div>
       )}
 
-      {jobId && (
-        <BulkJobProgress jobId={jobId} onComplete={handleJobComplete} />
-      )}
+      <BatchJobProgressDialog
+        jobId={jobId}
+        open={showProgressDialog}
+        onOpenChange={handleDialogClose}
+        title="Creating Invoices"
+        description="Processing selected orders and creating invoices..."
+      />
     </div>
   );
 }
