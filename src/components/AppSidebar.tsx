@@ -61,15 +61,15 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-r bg-sidebar">
       {/* Header with logo */}
-      <SidebarHeader className="border-b px-3 py-4">
+      <SidebarHeader className="border-b border-sidebar-border px-3 py-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Package2 className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
+            <Package2 className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
           {!isCollapsed && (
-            <span className="text-lg font-semibold">Batchly</span>
+            <span className="text-lg font-semibold text-sidebar-foreground">Batchly</span>
           )}
         </div>
       </SidebarHeader>
@@ -85,8 +85,8 @@ export function AppSidebar() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                       isActive 
-                        ? "bg-primary text-primary-foreground shadow-sm" 
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm" 
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     }`
                   }
                 >
@@ -100,13 +100,13 @@ export function AppSidebar() {
       </SidebarContent>
       
       {/* Footer with sign out */}
-      <SidebarFooter className="border-t px-3 py-3">
+      <SidebarFooter className="border-t border-sidebar-border px-3 py-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={handleSignOut}
               tooltip="Sign Out"
-              className="w-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <LogOut className="h-5 w-5 flex-shrink-0" />
               {!isCollapsed && <span>Sign Out</span>}
