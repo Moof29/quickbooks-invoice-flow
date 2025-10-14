@@ -88,10 +88,10 @@ export function AuthProfileProvider({ children }: { children: React.ReactNode })
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Fetch profile data WITH role from profiles table
+      // Fetch profile data (without role - now in separate table)
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, organization_id, role, created_at, updated_at')
+        .select('id, first_name, last_name, organization_id, created_at, updated_at')
         .eq('id', userId)
         .single();
 
@@ -99,9 +99,14 @@ export function AuthProfileProvider({ children }: { children: React.ReactNode })
 
       setProfile(profileData);
 
-      // Set roles from the profile's role column
-      if (profileData?.role) {
-        setRoles([profileData.role]);
+      // Fetch user roles from the new user_roles table (using generic query)
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles' as any)
+        .select('role')
+        .eq('user_id', userId);
+
+      if (!rolesError && rolesData) {
+        setRoles(rolesData.map((r: any) => r.role));
       } else {
         setRoles([]);
       }

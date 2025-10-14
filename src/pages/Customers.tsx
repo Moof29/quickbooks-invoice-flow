@@ -132,20 +132,18 @@ const Customers = () => {
 
   const handleImpersonateCustomer = async (customerId: string) => {
     try {
-      // Get or create portal user link for this customer
-      const { data: linkData, error: linkError } = await supabase
-        .from('customer_portal_user_links')
-        .select('portal_user_id')
-        .eq('customer_id', customerId)
-        .maybeSingle();
+      // Create secure impersonation token via edge function
+      const { data: tokenData, error: tokenError } = await supabase.functions.invoke(
+        'create-impersonation-token',
+        { body: { customerId } }
+      );
 
-      if (linkError) throw linkError;
+      if (tokenError || !tokenData?.token) {
+        throw new Error(tokenError?.message || 'Failed to create impersonation token');
+      }
 
-      // Store impersonation data in sessionStorage for the portal
-      sessionStorage.setItem('portal_impersonation', JSON.stringify({
-        customerId,
-        timestamp: new Date().toISOString()
-      }));
+      // Store secure token in sessionStorage
+      sessionStorage.setItem('portal_impersonation_token', tokenData.token);
 
       // Navigate to portal dashboard
       window.open('/portal/dashboard', '_blank');
@@ -154,11 +152,11 @@ const Customers = () => {
         title: "Portal View",
         description: "Opening customer portal in new tab",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error impersonating customer:', error);
       toast({
         title: "Error",
-        description: "Failed to access customer portal",
+        description: error.message || "Failed to access customer portal",
         variant: "destructive",
       });
     }

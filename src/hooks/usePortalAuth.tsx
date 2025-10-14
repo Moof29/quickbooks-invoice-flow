@@ -71,13 +71,26 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
 
   const fetchPortalUserData = async (userId: string) => {
     try {
-      // Check for impersonation mode
-      const impersonationData = sessionStorage.getItem('portal_impersonation');
+      // Check for secure impersonation token
+      const impersonationToken = sessionStorage.getItem('portal_impersonation_token');
       
-      if (impersonationData) {
-        const { customerId } = JSON.parse(impersonationData);
+      if (impersonationToken) {
+        // Validate token server-side using edge function
+        const { data: validationData, error: validationError } = await supabase.functions.invoke(
+          'validate-impersonation-token',
+          { body: { token: impersonationToken } }
+        );
+
+        if (validationError || !validationData?.customerId) {
+          console.error('Invalid impersonation token');
+          sessionStorage.removeItem('portal_impersonation_token');
+          setLoading(false);
+          return;
+        }
         
-        // Fetch customer profile directly for impersonation
+        const customerId = validationData.customerId;
+        
+        // Fetch customer profile for valid impersonation
         const { data: profileData, error: profileError } = await supabase
           .from('customer_profile')
           .select('id, company_name, display_name, email, phone, organization_id')
@@ -126,6 +139,8 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
   };
 
   const signOut = async () => {
+    // Clear impersonation token
+    sessionStorage.removeItem('portal_impersonation_token');
     await supabase.auth.signOut();
   };
 
