@@ -71,7 +71,32 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
 
   const fetchPortalUserData = async (userId: string) => {
     try {
-      // Fetch customer portal link
+      // Check for impersonation mode
+      const impersonationData = sessionStorage.getItem('portal_impersonation');
+      
+      if (impersonationData) {
+        const { customerId } = JSON.parse(impersonationData);
+        
+        // Fetch customer profile directly for impersonation
+        const { data: profileData, error: profileError } = await supabase
+          .from('customer_profile')
+          .select('id, company_name, display_name, email, phone, organization_id')
+          .eq('id', customerId)
+          .single();
+
+        if (profileError) throw profileError;
+        
+        setCustomerLink({
+          customer_id: customerId,
+          organization_id: profileData.organization_id,
+          email_verified: true
+        });
+        setCustomerProfile(profileData);
+        setLoading(false);
+        return;
+      }
+
+      // Normal portal user flow
       const { data: linkData, error: linkError } = await supabase
         .from('customer_portal_user_links')
         .select('customer_id, organization_id, email_verified')

@@ -22,12 +22,16 @@ import {
   TrendingUp,
   Users,
   DollarSign,
-  ShoppingBag
+  ShoppingBag,
+  UserCircle,
+  Shield
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CustomerDialog } from '@/components/CustomerDialog';
+import { Switch } from '@/components/ui/switch';
+import { useNavigate } from 'react-router-dom';
 
 interface Customer {
   id: string;
@@ -40,6 +44,8 @@ interface Customer {
   created_at: string;
   address?: string;
   is_active: boolean;
+  portal_enabled: boolean;
+  portal_invitation_sent_at: string | null;
 }
 
 const Customers = () => {
@@ -49,6 +55,7 @@ const Customers = () => {
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadCustomers();
@@ -58,7 +65,7 @@ const Customers = () => {
     try {
       let query = supabase
         .from('customer_profile')
-        .select('id, display_name, company_name, email, phone, billing_city, billing_state, created_at, is_active')
+        .select('id, display_name, company_name, email, phone, billing_city, billing_state, created_at, is_active, portal_enabled, portal_invitation_sent_at')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -79,6 +86,68 @@ const Customers = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTogglePortalAccess = async (customerId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('customer_profile')
+        .update({ 
+          portal_enabled: !currentStatus,
+          portal_invitation_sent_at: !currentStatus ? new Date().toISOString() : null
+        })
+        .eq('id', customerId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Portal access ${!currentStatus ? 'enabled' : 'disabled'} for customer`,
+      });
+
+      loadCustomers();
+    } catch (error) {
+      console.error('Error toggling portal access:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update portal access",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleImpersonateCustomer = async (customerId: string) => {
+    try {
+      // Get or create portal user link for this customer
+      const { data: linkData, error: linkError } = await supabase
+        .from('customer_portal_user_links')
+        .select('portal_user_id')
+        .eq('customer_id', customerId)
+        .maybeSingle();
+
+      if (linkError) throw linkError;
+
+      // Store impersonation data in sessionStorage for the portal
+      sessionStorage.setItem('portal_impersonation', JSON.stringify({
+        customerId,
+        timestamp: new Date().toISOString()
+      }));
+
+      // Navigate to portal dashboard
+      window.open('/portal/dashboard', '_blank');
+
+      toast({
+        title: "Portal View",
+        description: "Opening customer portal in new tab",
+      });
+    } catch (error) {
+      console.error('Error impersonating customer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to access customer portal",
+        variant: "destructive",
+      });
     }
   };
 
@@ -254,6 +323,7 @@ const Customers = () => {
                 <TableHead>Phone</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Portal Access</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -292,6 +362,17 @@ const Customers = () => {
                     </Badge>
                   </TableCell>
                   <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={customer.portal_enabled}
+                        onCheckedChange={() => handleTogglePortalAccess(customer.id, customer.portal_enabled)}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {customer.portal_enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -307,6 +388,12 @@ const Customers = () => {
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
+                        {customer.portal_enabled && (
+                          <DropdownMenuItem onClick={() => handleImpersonateCustomer(customer.id)}>
+                            <UserCircle className="h-4 w-4 mr-2" />
+                            View as Customer
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => handleDeleteCustomer(customer.id)}

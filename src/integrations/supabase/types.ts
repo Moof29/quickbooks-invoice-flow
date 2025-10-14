@@ -1175,6 +1175,8 @@ export type Database = {
           organization_id: string
           payment_terms: string | null
           phone: string | null
+          portal_enabled: boolean | null
+          portal_invitation_sent_at: string | null
           qbo_id: string | null
           qbo_sync_status: string | null
           shipping_address_line1: string | null
@@ -1218,6 +1220,8 @@ export type Database = {
           organization_id: string
           payment_terms?: string | null
           phone?: string | null
+          portal_enabled?: boolean | null
+          portal_invitation_sent_at?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
           shipping_address_line1?: string | null
@@ -1261,6 +1265,8 @@ export type Database = {
           organization_id?: string
           payment_terms?: string | null
           phone?: string | null
+          portal_enabled?: boolean | null
+          portal_invitation_sent_at?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
           shipping_address_line1?: string | null
@@ -5265,6 +5271,10 @@ export type Database = {
           successful_items: number
           total_items: number
         }[]
+      }
+      get_customer_portal_status: {
+        Args: { p_customer_id: string }
+        Returns: Json
       }
       get_next_batch_job: {
         Args: Record<PropertyKey, never>
