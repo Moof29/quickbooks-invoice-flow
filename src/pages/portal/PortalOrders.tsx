@@ -25,13 +25,28 @@ export default function PortalOrders() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !customerProfile) {
-      navigate('/portal/login');
-    }
-  }, [authLoading, customerProfile, navigate]);
-
-  useEffect(() => {
-    if (customerProfile) {
+    // Allow demo mode
+    if (!customerProfile) {
+      setOrders([
+        {
+          id: '1',
+          order_number: 'SO-2025-001',
+          order_date: '2025-01-10',
+          delivery_date: '2025-01-11',
+          status: 'pending',
+          total: 1250.00,
+        },
+        {
+          id: '2',
+          order_number: 'SO-2025-002',
+          order_date: '2025-01-09',
+          delivery_date: '2025-01-10',
+          status: 'reviewed',
+          total: 890.50,
+        },
+      ]);
+      setLoading(false);
+    } else {
       fetchOrders();
     }
   }, [customerProfile]);
@@ -84,7 +99,7 @@ export default function PortalOrders() {
               <Building2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">{customerProfile?.company_name}</h1>
+              <h1 className="text-xl font-bold">{customerProfile?.company_name || 'Demo Customer'}</h1>
               <p className="text-sm text-muted-foreground">Customer Portal</p>
             </div>
           </div>

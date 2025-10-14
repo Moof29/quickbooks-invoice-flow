@@ -56,6 +56,14 @@ export default function PortalAuth() {
     }
   };
 
+  const handleDemoMode = () => {
+    toast({
+      title: 'Demo Mode',
+      description: 'Viewing portal as demo user',
+    });
+    navigate('/portal/dashboard');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md border-0 shadow-sm">
@@ -97,8 +105,18 @@ export default function PortalAuth() {
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            Don't have access? Contact your sales representative.
+          <div className="mt-4 space-y-2">
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={handleDemoMode}
+              type="button"
+            >
+              Demo Mode (Testing)
+            </Button>
+            <div className="text-center text-sm text-muted-foreground">
+              Don't have access? Contact your sales representative.
+            </div>
           </div>
         </CardContent>
       </Card>

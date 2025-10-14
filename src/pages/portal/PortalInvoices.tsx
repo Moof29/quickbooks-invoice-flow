@@ -27,13 +27,42 @@ export default function PortalInvoices() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !customerProfile) {
-      navigate('/portal/login');
-    }
-  }, [authLoading, customerProfile, navigate]);
-
-  useEffect(() => {
-    if (customerProfile) {
+    // Allow demo mode
+    if (!customerProfile) {
+      setInvoices([
+        {
+          id: '1',
+          invoice_number: 'INV-001234',
+          invoice_date: '2025-01-10',
+          due_date: '2025-02-09',
+          status: 'sent',
+          total: 1250.00,
+          amount_paid: 0,
+          amount_due: 1250.00,
+        },
+        {
+          id: '2',
+          invoice_number: 'INV-001233',
+          invoice_date: '2025-01-05',
+          due_date: '2025-02-04',
+          status: 'partial',
+          total: 890.50,
+          amount_paid: 400.00,
+          amount_due: 490.50,
+        },
+        {
+          id: '3',
+          invoice_number: 'INV-001232',
+          invoice_date: '2024-12-28',
+          due_date: '2025-01-27',
+          status: 'paid',
+          total: 765.00,
+          amount_paid: 765.00,
+          amount_due: 0,
+        },
+      ]);
+      setLoading(false);
+    } else {
       fetchInvoices();
     }
   }, [customerProfile]);
@@ -84,7 +113,7 @@ export default function PortalInvoices() {
               <Building2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">{customerProfile?.company_name}</h1>
+              <h1 className="text-xl font-bold">{customerProfile?.company_name || 'Demo Customer'}</h1>
               <p className="text-sm text-muted-foreground">Customer Portal</p>
             </div>
           </div>
