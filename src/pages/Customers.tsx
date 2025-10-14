@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CustomerDialog } from '@/components/CustomerDialog';
+import { CustomerPortalUsersDialog } from '@/components/CustomerPortalUsersDialog';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
 
@@ -53,6 +54,8 @@ const Customers = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [showPortalUsersDialog, setShowPortalUsersDialog] = useState(false);
+  const [selectedCustomerForPortal, setSelectedCustomerForPortal] = useState<{ id: string; name: string } | null>(null);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -389,10 +392,24 @@ const Customers = () => {
                           Edit
                         </DropdownMenuItem>
                         {customer.portal_enabled && (
-                          <DropdownMenuItem onClick={() => handleImpersonateCustomer(customer.id)}>
-                            <UserCircle className="h-4 w-4 mr-2" />
-                            View as Customer
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setSelectedCustomerForPortal({
+                                  id: customer.id,
+                                  name: customer.company_name || customer.display_name
+                                });
+                                setShowPortalUsersDialog(true);
+                              }}
+                            >
+                              <Shield className="h-4 w-4 mr-2" />
+                              Manage Portal Users
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleImpersonateCustomer(customer.id)}>
+                              <UserCircle className="h-4 w-4 mr-2" />
+                              View as Customer
+                            </DropdownMenuItem>
+                          </>
                         )}
                         <DropdownMenuItem
                           className="text-destructive"
@@ -436,6 +453,15 @@ const Customers = () => {
         onOpenChange={setShowCustomerDialog}
         onSuccess={loadCustomers}
       />
+
+      {selectedCustomerForPortal && (
+        <CustomerPortalUsersDialog
+          open={showPortalUsersDialog}
+          onOpenChange={setShowPortalUsersDialog}
+          customerId={selectedCustomerForPortal.id}
+          customerName={selectedCustomerForPortal.name}
+        />
+      )}
     </div>
   );
 };
