@@ -76,6 +76,7 @@ interface Invoice {
 
 const Invoices = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
@@ -88,6 +89,8 @@ const Invoices = () => {
   const [dateType, setDateType] = useState<'invoice_date' | 'due_date'>('invoice_date');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
   const { toast } = useToast();
 
   const statusOptions = [
@@ -100,11 +103,15 @@ const Invoices = () => {
 
   useEffect(() => {
     loadInvoices();
-  }, []);
+  }, [currentPage]);
 
   const loadInvoices = async () => {
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data, error, count } = await supabase
         .from('invoice_record')
         .select(`
           id, 
@@ -118,11 +125,13 @@ const Invoices = () => {
             company_name,
             email
           )
-        `)
-        .order('created_at', { ascending: false });
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       setInvoices(data || []);
+      setTotalCount(count || 0);
     } catch (error) {
       console.error('Error loading invoices:', error);
       toast({
@@ -770,7 +779,41 @@ const Invoices = () => {
           </CardContent>
         </Card>
 
-      <InvoiceDialog 
+      {/* Pagination Controls */}
+      {Math.ceil(totalCount / PAGE_SIZE) > 1 && (
+        <Card className="border-0 shadow-sm mt-4">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * PAGE_SIZE) + 1} to {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount} invoices
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || loading}
+                >
+                  Previous
+                </Button>
+                <div className="text-sm">
+                  Page {currentPage} of {Math.ceil(totalCount / PAGE_SIZE)}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / PAGE_SIZE), p + 1))}
+                  disabled={currentPage === Math.ceil(totalCount / PAGE_SIZE) || loading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <InvoiceDialog
         open={showInvoiceDialog} 
         onOpenChange={setShowInvoiceDialog}
         onSuccess={loadInvoices}

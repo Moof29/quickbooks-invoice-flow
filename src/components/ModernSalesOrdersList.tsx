@@ -119,14 +119,21 @@ export function ModernSalesOrdersList() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   const organizationId = profile?.organization_id;
 
-  // Fetch orders for selected delivery date
-  const { data: orders, isLoading } = useQuery({
-    queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter, selectedDates],
+  // Fetch orders with pagination
+  const { data: ordersData, isLoading } = useQuery({
+    queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter, selectedDates, currentPage],
     queryFn: async () => {
       console.log('🔍 Fetching sales orders...');
+      
+      // Calculate offset for pagination
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      
       // Build base query
       let query = supabase
         .from("sales_order")
@@ -147,7 +154,7 @@ export function ModernSalesOrdersList() {
         )
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false })
-        .limit(10000); // Increased limit to handle large order volumes
+        .range(from, to); // Pagination
 
       // Filter by delivery_date based on selection
       if (selectedDates.length > 0) {
@@ -163,22 +170,26 @@ export function ModernSalesOrdersList() {
         query = query.eq("status", statusFilter);
       }
 
-      // Fetch all orders (server limit increased)
+      // Fetch paginated orders
       const { data, error, count } = await query;
       if (error) throw error;
 
-      console.log(`📊 Fetched ${data?.length || 0} orders (Total count: ${count})`);
+      console.log(`📊 Fetched ${data?.length || 0} orders (Page ${currentPage}, Total: ${count})`);
 
       // Show dialog if no orders for specific date
       if (deliveryDateFilter !== "all" && (!data || data.length === 0)) {
         setShowNoOrdersDialog(true);
       }
 
-      return data as SalesOrder[];
+      return { orders: data as SalesOrder[], totalCount: count || 0 };
     },
     enabled: !!organizationId,
     staleTime: 0, // Always fetch fresh data
   });
+
+  const orders = ordersData?.orders || [];
+  const totalCount = ordersData?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   // Delete mutation (only for non-invoiced orders)
   const deleteMutation = useMutation({
@@ -1320,6 +1331,40 @@ export function ModernSalesOrdersList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <Card className="border-0 shadow-sm mt-4">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * PAGE_SIZE) + 1} to {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount} orders
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || isLoading}
+                >
+                  Previous
+                </Button>
+                <div className="text-sm">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || isLoading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
