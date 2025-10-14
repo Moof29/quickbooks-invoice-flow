@@ -27,43 +27,19 @@ export default function PortalInvoices() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Allow demo mode
-    if (!customerProfile) {
-      setInvoices([
-        {
-          id: '1',
-          invoice_number: 'INV-001234',
-          invoice_date: '2025-01-10',
-          due_date: '2025-02-09',
-          status: 'sent',
-          total: 1250.00,
-          amount_paid: 0,
-          amount_due: 1250.00,
-        },
-        {
-          id: '2',
-          invoice_number: 'INV-001233',
-          invoice_date: '2025-01-05',
-          due_date: '2025-02-04',
-          status: 'partial',
-          total: 890.50,
-          amount_paid: 400.00,
-          amount_due: 490.50,
-        },
-        {
-          id: '3',
-          invoice_number: 'INV-001232',
-          invoice_date: '2024-12-28',
-          due_date: '2025-01-27',
-          status: 'paid',
-          total: 765.00,
-          amount_paid: 765.00,
-          amount_due: 0,
-        },
-      ]);
-      setLoading(false);
-    } else {
+    if (!customerProfile && !authLoading) {
+      const impersonationData = sessionStorage.getItem('portal_impersonation');
+      if (!impersonationData) {
+        navigate('/portal/login');
+      }
+    }
+  }, [authLoading, customerProfile, navigate]);
+
+  useEffect(() => {
+    if (customerProfile) {
       fetchInvoices();
+    } else {
+      setLoading(false);
     }
   }, [customerProfile]);
 
@@ -92,8 +68,15 @@ export default function PortalInvoices() {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/portal/login');
+    const impersonationData = sessionStorage.getItem('portal_impersonation');
+    
+    if (impersonationData) {
+      sessionStorage.removeItem('portal_impersonation');
+      window.close();
+    } else {
+      await signOut();
+      navigate('/portal/login');
+    }
   };
 
   if (authLoading || loading) {

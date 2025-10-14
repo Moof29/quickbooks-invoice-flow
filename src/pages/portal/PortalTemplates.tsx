@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Edit, FileText } from 'lucide-react';
+import { Edit, FileText, LogOut, ArrowLeft, Building2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,9 +20,19 @@ interface CustomerTemplate {
 }
 
 export default function PortalTemplates() {
-  const { customerLink, customerProfile } = usePortalAuth();
+  const { customerLink, customerProfile, loading: authLoading, signOut } = usePortalAuth();
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CustomerTemplate | null>(null);
+
+  useEffect(() => {
+    if (!customerProfile && !authLoading) {
+      const impersonationData = sessionStorage.getItem('portal_impersonation');
+      if (!impersonationData) {
+        navigate('/portal/login');
+      }
+    }
+  }, [authLoading, customerProfile, navigate]);
 
   // Fetch customer templates
   const { data: templates, isLoading, refetch } = useQuery<CustomerTemplate[]>({
@@ -44,6 +55,18 @@ export default function PortalTemplates() {
   const handleEdit = (template: CustomerTemplate) => {
     setEditingTemplate(template);
     setDialogOpen(true);
+  };
+
+  const handleSignOut = async () => {
+    const impersonationData = sessionStorage.getItem('portal_impersonation');
+    
+    if (impersonationData) {
+      sessionStorage.removeItem('portal_impersonation');
+      window.close();
+    } else {
+      await signOut();
+      navigate('/portal/login');
+    }
   };
 
   // Demo data for when not logged in
@@ -89,32 +112,43 @@ export default function PortalTemplates() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">{customerProfile.company_name}</h1>
-              <p className="text-sm text-muted-foreground">{customerProfile.display_name}</p>
+    <div className="min-h-screen bg-muted/40">
+      <header className="border-b bg-background">
+        <div className="max-w-6xl mx-auto px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center">
+              <Building2 className="h-5 w-5 text-primary" />
             </div>
-            <Button onClick={() => window.location.href = '/portal/dashboard'}>
-              Back to Dashboard
-            </Button>
+            <div>
+              <h1 className="text-xl font-bold">{customerProfile.company_name}</h1>
+              <p className="text-sm text-muted-foreground">Customer Portal</p>
+            </div>
           </div>
+          <Button variant="ghost" size="sm" onClick={handleSignOut}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto p-8 space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/portal/dashboard')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <h2 className="text-3xl font-bold tracking-tight mt-4">My Order Templates</h2>
+            <p className="text-muted-foreground">Manage your recurring order templates. You can adjust quantities and add/remove items.</p>
+          </div>
+        </div>
+
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>My Order Templates</CardTitle>
-                <CardDescription>
-                  Manage your recurring order templates. You can adjust quantities and add/remove items.
-                </CardDescription>
-              </div>
-            </div>
+            <CardTitle>My Order Templates</CardTitle>
+            <CardDescription>
+              Manage your recurring order templates. You can adjust quantities and add/remove items.
+            </CardDescription>
           </CardHeader>
           
           <CardContent>

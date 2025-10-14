@@ -19,19 +19,22 @@ export default function PortalDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if we're in impersonation mode
-    const impersonationData = sessionStorage.getItem('portal_impersonation');
-    
-    if (!authLoading) {
-      // If we have a customer profile (either real or impersonated), proceed
-      if (customerProfile) {
-        fetchStats();
-      } else if (!impersonationData) {
-        // Only redirect if not in impersonation mode
+    if (!customerProfile && !authLoading) {
+      // Check if we're in impersonation mode
+      const impersonationData = sessionStorage.getItem('portal_impersonation');
+      if (!impersonationData) {
         navigate('/portal/login');
       }
     }
   }, [authLoading, customerProfile, navigate]);
+
+  useEffect(() => {
+    if (customerProfile) {
+      fetchStats();
+    } else {
+      setLoading(false);
+    }
+  }, [customerProfile]);
 
   const fetchStats = async () => {
     try {
@@ -65,8 +68,17 @@ export default function PortalDashboard() {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/portal/login');
+    const impersonationData = sessionStorage.getItem('portal_impersonation');
+    
+    if (impersonationData) {
+      // Clear impersonation and close tab
+      sessionStorage.removeItem('portal_impersonation');
+      window.close();
+    } else {
+      // Normal sign out
+      await signOut();
+      navigate('/portal/login');
+    }
   };
 
   if (authLoading || loading) {

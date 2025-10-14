@@ -25,29 +25,19 @@ export default function PortalOrders() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Allow demo mode
-    if (!customerProfile) {
-      setOrders([
-        {
-          id: '1',
-          order_number: 'SO-2025-001',
-          order_date: '2025-01-10',
-          delivery_date: '2025-01-11',
-          status: 'pending',
-          total: 1250.00,
-        },
-        {
-          id: '2',
-          order_number: 'SO-2025-002',
-          order_date: '2025-01-09',
-          delivery_date: '2025-01-10',
-          status: 'reviewed',
-          total: 890.50,
-        },
-      ]);
-      setLoading(false);
-    } else {
+    if (!customerProfile && !authLoading) {
+      const impersonationData = sessionStorage.getItem('portal_impersonation');
+      if (!impersonationData) {
+        navigate('/portal/login');
+      }
+    }
+  }, [authLoading, customerProfile, navigate]);
+
+  useEffect(() => {
+    if (customerProfile) {
       fetchOrders();
+    } else {
+      setLoading(false);
     }
   }, [customerProfile]);
 
@@ -78,8 +68,15 @@ export default function PortalOrders() {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/portal/login');
+    const impersonationData = sessionStorage.getItem('portal_impersonation');
+    
+    if (impersonationData) {
+      sessionStorage.removeItem('portal_impersonation');
+      window.close();
+    } else {
+      await signOut();
+      navigate('/portal/login');
+    }
   };
 
   if (authLoading || loading) {
