@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProfileProvider, useAuthProfile } from "@/hooks/useAuthProfile";
+import { PortalAuthProvider } from "@/hooks/usePortalAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Bell } from "lucide-react";
@@ -25,6 +26,10 @@ import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import Security from "./pages/Security";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
+import PortalAuth from "./pages/portal/PortalAuth";
+import PortalDashboard from "./pages/portal/PortalDashboard";
+import PortalOrders from "./pages/portal/PortalOrders";
+import PortalInvoices from "./pages/portal/PortalInvoices";
 import { useState } from "react";
 
 const queryClient = new QueryClient();
@@ -113,6 +118,29 @@ const App = () => {
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
+                
+                {/* Customer Portal Routes */}
+                <Route path="/portal/login" element={
+                  <PortalAuthProvider>
+                    <PortalAuth />
+                  </PortalAuthProvider>
+                } />
+                <Route path="/portal/dashboard" element={
+                  <PortalAuthProvider>
+                    <PortalDashboard />
+                  </PortalAuthProvider>
+                } />
+                <Route path="/portal/orders" element={
+                  <PortalAuthProvider>
+                    <PortalOrders />
+                  </PortalAuthProvider>
+                } />
+                <Route path="/portal/invoices" element={
+                  <PortalAuthProvider>
+                    <PortalInvoices />
+                  </PortalAuthProvider>
+                } />
+                
                 <Route
                   element={
                     <ProtectedRoute>

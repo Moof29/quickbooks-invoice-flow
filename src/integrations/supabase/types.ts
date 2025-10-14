@@ -5283,6 +5283,10 @@ export type Database = {
         Args: { p_organization_id: string; p_year: number }
         Returns: string
       }
+      get_portal_user_customer_id: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
       get_qb_sync_status: {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: {
