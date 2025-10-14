@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { useAuthProfile } from "@/hooks/useAuthProfile";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +37,7 @@ const navigationItems = [
 
 export function AppSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signOut } = useAuthProfile();
   const { toast } = useToast();
   const { state } = useSidebar();
@@ -61,7 +61,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r bg-sidebar">
+    <Sidebar collapsible="icon">
       {/* Header with logo */}
       <SidebarHeader className="border-b border-sidebar-border px-3 py-4">
         <div className="flex items-center gap-2">
@@ -77,25 +77,22 @@ export function AppSidebar() {
       {/* Main navigation */}
       <SidebarContent className="px-3 py-4">
         <SidebarMenu className="gap-1">
-          {navigationItems.map((item) => (
-            <SidebarMenuItem key={item.name}>
-              <SidebarMenuButton asChild tooltip={item.name}>
-                <NavLink
-                  to={item.href}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-                      isActive 
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm" 
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    }`
-                  }
+          {navigationItems.map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton
+                  onClick={() => navigate(item.href)}
+                  isActive={isActive}
+                  tooltip={item.name}
+                  className="text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground"
                 >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  {!isCollapsed && <span>{item.name}</span>}
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+                  <item.icon />
+                  <span>{item.name}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarContent>
       
@@ -106,10 +103,10 @@ export function AppSidebar() {
             <SidebarMenuButton 
               onClick={handleSignOut}
               tooltip="Sign Out"
-              className="w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className="text-sidebar-foreground"
             >
-              <LogOut className="h-5 w-5 flex-shrink-0" />
-              {!isCollapsed && <span>Sign Out</span>}
+              <LogOut />
+              <span>Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
