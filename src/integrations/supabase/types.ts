@@ -1844,8 +1844,74 @@ export type Database = {
           },
         ]
       }
+      invoice_payment: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_id: string
+          notes: string | null
+          organization_id: string
+          payment_date: string
+          payment_method: string
+          reference_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id: string
+          notes?: string | null
+          organization_id: string
+          payment_date?: string
+          payment_method?: string
+          reference_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string
+          notes?: string | null
+          organization_id?: string
+          payment_date?: string
+          payment_method?: string
+          reference_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payment_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payment_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payment_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_record: {
         Row: {
+          amount_due: number | null
+          amount_paid: number | null
           balance_due: number | null
           created_at: string | null
           created_by: string | null
@@ -1885,6 +1951,8 @@ export type Database = {
           updated_source: string | null
         }
         Insert: {
+          amount_due?: number | null
+          amount_paid?: number | null
           balance_due?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -1924,6 +1992,8 @@ export type Database = {
           updated_source?: string | null
         }
         Update: {
+          amount_due?: number | null
+          amount_paid?: number | null
           balance_due?: number | null
           created_at?: string | null
           created_by?: string | null

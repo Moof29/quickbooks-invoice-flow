@@ -66,6 +66,8 @@ interface Invoice {
   invoice_date: string;
   due_date: string;
   total: number;
+  amount_paid?: number;
+  amount_due?: number;
   status: string;
   customer_profile?: {
     display_name: string;
@@ -118,7 +120,9 @@ const Invoices = () => {
           invoice_number, 
           invoice_date, 
           due_date, 
-          total, 
+          total,
+          amount_paid,
+          amount_due,
           status,
           customer_profile:customer_id (
             display_name,
@@ -148,7 +152,9 @@ const Invoices = () => {
     switch (status?.toLowerCase()) {
       case 'paid':
         return 'default';
-      case 'pending':
+      case 'partial':
+        return 'secondary';
+      case 'sent':
         return 'secondary';
       case 'overdue':
         return 'destructive';
@@ -668,6 +674,7 @@ const Invoices = () => {
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
+                    <TableHead className="text-right">Payment</TableHead>
                     <TableHead>
                       <Button
                         variant="ghost"
@@ -724,6 +731,16 @@ const Invoices = () => {
                         <span className="font-semibold text-sm">
                           ${invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                         </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="text-xs space-y-0.5">
+                          <div className="text-green-600 font-medium">
+                            ${(invoice.amount_paid || 0).toFixed(2)}
+                          </div>
+                          <div className="text-muted-foreground">
+                            of ${invoice.total?.toFixed(2) || '0.00'}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge 

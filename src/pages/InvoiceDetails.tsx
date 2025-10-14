@@ -56,6 +56,7 @@ import { pdf } from '@react-pdf/renderer';
 import { InvoicePDF } from '@/components/InvoicePDF';
 import { useInvoiceEdit } from '@/hooks/useInvoiceEdit';
 import { Combobox } from '@/components/ui/combobox';
+import { InvoicePaymentTracker } from '@/components/InvoicePaymentTracker';
 
 interface InvoiceLineItem {
   id: string;
@@ -90,6 +91,8 @@ interface InvoiceDetails {
   tax_total: number;
   status: string;
   memo?: string;
+  amount_paid?: number;
+  amount_due?: number;
   customer_profile?: {
     id: string;
     display_name: string;
@@ -160,6 +163,8 @@ export default function InvoiceDetailsPage() {
           tax_total,
           status,
           memo,
+          amount_paid,
+          amount_due,
           customer_profile:customer_id (
             id,
             display_name,
@@ -925,6 +930,14 @@ export default function InvoiceDetailsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Payment Tracking */}
+      <InvoicePaymentTracker
+        invoiceId={invoice.id}
+        invoiceTotal={invoice.total}
+        amountPaid={invoice.amount_paid || 0}
+        onPaymentChange={loadInvoiceDetails}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
