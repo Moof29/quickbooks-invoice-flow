@@ -184,6 +184,10 @@ export default function PortalDashboard() {
                 <FileText className="h-4 w-4 mr-2" />
                 View Invoices
               </Button>
+              <Button className="w-full justify-start" variant="outline" onClick={() => navigate('/portal/templates')}>
+                <Package className="h-4 w-4 mr-2" />
+                Manage Templates
+              </Button>
             </CardContent>
           </Card>
 

@@ -30,6 +30,7 @@ import PortalAuth from "./pages/portal/PortalAuth";
 import PortalDashboard from "./pages/portal/PortalDashboard";
 import PortalOrders from "./pages/portal/PortalOrders";
 import PortalInvoices from "./pages/portal/PortalInvoices";
+import PortalTemplates from "./pages/portal/PortalTemplates";
 import { useState } from "react";
 
 const queryClient = new QueryClient();
@@ -138,6 +139,11 @@ const App = () => {
                 <Route path="/portal/invoices" element={
                   <PortalAuthProvider>
                     <PortalInvoices />
+                  </PortalAuthProvider>
+                } />
+                <Route path="/portal/templates" element={
+                  <PortalAuthProvider>
+                    <PortalTemplates />
                   </PortalAuthProvider>
                 } />
                 
