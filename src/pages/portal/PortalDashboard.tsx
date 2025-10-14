@@ -19,26 +19,19 @@ export default function PortalDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Allow demo mode (no auth required for testing)
-    if (!authLoading && !customerProfile && window.location.search !== '?demo') {
-      // Don't redirect if coming from demo mode
+    // Check if we're in impersonation mode
+    const impersonationData = sessionStorage.getItem('portal_impersonation');
+    
+    if (!authLoading) {
+      // If we have a customer profile (either real or impersonated), proceed
+      if (customerProfile) {
+        fetchStats();
+      } else if (!impersonationData) {
+        // Only redirect if not in impersonation mode
+        navigate('/portal/login');
+      }
     }
   }, [authLoading, customerProfile, navigate]);
-
-  useEffect(() => {
-    // Use demo data if no customer profile
-    if (!customerProfile) {
-      setStats({
-        totalOrders: 12,
-        pendingOrders: 3,
-        totalInvoices: 8,
-        unpaidInvoices: 2,
-      });
-      setLoading(false);
-    } else {
-      fetchStats();
-    }
-  }, [customerProfile]);
 
   const fetchStats = async () => {
     try {

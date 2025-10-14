@@ -94,22 +94,32 @@ const Customers = () => {
 
   const handleTogglePortalAccess = async (customerId: string, currentStatus: boolean) => {
     try {
+      const newStatus = !currentStatus;
       const { error } = await supabase
         .from('customer_profile')
         .update({ 
-          portal_enabled: !currentStatus,
-          portal_invitation_sent_at: !currentStatus ? new Date().toISOString() : null
+          portal_enabled: newStatus,
+          portal_invitation_sent_at: newStatus ? new Date().toISOString() : null
         })
         .eq('id', customerId);
 
       if (error) throw error;
 
+      // Update local state to avoid re-sorting
+      setCustomers(prev => prev.map(customer => 
+        customer.id === customerId 
+          ? { 
+              ...customer, 
+              portal_enabled: newStatus,
+              portal_invitation_sent_at: newStatus ? new Date().toISOString() : null
+            }
+          : customer
+      ));
+
       toast({
         title: "Success",
-        description: `Portal access ${!currentStatus ? 'enabled' : 'disabled'} for customer`,
+        description: `Portal access ${newStatus ? 'enabled' : 'disabled'} for customer`,
       });
-
-      loadCustomers();
     } catch (error) {
       console.error('Error toggling portal access:', error);
       toast({
