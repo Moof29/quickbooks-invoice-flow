@@ -120,48 +120,34 @@ export default function Warehouse() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Warehouse Pick Lists</h1>
-            <p className="text-muted-foreground mt-1">
-              View and print pick lists for {format(selectedDate, 'MMMM d, yyyy')}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="lg">
-                  <CalendarIcon className="h-4 w-4 mr-2" />
-                  {format(selectedDate, 'MMM dd, yyyy')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => date && setSelectedDate(date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            <Button onClick={() => setShowInvoiceDialog(true)} size="lg">
-              <Plus className="h-4 w-4 mr-2" />
-              New Invoice
-            </Button>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Warehouse Pick Lists</h1>
+          <p className="text-muted-foreground mt-1">
+            View and print pick lists for {format(selectedDate, 'MMMM d, yyyy')}
+          </p>
         </div>
-        
-        {/* Search Bar */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search by customer or invoice number..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+        <div className="flex gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="lg">
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                {format(selectedDate, 'MMM dd, yyyy')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          <Button onClick={() => setShowInvoiceDialog(true)} size="lg">
+            <Plus className="h-4 w-4 mr-2" />
+            New Invoice
+          </Button>
         </div>
       </div>
 
@@ -211,6 +197,18 @@ export default function Warehouse() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Search by customer or invoice number..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
       </div>
 
       {/* Pick Lists Table */}
