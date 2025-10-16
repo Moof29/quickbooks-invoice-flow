@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuthProfile } from "@/hooks/useAuthProfile";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -64,9 +65,12 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       {/* Header with logo */}
       <SidebarHeader className="border-b border-sidebar-border px-3 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Package2 className="h-5 w-5 text-sidebar-primary-foreground" />
+        <div className={cn(
+          "flex items-center gap-2",
+          isCollapsed && "justify-center"
+        )}>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary shrink-0">
+            <Package2 className="h-6 w-6 text-sidebar-primary-foreground" />
           </div>
           {!isCollapsed && (
             <span className="text-lg font-semibold text-sidebar-foreground">Batchly</span>
@@ -85,9 +89,12 @@ export function AppSidebar() {
                   onClick={() => navigate(item.href)}
                   isActive={isActive}
                   tooltip={item.name}
-                  className="text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground"
+                  className={cn(
+                    "text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground",
+                    isCollapsed && "justify-center"
+                  )}
                 >
-                  <item.icon />
+                  <item.icon className="shrink-0" />
                   <span>{item.name}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -103,9 +110,12 @@ export function AppSidebar() {
             <SidebarMenuButton 
               onClick={handleSignOut}
               tooltip="Sign Out"
-              className="text-sidebar-foreground"
+              className={cn(
+                "text-sidebar-foreground",
+                isCollapsed && "justify-center"
+              )}
             >
-              <LogOut />
+              <LogOut className="shrink-0" />
               <span>Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
