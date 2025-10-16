@@ -5493,6 +5493,10 @@ export type Database = {
         Args: { p_batch_payload: Json }
         Returns: Json
       }
+      process_pending_batch_jobs: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       qbo_enqueue_sync_operation: {
         Args: {
           p_entity_id: string
