@@ -21,8 +21,8 @@ export default function PortalDashboard() {
   useEffect(() => {
     if (!customerProfile && !authLoading) {
       // Check if we're in impersonation mode
-      const impersonationData = sessionStorage.getItem('portal_impersonation');
-      if (!impersonationData) {
+      const impersonationToken = sessionStorage.getItem('portal_impersonation_token');
+      if (!impersonationToken) {
         navigate('/portal/login');
       }
     }
@@ -68,11 +68,11 @@ export default function PortalDashboard() {
   };
 
   const handleSignOut = async () => {
-    const impersonationData = sessionStorage.getItem('portal_impersonation');
+    const impersonationToken = sessionStorage.getItem('portal_impersonation_token');
     
-    if (impersonationData) {
+    if (impersonationToken) {
       // Clear impersonation and close tab
-      sessionStorage.removeItem('portal_impersonation');
+      sessionStorage.removeItem('portal_impersonation_token');
       window.close();
     } else {
       // Normal sign out

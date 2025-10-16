@@ -23,6 +23,8 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    console.log('Validating token:', token.substring(0, 10) + '...');
 
     // Validate token - check if active and not expired
     const { data: tokenData, error: tokenError } = await supabase
@@ -32,23 +34,31 @@ serve(async (req) => {
       .single();
 
     if (tokenError || !tokenData) {
+      console.error('Token not found:', tokenError);
       return new Response(
         JSON.stringify({ valid: false, error: 'Invalid token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    console.log('Token record found:', tokenData.id);
 
     // Check if token is expired or revoked
     const now = new Date();
     const expiresAt = new Date(tokenData.expires_at);
     
+    console.log('Token expires at:', expiresAt, 'Current time:', now);
+    
     if (tokenData.revoked_at || expiresAt < now) {
+      console.log('Token expired or revoked');
       return new Response(
         JSON.stringify({ valid: false, error: 'Token expired or revoked' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('Token validation successful');
+    
     return new Response(
       JSON.stringify({ 
         valid: true,

@@ -75,18 +75,29 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
       const impersonationToken = sessionStorage.getItem('portal_impersonation_token');
       
       if (impersonationToken) {
+        console.log('Validating impersonation token...');
+        
         // Validate token server-side using edge function
         const { data: validationData, error: validationError } = await supabase.functions.invoke(
           'validate-impersonation-token',
           { body: { token: impersonationToken } }
         );
 
-        if (validationError || !validationData?.customerId) {
-          console.error('Invalid impersonation token');
+        if (validationError) {
+          console.error('Impersonation token validation error:', validationError);
           sessionStorage.removeItem('portal_impersonation_token');
           setLoading(false);
           return;
         }
+
+        if (!validationData?.customerId) {
+          console.error('Invalid impersonation response:', validationData);
+          sessionStorage.removeItem('portal_impersonation_token');
+          setLoading(false);
+          return;
+        }
+        
+        console.log('Token validated successfully for customer:', validationData.customerId);
         
         const customerId = validationData.customerId;
         

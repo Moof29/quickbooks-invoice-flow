@@ -5261,6 +5261,10 @@ export type Database = {
           has_duplicate: boolean
         }[]
       }
+      check_user_is_admin: {
+        Args: { check_user_id: string }
+        Returns: boolean
+      }
       clear_all_invoices: {
         Args: { p_organization_id: string }
         Returns: Json

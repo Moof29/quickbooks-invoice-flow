@@ -34,26 +34,37 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Check if user is admin using the new role system
-    const { data: roleData, error: roleError } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .single();
+    console.log('Checking admin status for user:', user.id);
 
-    if (roleError || !roleData) {
+    // Check if user is admin using SECURITY DEFINER function (bypasses RLS)
+    const { data: isAdmin, error: adminCheckError } = await supabase
+      .rpc('check_user_is_admin', { check_user_id: user.id });
+
+    if (adminCheckError) {
+      console.error('Failed to check admin status:', adminCheckError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to verify admin status' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!isAdmin) {
+      console.log('User is not an admin:', user.id);
       return new Response(
         JSON.stringify({ error: 'Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('Admin check passed for user:', user.id);
+
     // Get the customer ID from request
     const { customerId } = await req.json();
     if (!customerId) {
       throw new Error('Customer ID required');
     }
+    
+    console.log('Creating token for customer:', customerId);
 
     // Verify customer exists and get organization
     const { data: customer, error: customerError } = await supabase
@@ -92,7 +103,7 @@ serve(async (req) => {
       throw new Error('Failed to create impersonation token');
     }
 
-    console.log('Created impersonation token for customer:', customerId);
+    console.log('Token created successfully:', tokenData.id);
 
     return new Response(
       JSON.stringify({ 

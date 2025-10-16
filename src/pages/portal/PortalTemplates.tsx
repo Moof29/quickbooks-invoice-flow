@@ -27,8 +27,8 @@ export default function PortalTemplates() {
 
   useEffect(() => {
     if (!customerProfile && !authLoading) {
-      const impersonationData = sessionStorage.getItem('portal_impersonation');
-      if (!impersonationData) {
+      const impersonationToken = sessionStorage.getItem('portal_impersonation_token');
+      if (!impersonationToken) {
         navigate('/portal/login');
       }
     }
@@ -58,10 +58,10 @@ export default function PortalTemplates() {
   };
 
   const handleSignOut = async () => {
-    const impersonationData = sessionStorage.getItem('portal_impersonation');
+    const impersonationToken = sessionStorage.getItem('portal_impersonation_token');
     
-    if (impersonationData) {
-      sessionStorage.removeItem('portal_impersonation');
+    if (impersonationToken) {
+      sessionStorage.removeItem('portal_impersonation_token');
       window.close();
     } else {
       await signOut();
