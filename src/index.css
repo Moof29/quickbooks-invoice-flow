@@ -2,71 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Smooth transitions for ShadcnUIKit */
+* {
+  @apply transition-colors duration-200;
+}
+
+/* Consistent focus states for ShadcnUIKit */
+*:focus-visible {
+  @apply outline-none ring-2 ring-ring ring-offset-2;
+}
+
+/* Remove harsh borders for ShadcnUIKit */
+.card {
+  @apply border-0 shadow-sm;
+}
+
+/* Subtle hover states for ShadcnUIKit */
+.hoverable {
+  @apply hover:shadow-md transition-shadow;
+}
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 224 10% 4%;
+    --foreground: 240 10% 3.9%;
+
     --card: 0 0% 100%;
-    --card-foreground: 224 10% 4%;
+    --card-foreground: 240 10% 3.9%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 224 10% 4%;
-    --primary: 224 72% 45%;
-    --primary-foreground: 224 10% 95%;
-    --secondary: 224 12% 85%;
-    --secondary-foreground: 224 12% 10%;
-    --muted: 224 12% 85%;
-    --muted-foreground: 224 30% 45%;
-    --accent: 224 42% 75%;
-    --accent-foreground: 224 42% 10%;
-    --destructive: 357.18 100% 45%;
-    --destructive-foreground: 224 10% 95%;
-    --border: 224 12% 80%;
-    --input: 224 12% 80%;
-    --ring: 224 72% 45%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+
     --radius: 0.5rem;
-    --chart-1: 224 72% 45%;
-    --chart-2: 224 57% 60%;
-    --chart-3: 224 42% 70%;
-    --chart-4: 224 82% 30%;
-    --chart-5: 224 77% 20%;
-    --sidebar-background: 224 12% 85%;
-    --sidebar-foreground: 224 12% 10%;
-    --sidebar-primary: 224 72% 45%;
-    --sidebar-primary-foreground: 224 10% 95%;
-    --sidebar-accent: 224 42% 75%;
-    --sidebar-accent-foreground: 224 42% 10%;
-    --sidebar-border: 224 12% 80%;
-    --sidebar-ring: 224 72% 45%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Enhanced card shadows and styling */
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --card-shadow-lg: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --card-shadow-xl: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    
+    /* Chart colors */
+    --chart-1: 142 76% 36%;
+    --chart-2: 221 83% 53%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 197 37% 24%;
   }
 
   .dark {
-    --background: 224 30% 10%;
-    --foreground: 224 10% 95%;
-    --card: 224 30% 14%;
-    --card-foreground: 224 10% 95%;
-    --popover: 224 30% 14%;
-    --popover-foreground: 224 10% 95%;
-    --primary: 224 62% 50%;
-    --primary-foreground: 224 62% 95%;
-    --secondary: 224 12% 15%;
-    --secondary-foreground: 224 12% 95%;
-    --muted: 224 12% 15%;
-    --muted-foreground: 224 15% 65%;
-    --accent: 224 42% 25%;
-    --accent-foreground: 224 42% 95%;
-    --destructive: 357.18 100% 45%;
-    --destructive-foreground: 224 62% 95%;
-    --border: 224 17% 25%;
-    --input: 224 17% 25%;
-    --ring: 224 62% 50%;
-    --sidebar-background: 224 30% 22%;
-    --sidebar-foreground: 224 10% 95%;
-    --sidebar-primary: 224 62% 50%;
-    --sidebar-primary-foreground: 224 62% 95%;
-    --sidebar-accent: 224 42% 25%;
-    --sidebar-accent-foreground: 224 42% 95%;
-    --sidebar-border: 224 17% 25%;
-    --sidebar-ring: 224 62% 50%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Enhanced dark mode card shadows */
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+    --card-shadow-lg: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --card-shadow-xl: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+    
+    /* Dark mode chart colors */
+    --chart-1: 142 69% 58%;
+    --chart-2: 213 94% 68%;
+    --chart-3: 45 93% 47%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 197 37% 40%;
   }
 }
 
