@@ -5489,6 +5489,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      process_all_pending_batches: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       process_invoice_batch: {
         Args: { p_batch_payload: Json }
         Returns: Json

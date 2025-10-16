@@ -19,18 +19,16 @@ Deno.serve(async (req) => {
   try {
     console.log('=== Batch Job Processor Starting ===');
 
-    // Call the database function to process jobs
-    const { data, error } = await supabase.rpc('process_pending_batch_jobs');
+    // Get the next job from batch_processing_queue
+    const { data: job, error: jobError } = await supabase.rpc('get_next_batch_job');
     
-    if (error) {
-      console.error('Error processing batch jobs:', error);
-      throw error;
+    if (jobError) {
+      console.error('Error getting next job:', jobError);
+      throw jobError;
     }
 
-    console.log('Processing result:', data);
-
     // If no jobs were found, return early
-    if (data?.message === 'No jobs pending') {
+    if (!job || job.length === 0) {
       console.log('No jobs to process');
       return new Response(
         JSON.stringify({ message: 'No jobs pending' }), 
@@ -40,19 +38,54 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Job was processed
-    if (data?.success) {
-      console.log(`✅ Job ${data.job_id} completed: ${data.successful}/${data.processed} successful`);
+    const currentJob = job[0];
+    console.log(`Processing job ${currentJob.job_id} of type ${currentJob.job_type}`);
+
+    // Process the job based on type
+    if (currentJob.job_type === 'invoice_generation') {
+      // Call process_invoice_batch with the job payload
+      const { data: result, error: processError } = await supabase
+        .rpc('process_invoice_batch', { p_batch_payload: currentJob.payload });
+      
+      if (processError) {
+        console.error('Error processing invoice batch:', processError);
+        
+        // Mark job as failed
+        await supabase.rpc('fail_batch_job', {
+          p_job_id: currentJob.job_id,
+          p_error_message: processError.message
+        });
+        
+        throw processError;
+      }
+
+      // Mark job as completed
+      await supabase.rpc('complete_batch_job', {
+        p_job_id: currentJob.job_id,
+        p_result: result
+      });
+
+      console.log(`✅ Job ${currentJob.job_id} completed successfully`);
+      console.log(`Batch ${result.batch_number}/${result.batch_total}: ${result.batch_successful} successful, ${result.batch_failed} failed`);
       
       return new Response(
-        JSON.stringify(data),
+        JSON.stringify({
+          success: true,
+          job_id: currentJob.job_id,
+          result: result
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      console.error('Job processing failed:', data?.error);
+      console.error(`Unknown job type: ${currentJob.job_type}`);
+      await supabase.rpc('fail_batch_job', {
+        p_job_id: currentJob.job_id,
+        p_error_message: `Unknown job type: ${currentJob.job_type}`
+      });
+      
       return new Response(
-        JSON.stringify({ error: data?.error || 'Processing failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: `Unknown job type: ${currentJob.job_type}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
