@@ -79,19 +79,18 @@ export function AppSidebar() {
       </SidebarHeader>
       
       {/* Main navigation */}
-      <SidebarContent className="px-3 py-4">
-        <SidebarMenu className="gap-1">
+      <SidebarContent className={cn("py-4", isCollapsed ? "px-0" : "px-3")}>
+        <SidebarMenu className={cn("gap-1", isCollapsed && "items-center")}>
           {navigationItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
-              <SidebarMenuItem key={item.name}>
+              <SidebarMenuItem key={item.name} className={isCollapsed ? "flex justify-center w-full" : ""}>
                 <SidebarMenuButton
                   onClick={() => navigate(item.href)}
                   isActive={isActive}
                   tooltip={item.name}
                   className={cn(
-                    "text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground",
-                    isCollapsed && "justify-center"
+                    "text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground"
                   )}
                 >
                   <item.icon className="shrink-0" />
@@ -104,16 +103,13 @@ export function AppSidebar() {
       </SidebarContent>
       
       {/* Footer with sign out */}
-      <SidebarFooter className="border-t border-sidebar-border px-3 py-3">
-        <SidebarMenu>
-          <SidebarMenuItem>
+      <SidebarFooter className={cn("border-t border-sidebar-border py-3", isCollapsed ? "px-0" : "px-3")}>
+        <SidebarMenu className={isCollapsed ? "items-center" : ""}>
+          <SidebarMenuItem className={isCollapsed ? "flex justify-center w-full" : ""}>
             <SidebarMenuButton 
               onClick={handleSignOut}
               tooltip="Sign Out"
-              className={cn(
-                "text-sidebar-foreground",
-                isCollapsed && "justify-center"
-              )}
+              className="text-sidebar-foreground"
             >
               <LogOut className="shrink-0" />
               <span>Sign Out</span>
