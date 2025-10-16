@@ -165,12 +165,12 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
+        <DialogHeader className="pr-12">
+          <div className="flex items-center justify-between pr-4">
             <DialogTitle>
               Invoice Preview {invoice?.invoice_number && `- ${invoice.invoice_number}`}
             </DialogTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Button variant="outline" size="sm" onClick={handleEdit}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit

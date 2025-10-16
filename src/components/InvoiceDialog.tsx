@@ -229,7 +229,7 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <DialogHeader className="pr-12">
           <DialogTitle>Create New Invoice</DialogTitle>
           <DialogDescription>
             Create a new invoice for your customer. Fill in the details below.
@@ -381,7 +381,7 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
             />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
