@@ -79,7 +79,7 @@ serve(async (req) => {
       .from('portal_impersonation_tokens')
       .insert({
         token,
-        admin_user_id: user.id,
+        created_by: user.id,
         customer_id: customerId,
         organization_id: customer.organization_id,
         expires_at: expiresAt.toISOString(),
