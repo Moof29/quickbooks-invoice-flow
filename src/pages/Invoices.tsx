@@ -59,6 +59,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceDialog } from '@/components/InvoiceDialog';
+import { InvoicePreviewDialog } from '@/components/InvoicePreviewDialog';
 
 interface Invoice {
   id: string;
@@ -83,6 +84,8 @@ const Invoices = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [customerFilter, setCustomerFilter] = useState<string[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -316,6 +319,11 @@ const Invoices = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleRowClick = (invoiceId: string) => {
+    setPreviewInvoiceId(invoiceId);
+    setShowPreviewDialog(true);
   };
 
   if (loading) {
@@ -691,8 +699,12 @@ const Invoices = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredInvoices.map((invoice) => (
-                    <TableRow key={invoice.id} className="hover:bg-muted/50">
-                      <TableCell>
+                    <TableRow 
+                      key={invoice.id} 
+                      className="hover:bg-muted/50 cursor-pointer"
+                      onClick={() => handleRowClick(invoice.id)}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedInvoices.includes(invoice.id)}
                           onCheckedChange={() => toggleInvoiceSelection(invoice.id)}
@@ -750,7 +762,7 @@ const Invoices = () => {
                           {invoice.status || 'draft'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -834,6 +846,12 @@ const Invoices = () => {
         open={showInvoiceDialog} 
         onOpenChange={setShowInvoiceDialog}
         onSuccess={loadInvoices}
+      />
+
+      <InvoicePreviewDialog
+        invoiceId={previewInvoiceId}
+        open={showPreviewDialog}
+        onOpenChange={setShowPreviewDialog}
       />
     </div>
   );
