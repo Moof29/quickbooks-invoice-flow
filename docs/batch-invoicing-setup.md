@@ -105,15 +105,21 @@ import { BulkInvoiceActions } from '@/components/sales-orders/BulkInvoiceActions
 ## 🚀 Performance Specifications
 
 ### Throughput
-- **Rate**: ~20-30 invoices per second
-- **Batch Size**: Processes orders sequentially for reliability
-- **Timeout Safe**: No operation exceeds 30 seconds
+- **Rate**: ~2-3 invoices per second (sequential processing)
+- **Batch Size**: Automatically chunked into 100-order batches
+- **Maximum**: 500 orders per batch job
+- **Timeout Safe**: Processes in background via cron worker
 
 ### Estimated Processing Times
-- **100 orders**: ~5-10 seconds
-- **1,000 orders**: ~2-3 minutes
-- **5,000 orders**: ~10-15 minutes
-- **10,000 orders**: ~20-30 minutes
+- **10 orders**: 3-5 seconds ⚡ Excellent
+- **100 orders**: 30-60 seconds ✅ Good
+- **500 orders**: 3-5 minutes ⚠️ Maximum recommended
+- **1,000+ orders**: Split into multiple 500-order batches
+
+### Recommended Batch Sizes
+- **Daily operations**: 10-100 orders (fast, responsive)
+- **Weekly bulk**: 100-500 orders (acceptable wait time)
+- **Large migrations**: Split into multiple 500-order batches
 
 ### Resource Efficiency
 - **Memory**: Only active job data in memory
@@ -167,7 +173,29 @@ curl -X POST https://pnqcbnmrfzqihymmzhkb.supabase.co/functions/v1/process-batch
   -H "Authorization: Bearer YOUR_ANON_KEY"
 ```
 
+## ✅ Clear Backlog After Fix
+
+If you have pending jobs that failed before the fix:
+
+```bash
+# Manually trigger batch processing
+curl -X POST https://pnqcbnmrfzqihymmzhkb.supabase.co/functions/v1/trigger-batch-processing \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBucWNibm1yZnpxaWh5bW16aGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4MzU4NjUsImV4cCI6MjA2MDQxMTg2NX0.YFTBTCDsFtrYU1WqqpFg1STecxlGF_28G7cP4vRHVCQ"
+```
+
+Or via SQL:
+```sql
+-- Process all pending batches
+SELECT process_all_pending_batches();
+```
+
 ## 🛠️ Troubleshooting
+
+### Batch Size Exceeded Error
+```
+Error: Batch size exceeds maximum of 500 orders
+```
+**Solution**: Split your selection into smaller batches of 500 or fewer orders.
 
 ### Job Stuck in "Processing" State
 ```sql
