@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { PDFViewer } from '@react-pdf/renderer';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { pdf } from '@react-pdf/renderer';
 import { InvoicePDF } from './InvoicePDF';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
@@ -45,10 +45,17 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && invoiceId) {
       loadInvoiceData();
+    } else {
+      // Clean up PDF URL when dialog closes
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+        setPdfUrl(null);
+      }
     }
   }, [open, invoiceId]);
 
@@ -104,6 +111,11 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
 
       setInvoice(invoiceData);
       setLineItems(lineItemsData || []);
+
+      // Generate PDF blob
+      const blob = await pdf(<InvoicePDF invoice={invoiceData} lineItems={lineItemsData || []} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      setPdfUrl(url);
     } catch (error) {
       console.error('Error loading invoice data:', error);
     } finally {
@@ -118,6 +130,9 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
           <DialogTitle>
             Invoice Preview {invoice?.invoice_number && `- ${invoice.invoice_number}`}
           </DialogTitle>
+          <DialogDescription>
+            View the invoice as a PDF document
+          </DialogDescription>
         </DialogHeader>
         
         <div className="flex-1 min-h-0">
@@ -125,10 +140,12 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : invoice ? (
-            <PDFViewer width="100%" height="100%" className="border-0">
-              <InvoicePDF invoice={invoice} lineItems={lineItems} />
-            </PDFViewer>
+          ) : pdfUrl ? (
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full border-0 rounded"
+              title="Invoice PDF"
+            />
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               No invoice data available
