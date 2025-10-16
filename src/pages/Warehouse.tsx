@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Printer, Plus, Search, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +29,7 @@ export default function Warehouse() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [searchQuery, setSearchQuery] = useState('');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
@@ -93,6 +95,17 @@ export default function Warehouse() {
     setShowPreviewDialog(true);
   };
 
+  const filteredInvoices = useMemo(() => {
+    if (!searchQuery.trim()) return invoices;
+    
+    const query = searchQuery.toLowerCase();
+    return invoices.filter(invoice => 
+      invoice.invoice_number.toLowerCase().includes(query) ||
+      invoice.customer_profile?.company_name?.toLowerCase().includes(query) ||
+      invoice.customer_profile?.display_name?.toLowerCase().includes(query)
+    );
+  }, [invoices, searchQuery]);
+
   const getStatusColor = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status?.toLowerCase()) {
       case 'paid':
@@ -107,34 +120,48 @@ export default function Warehouse() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Warehouse Pick Lists</h1>
-          <p className="text-muted-foreground mt-1">
-            View and print pick lists for {format(selectedDate, 'MMMM d, yyyy')}
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Warehouse Pick Lists</h1>
+            <p className="text-muted-foreground mt-1">
+              View and print pick lists for {format(selectedDate, 'MMMM d, yyyy')}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="lg">
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  {format(selectedDate, 'MMM dd, yyyy')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <Button onClick={() => setShowInvoiceDialog(true)} size="lg">
+              <Plus className="h-4 w-4 mr-2" />
+              New Invoice
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="lg">
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                {format(selectedDate, 'MMM dd, yyyy')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-          <Button onClick={() => setShowInvoiceDialog(true)} size="lg">
-            <Plus className="h-4 w-4 mr-2" />
-            New Invoice
-          </Button>
+        
+        {/* Search Bar */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search by customer or invoice number..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
       </div>
 
@@ -146,7 +173,7 @@ export default function Warehouse() {
             <Search className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{invoices.length}</div>
+            <div className="text-2xl font-bold">{filteredInvoices.length}</div>
             <p className="text-xs text-muted-foreground">
               For {format(selectedDate, 'MMMM d')}
             </p>
@@ -160,7 +187,7 @@ export default function Warehouse() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${invoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toFixed(2)}
+              ${filteredInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
               Combined order value
@@ -177,7 +204,7 @@ export default function Warehouse() {
             <Button 
               onClick={handlePrintAll} 
               className="w-full"
-              disabled={invoices.length === 0}
+              disabled={filteredInvoices.length === 0}
             >
               <Printer className="h-4 w-4 mr-2" />
               Print All
@@ -197,21 +224,26 @@ export default function Warehouse() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-muted-foreground">Loading pick lists...</p>
             </div>
-          ) : invoices.length === 0 ? (
+          ) : filteredInvoices.length === 0 ? (
             <div className="text-center py-12">
               <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Pick Lists Found</h3>
               <p className="text-muted-foreground mb-4">
-                No invoices scheduled for {format(selectedDate, 'MMMM d, yyyy')}
+                {searchQuery 
+                  ? `No results found for "${searchQuery}"`
+                  : `No invoices scheduled for ${format(selectedDate, 'MMMM d, yyyy')}`
+                }
               </p>
-              <Button onClick={() => setShowInvoiceDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Invoice
-              </Button>
+              {!searchQuery && (
+                <Button onClick={() => setShowInvoiceDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Invoice
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              {invoices.map((invoice) => (
+              {filteredInvoices.map((invoice) => (
                 <Card 
                   key={invoice.id}
                   className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-card"
