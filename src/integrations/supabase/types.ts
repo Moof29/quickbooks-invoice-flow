@@ -5265,6 +5265,13 @@ export type Database = {
         Args: { check_user_id: string }
         Returns: boolean
       }
+      cleanup_stuck_batch_jobs: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          cleaned_jobs: number
+          job_ids: string[]
+        }[]
+      }
       clear_all_invoices: {
         Args: { p_organization_id: string }
         Returns: Json
@@ -5343,6 +5350,10 @@ export type Database = {
           p_organization_id?: string
           p_template_id?: string
         }
+        Returns: Json
+      }
+      get_batch_processing_stats: {
+        Args: Record<PropertyKey, never>
         Returns: Json
       }
       get_bulk_invoice_job_status: {
@@ -5494,7 +5505,7 @@ export type Database = {
         Returns: Json
       }
       process_invoice_batch: {
-        Args: { p_batch_payload: Json }
+        Args: { p_payload: Json }
         Returns: Json
       }
       process_pending_batch_jobs: {
