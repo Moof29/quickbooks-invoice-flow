@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceDialog } from '@/components/InvoiceDialog';
 import { InvoicePreviewDialog } from '@/components/InvoicePreviewDialog';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,7 @@ interface Invoice {
 export default function Warehouse() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(addDays(new Date(), 1));
   const [searchQuery, setSearchQuery] = useState('');
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
