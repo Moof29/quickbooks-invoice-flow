@@ -61,7 +61,7 @@ function Header() {
 
   return (
     <header className="border-b bg-background">
-      <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 px-4 md:px-6">
+      <div className="flex h-[4.5rem] items-center gap-2 md:gap-4 px-4 md:px-6">
         {/* Sidebar trigger */}
         <SidebarTrigger className="h-8 w-8 flex-shrink-0" />
         
