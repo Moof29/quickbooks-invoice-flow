@@ -12,7 +12,6 @@ import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-
 interface Invoice {
   id: string;
   invoice_number: string;
@@ -24,7 +23,6 @@ interface Invoice {
     company_name: string;
   };
 }
-
 export default function Warehouse() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,20 +31,20 @@ export default function Warehouse() {
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   useEffect(() => {
     loadInvoicesForDate();
   }, [selectedDate]);
-
   const loadInvoicesForDate = async () => {
     try {
       setLoading(true);
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      
-      const { data, error } = await supabase
-        .from('invoice_record')
-        .select(`
+      const {
+        data,
+        error
+      } = await supabase.from('invoice_record').select(`
           id, 
           invoice_number, 
           invoice_date,
@@ -56,10 +54,9 @@ export default function Warehouse() {
             display_name,
             company_name
           )
-        `)
-        .eq('invoice_date', dateStr)
-        .order('invoice_number', { ascending: true });
-
+        `).eq('invoice_date', dateStr).order('invoice_number', {
+        ascending: true
+      });
       if (error) throw error;
       setInvoices(data || []);
     } catch (error) {
@@ -67,45 +64,35 @@ export default function Warehouse() {
       toast({
         title: "Error",
         description: "Failed to load invoices",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const handlePrintAll = () => {
     toast({
       title: "Printing",
-      description: `Printing ${invoices.length} pick lists...`,
+      description: `Printing ${invoices.length} pick lists...`
     });
     // Print functionality would be implemented here
   };
-
   const handlePrintInvoice = (invoiceId: string) => {
     toast({
       title: "Printing",
-      description: "Opening pick list for printing...",
+      description: "Opening pick list for printing..."
     });
     // Individual print functionality
   };
-
   const handleViewInvoice = (invoiceId: string) => {
     setPreviewInvoiceId(invoiceId);
     setShowPreviewDialog(true);
   };
-
   const filteredInvoices = useMemo(() => {
     if (!searchQuery.trim()) return invoices;
-    
     const query = searchQuery.toLowerCase();
-    return invoices.filter(invoice => 
-      invoice.invoice_number.toLowerCase().includes(query) ||
-      invoice.customer_profile?.company_name?.toLowerCase().includes(query) ||
-      invoice.customer_profile?.display_name?.toLowerCase().includes(query)
-    );
+    return invoices.filter(invoice => invoice.invoice_number.toLowerCase().includes(query) || invoice.customer_profile?.company_name?.toLowerCase().includes(query) || invoice.customer_profile?.display_name?.toLowerCase().includes(query));
   }, [invoices, searchQuery]);
-
   const getStatusColor = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status?.toLowerCase()) {
       case 'paid':
@@ -116,9 +103,7 @@ export default function Warehouse() {
         return 'outline';
     }
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -136,12 +121,7 @@ export default function Warehouse() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                initialFocus
-              />
+              <Calendar mode="single" selected={selectedDate} onSelect={date => date && setSelectedDate(date)} initialFocus />
             </PopoverContent>
           </Popover>
           <Button onClick={() => setShowInvoiceDialog(true)} size="lg">
@@ -168,15 +148,11 @@ export default function Warehouse() {
         
         <Card className="border-0 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Print Instructions and Days Report</CardTitle>
+            <CardTitle className="text-sm font-medium">Print Instructions and Today's Report</CardTitle>
             <Printer className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <Button 
-              variant="outline"
-              className="w-full"
-              disabled={filteredInvoices.length === 0}
-            >
+            <Button variant="outline" className="w-full" disabled={filteredInvoices.length === 0}>
               <Printer className="h-4 w-4 mr-2" />
               Print Report
             </Button>
@@ -189,11 +165,7 @@ export default function Warehouse() {
             <Printer className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <Button 
-              onClick={handlePrintAll} 
-              className="w-full"
-              disabled={filteredInvoices.length === 0}
-            >
+            <Button onClick={handlePrintAll} className="w-full" disabled={filteredInvoices.length === 0}>
               <Printer className="h-4 w-4 mr-2" />
               Print All
             </Button>
@@ -204,13 +176,7 @@ export default function Warehouse() {
       {/* Search Bar */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Search by customer or invoice number..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+        <Input type="text" placeholder="Search by customer or invoice number..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
       </div>
 
       {/* Pick Lists Table */}
@@ -219,44 +185,27 @@ export default function Warehouse() {
           <CardTitle>Pick Lists for {format(selectedDate, 'MMMM d, yyyy')}</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="text-center py-8">
+          {loading ? <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-muted-foreground">Loading pick lists...</p>
-            </div>
-          ) : filteredInvoices.length === 0 ? (
-            <div className="text-center py-12">
+            </div> : filteredInvoices.length === 0 ? <div className="text-center py-12">
               <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Pick Lists Found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchQuery 
-                  ? `No results found for "${searchQuery}"`
-                  : `No invoices scheduled for ${format(selectedDate, 'MMMM d, yyyy')}`
-                }
+                {searchQuery ? `No results found for "${searchQuery}"` : `No invoices scheduled for ${format(selectedDate, 'MMMM d, yyyy')}`}
               </p>
-              {!searchQuery && (
-                <Button onClick={() => setShowInvoiceDialog(true)}>
+              {!searchQuery && <Button onClick={() => setShowInvoiceDialog(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Invoice
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredInvoices.map((invoice) => (
-                <Card 
-                  key={invoice.id}
-                  className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-card"
-                  onClick={() => handleViewInvoice(invoice.id)}
-                >
+                </Button>}
+            </div> : <div className="space-y-3">
+              {filteredInvoices.map(invoice => <Card key={invoice.id} className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-card" onClick={() => handleViewInvoice(invoice.id)}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-lg">
-                            {invoice.customer_profile?.company_name || 
-                             invoice.customer_profile?.display_name || 
-                             'Unknown Customer'}
+                            {invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'Unknown Customer'}
                           </h3>
                           <Badge variant={getStatusColor(invoice.status)}>
                             {invoice.status}
@@ -271,44 +220,27 @@ export default function Warehouse() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePrintInvoice(invoice.id);
-                          }}
-                        >
+                        <Button variant="outline" size="sm" onClick={e => {
+                    e.stopPropagation();
+                    handlePrintInvoice(invoice.id);
+                  }}>
                           <Printer className="h-4 w-4 mr-2" />
                           Print
                         </Button>
                       </div>
                     </div>
                   </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                </Card>)}
+            </div>}
         </CardContent>
       </Card>
 
       {/* Dialogs */}
-      <InvoiceDialog 
-        open={showInvoiceDialog} 
-        onOpenChange={setShowInvoiceDialog}
-        onSuccess={() => {
-          loadInvoicesForDate();
-          setShowInvoiceDialog(false);
-        }}
-      />
+      <InvoiceDialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog} onSuccess={() => {
+      loadInvoicesForDate();
+      setShowInvoiceDialog(false);
+    }} />
 
-      {previewInvoiceId && (
-        <InvoicePreviewDialog
-          invoiceId={previewInvoiceId}
-          open={showPreviewDialog}
-          onOpenChange={setShowPreviewDialog}
-        />
-      )}
-    </div>
-  );
+      {previewInvoiceId && <InvoicePreviewDialog invoiceId={previewInvoiceId} open={showPreviewDialog} onOpenChange={setShowPreviewDialog} />}
+    </div>;
 }
