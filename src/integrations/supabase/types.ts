@@ -2683,6 +2683,57 @@ export type Database = {
         }
         Relationships: []
       }
+      portal_impersonation_tokens: {
+        Row: {
+          created_at: string
+          created_by: string
+          customer_id: string
+          expires_at: string
+          id: string
+          last_used_at: string | null
+          organization_id: string
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          customer_id: string
+          expires_at?: string
+          id?: string
+          last_used_at?: string | null
+          organization_id: string
+          revoked_at?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          customer_id?: string
+          expires_at?: string
+          id?: string
+          last_used_at?: string | null
+          organization_id?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_impersonation_tokens_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_impersonation_tokens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -4817,6 +4868,41 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           auth_id: string | null
@@ -5372,6 +5458,13 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       invite_user_to_organization: {
         Args: {
           p_email: string
@@ -5531,6 +5624,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
       permission_action: "create" | "read" | "update" | "delete" | "manage"
       permission_resource:
         | "users"
@@ -5703,6 +5797,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
       permission_action: ["create", "read", "update", "delete", "manage"],
       permission_resource: [
         "users",
