@@ -22,17 +22,21 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    // Verify the user with the anon key client
-    const userSupabase = createClient(
-      supabaseUrl,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    // Extract JWT token from Authorization header
+    const jwt = authHeader.replace('Bearer ', '');
 
-    const { data: { user }, error: userError } = await userSupabase.auth.getUser();
+    // Verify JWT using service role client
+    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
+
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      console.error('JWT verification failed:', userError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    console.log('User authenticated:', user.id);
 
     console.log('Checking admin status for user:', user.id);
 
