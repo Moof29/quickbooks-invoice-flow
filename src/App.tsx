@@ -26,6 +26,7 @@ import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import Security from "./pages/Security";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
+import Warehouse from "./pages/Warehouse";
 import PortalAuth from "./pages/portal/PortalAuth";
 import PortalDashboard from "./pages/portal/PortalDashboard";
 import PortalOrders from "./pages/portal/PortalOrders";
@@ -163,6 +164,7 @@ const App = () => {
                   <Route path="/items" element={<Items />} />
                   <Route path="/customers" element={<Customers />} />
                   <Route path="/quickbooks" element={<QuickBooksIntegration />} />
+                  <Route path="/warehouse" element={<Warehouse />} />
                   <Route path="/security" element={<Security />} />
                   <Route path="/settings" element={<Settings />} />
                 </Route>

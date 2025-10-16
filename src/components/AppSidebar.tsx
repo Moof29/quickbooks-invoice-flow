@@ -31,6 +31,7 @@ const navigationItems = [
   { name: 'Invoices', href: '/invoices', icon: FileText },
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Products', href: '/items', icon: Package },
+  { name: 'Warehouse', href: '/warehouse', icon: Package2 },
   { name: 'QuickBooks', href: '/quickbooks', icon: Zap },
   { name: 'Security', href: '/security', icon: Shield },
   { name: 'Settings', href: '/settings', icon: Settings },
