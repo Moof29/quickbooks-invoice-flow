@@ -176,9 +176,32 @@ Deno.serve(async (req) => {
 
     console.log(`Fetched ${lineItems?.length || 0} line items`);
 
-    // Create invoice record
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    // Generate sequential invoice number using atomic DB function
+    console.log('Generating sequential invoice number...');
+    const { data: invoiceNumber, error: numberError } = await supabaseClient
+      .rpc('get_next_invoice_number', { 
+        p_organization_id: order.organization_id 
+      });
+
+    if (numberError || !invoiceNumber) {
+      console.error('Error generating invoice number:', numberError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          sales_order_id: order_id,
+          error: {
+            code: 'INVOICE_NUMBER_GENERATION_FAILED',
+            message: 'Failed to generate unique invoice number',
+            details: numberError
+          }
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Generated invoice number:', invoiceNumber);
     
+    // Create invoice record
     const { data: invoice, error: invoiceError } = await supabaseClient
       .from('invoice_record')
       .insert({
