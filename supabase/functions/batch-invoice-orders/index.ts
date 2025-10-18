@@ -5,21 +5,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface BatchInvoiceRequest {
+  sales_order_ids: string[];
+  invoice_date?: string;
+  due_days?: number;
+}
+
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('=== Batch Invoice Orders Function Started ===');
+    console.log('=== Batch Invoice Orders (Pure PostgreSQL) ===');
 
-    const supabaseClient = createClient(
+    // Authenticate user
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
     );
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
     if (authError || !user) {
       console.error('Authentication error:', authError);
       return new Response(
@@ -31,76 +44,103 @@ Deno.serve(async (req) => {
     console.log('User authenticated:', user.id);
 
     // Get user's organization
-    const { data: profile } = await supabaseClient
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('organization_id')
       .eq('id', user.id)
       .single();
 
-    if (!profile) {
-      console.error('User profile not found');
+    if (profileError || !profile) {
+      console.error('Profile error:', profileError);
       return new Response(
         JSON.stringify({ error: 'User profile not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { sales_order_ids, invoice_date, due_days } = await req.json();
+    console.log('Organization ID:', profile.organization_id);
+
+    // Parse request
+    const { sales_order_ids, invoice_date, due_days = 0 }: BatchInvoiceRequest = await req.json();
 
     if (!sales_order_ids || !Array.isArray(sales_order_ids) || sales_order_ids.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'sales_order_ids array is required and must not be empty' }),
+        JSON.stringify({ error: 'sales_order_ids is required and must be a non-empty array' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Queueing ${sales_order_ids.length} invoices for user ${user.id}`);
-
-    const userContext = {
-      user_id: user.id,
-      email: user.email,
-      source: 'batch-invoice-orders',
-      timestamp: new Date().toISOString(),
-    };
-
-    // Use service role to create bulk job
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    const { data: jobId, error } = await supabaseAdmin.rpc('create_bulk_invoice_job', {
-      p_sales_order_ids: sales_order_ids,
-      p_organization_id: profile.organization_id,
-      p_invoice_date: invoice_date || new Date().toISOString().split('T')[0],
-      p_due_days: due_days || 30,
-      p_user_context: userContext,
-    });
-
-    if (error) {
-      console.error('Error creating bulk job:', error);
+    // Validate batch size (500 max per best practices)
+    if (sales_order_ids.length > 500) {
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ 
+          error: 'Batch size exceeds maximum of 500 orders',
+          details: 'For batches larger than 500 orders, split into multiple smaller batches'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Creating batch job for ${sales_order_ids.length} orders`);
+
+    // Create job in queue (PostgreSQL will process it via pg_cron)
+    const { data: insertedJob, error: insertError } = await supabase
+      .from('batch_job_queue')
+      .insert({
+        organization_id: profile.organization_id,
+        job_type: 'batch_invoice_orders',
+        total_items: sales_order_ids.length,
+        job_data: {
+          order_ids: sales_order_ids,
+          invoice_date: invoice_date || new Date().toISOString().split('T')[0],
+          due_days: due_days,
+          user_id: user.id,
+        },
+        status: 'pending',
+        created_by: user.id,
+        estimated_duration_seconds: Math.ceil(sales_order_ids.length * 0.5), // ~0.5s per invoice
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating batch job:', insertError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to create batch job', details: insertError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Bulk job created: ${jobId}, processing ${sales_order_ids.length} orders`);
+    console.log('✅ Batch job created:', insertedJob.id);
+    console.log('📊 Job will be processed by PostgreSQL cron (every 60 seconds)');
 
     return new Response(
       JSON.stringify({
         success: true,
-        job_id: jobId,
+        job_id: insertedJob.id,
         total_orders: sales_order_ids.length,
-        message: 'Job queued successfully. Processing will begin shortly.',
+        estimated_duration_seconds: insertedJob.estimated_duration_seconds,
+        message: 'Batch job queued. Processing will begin within 60 seconds via PostgreSQL.',
+        polling_info: {
+          check_status_table: 'batch_job_queue',
+          check_status_query: `SELECT * FROM batch_job_queue WHERE id = '${insertedJob.id}'`
+        }
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
     );
-  } catch (error) {
-    console.error('Error queueing bulk job:', error);
+  } catch (error: any) {
+    console.error('=== Fatal Error ===');
+    console.error(error);
+
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        error: error.message || 'An unexpected error occurred',
+        details: { stack: error.stack }
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
