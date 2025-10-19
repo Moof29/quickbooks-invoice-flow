@@ -5312,7 +5312,11 @@ export type Database = {
         Returns: string
       }
       create_invoice_from_sales_order_sql: {
-        Args: { p_organization_id: string; p_sales_order_id: string }
+        Args: {
+          p_created_by: string
+          p_organization_id: string
+          p_sales_order_id: string
+        }
         Returns: string
       }
       create_sales_order_atomic: {
