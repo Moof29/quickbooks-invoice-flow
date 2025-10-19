@@ -103,7 +103,7 @@ export function BatchJobProgressDialog({
                       Queued
                     </Badge>
                     <p className="text-xs text-muted-foreground">
-                      Processing starts within 60 seconds...
+                      Processing starts within 10 seconds...
                     </p>
                   </div>
                 )}
