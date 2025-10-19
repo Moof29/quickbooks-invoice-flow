@@ -29,16 +29,23 @@ export function BatchJobProgressDialog({
 }: BatchJobProgressDialogProps) {
   const { job, progress } = useBatchJobProgress(jobId, open);
 
+  const canClose = progress?.isComplete || progress?.isFailed || !job;
+
   const handleClose = () => {
-    // Only allow closing when complete or failed
-    if (progress?.isComplete || progress?.isFailed) {
+    // Allow closing when complete, failed, or if there's no job data
+    if (canClose) {
       onOpenChange(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+        // Prevent closing by clicking outside while processing
+        if (!canClose) {
+          e.preventDefault();
+        }
+      }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {progress?.isProcessing && (
@@ -146,10 +153,11 @@ export function BatchJobProgressDialog({
 
         <DialogFooter>
           <Button
-            onClick={handleClose}
-            disabled={!progress?.isComplete && !progress?.isFailed}
+            onClick={() => onOpenChange(false)}
+            variant={canClose ? "default" : "outline"}
+            disabled={!canClose}
           >
-            {progress?.isComplete || progress?.isFailed ? "Close" : "Processing..."}
+            {canClose ? "Close" : "Processing..."}
           </Button>
         </DialogFooter>
       </DialogContent>
