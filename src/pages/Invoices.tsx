@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,13 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
+import { Label } from '@/components/ui/label';
 import { ClearInvoicesButton } from '@/components/ClearInvoicesButton';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -39,23 +33,16 @@ import {
 import { 
   Plus,
   Eye,
-  Edit,
-  Trash2,
-  Download,
-  Send,
   MoreHorizontal,
   FileText,
-  DollarSign,
-  Clock,
-  CheckCircle2,
   Search,
   ArrowUpDown,
-  Filter,
-  CalendarIcon,
-  X
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceDialog } from '@/components/InvoiceDialog';
@@ -79,44 +66,33 @@ interface Invoice {
 
 const Invoices = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [customerFilter, setCustomerFilter] = useState<string[]>([]);
-  const [customerSearch, setCustomerSearch] = useState('');
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [dateType, setDateType] = useState<'invoice_date' | 'due_date'>('invoice_date');
-  const [dateFrom, setDateFrom] = useState<Date | undefined>();
-  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 50;
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [filters, setFilters] = useState({
+    dateFrom: '',
+    dateTo: '',
+    status: [] as string[],
+    customer: [] as string[],
+  });
   const { toast } = useToast();
-
-  const statusOptions = [
-    { value: 'paid', label: 'Paid' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'overdue', label: 'Overdue' },
-    { value: 'draft', label: 'Draft' },
-    { value: 'sent', label: 'Sent' },
-  ];
 
   useEffect(() => {
     loadInvoices();
-  }, [currentPage]);
+  }, []);
 
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const from = (currentPage - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
 
-      const { data, error, count } = await supabase
+      const { data, error } = await supabase
         .from('invoice_record')
         .select(`
           id, 
@@ -132,13 +108,11 @@ const Invoices = () => {
             company_name,
             email
           )
-        `, { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        `)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setInvoices(data || []);
-      setTotalCount(count || 0);
     } catch (error) {
       console.error('Error loading invoices:', error);
       toast({
@@ -151,12 +125,11 @@ const Invoices = () => {
     }
   };
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  const getStatusVariant = (status: string, amountDue: number): "default" | "secondary" | "destructive" | "outline" => {
+    if (amountDue === 0) return 'default';
     switch (status?.toLowerCase()) {
       case 'paid':
         return 'default';
-      case 'partial':
-        return 'secondary';
       case 'sent':
         return 'secondary';
       case 'overdue':
@@ -168,7 +141,6 @@ const Invoices = () => {
     }
   };
 
-  // Get unique customers for filter
   const uniqueCustomers = Array.from(
     new Set(
       invoices.map(inv => 
@@ -177,32 +149,25 @@ const Invoices = () => {
     )
   ).sort();
 
-  // Filter and sort invoices
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch = searchTerm === '' || 
       invoice.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.customer_profile?.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.customer_profile?.display_name?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter.length === 0 || 
-      statusFilter.includes(invoice.status?.toLowerCase() || '');
+    const matchesStatus = filters.status.length === 0 || 
+      filters.status.includes(invoice.status?.toLowerCase() || '');
     
     const customerName = invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'Unknown';
-    const matchesCustomer = customerFilter.length === 0 || customerFilter.includes(customerName);
+    const matchesCustomer = filters.customer.length === 0 || filters.customer.includes(customerName);
     
-    // Date range filter
     let matchesDateRange = true;
-    if (dateFrom || dateTo) {
-      const dateToCheck = dateType === 'invoice_date' ? invoice.invoice_date : invoice.due_date;
-      if (dateToCheck) {
-        const invoiceDate = new Date(dateToCheck);
-        if (dateFrom && invoiceDate < dateFrom) {
-          matchesDateRange = false;
-        }
-        if (dateTo && invoiceDate > dateTo) {
-          matchesDateRange = false;
-        }
-      } else {
+    if (filters.dateFrom || filters.dateTo) {
+      const invoiceDate = new Date(invoice.invoice_date);
+      if (filters.dateFrom && invoiceDate < new Date(filters.dateFrom)) {
+        matchesDateRange = false;
+      }
+      if (filters.dateTo && invoiceDate > new Date(filters.dateTo)) {
         matchesDateRange = false;
       }
     }
@@ -258,19 +223,21 @@ const Invoices = () => {
   };
 
   const toggleStatus = (status: string) => {
-    setStatusFilter(prev =>
-      prev.includes(status)
-        ? prev.filter(s => s !== status)
-        : [...prev, status]
-    );
+    setFilters(prev => ({
+      ...prev,
+      status: prev.status.includes(status)
+        ? prev.status.filter(s => s !== status)
+        : [...prev.status, status]
+    }));
   };
 
   const toggleCustomer = (customer: string) => {
-    setCustomerFilter(prev =>
-      prev.includes(customer)
-        ? prev.filter(c => c !== customer)
-        : [...prev, customer]
-    );
+    setFilters(prev => ({
+      ...prev,
+      customer: prev.customer.includes(customer)
+        ? prev.customer.filter(c => c !== customer)
+        : [...prev.customer, customer]
+    }));
   };
 
   const toggleInvoiceSelection = (invoiceId: string) => {
@@ -282,17 +249,12 @@ const Invoices = () => {
   };
 
   const toggleAllInvoices = () => {
-    if (selectedInvoices.length === invoices.length) {
+    if (selectedInvoices.length === paginatedInvoices.length) {
       setSelectedInvoices([]);
     } else {
-      setSelectedInvoices(invoices.map(inv => inv.id));
+      setSelectedInvoices(paginatedInvoices.map(inv => inv.id));
     }
   };
-
-  const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-  const paidInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'paid');
-  const pendingInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'pending');
-  const overdueInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'overdue');
 
   const handleDeleteInvoice = async (invoiceId: string) => {
     if (!confirm('Are you sure you want to delete this invoice?')) return;
@@ -326,370 +288,217 @@ const Invoices = () => {
     setShowPreviewDialog(true);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading invoices...</p>
-        </div>
-      </div>
-    );
-  }
+  // Pagination
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedInvoices = filteredInvoices.slice(startIndex, endIndex);
 
   return (
-    <div className="flex flex-col gap-6 p-6 md:p-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
-          <p className="text-muted-foreground mt-1">Manage and track all your invoices</p>
+    <div className="flex-1 space-y-4 p-4 md:p-8 pb-20 md:pb-8">
+      {loading ? (
+        <div className="text-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading invoices...</p>
         </div>
-        <div className="flex gap-2">
-          <ClearInvoicesButton />
-          <Button onClick={() => setShowInvoiceDialog(true)} size="default">
-            <Plus className="w-4 h-4 mr-2" />
-            Create New Invoice
-          </Button>
-        </div>
-      </div>
-
-      {/* Search, Filter, and Sort */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search invoices..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            {/* Date Type Selector */}
-            <Select value={dateType} onValueChange={(value: 'invoice_date' | 'due_date') => setDateType(value)}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="invoice_date">Invoice Date</SelectItem>
-                <SelectItem value="due_date">Due Date</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Date From */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[150px] justify-start text-left font-normal",
-                    !dateFrom && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateFrom ? format(dateFrom, "MMM dd, yyyy") : "From date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dateFrom}
-                  onSelect={setDateFrom}
-                  initialFocus
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-
-            {/* Date To */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[150px] justify-start text-left font-normal",
-                    !dateTo && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateTo ? format(dateTo, "MMM dd, yyyy") : "To date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dateTo}
-                  onSelect={setDateTo}
-                  initialFocus
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-
-            {/* Clear Date Filter */}
-            {(dateFrom || dateTo) && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setDateFrom(undefined);
-                  setDateTo(undefined);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-
-            {/* Status Filter - Multi-select */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[180px] justify-start">
-                  <Filter className="h-4 w-4 mr-2" />
-                  {statusFilter.length === 0
-                    ? "All Status"
-                    : statusFilter.length === 1
-                    ? statusOptions.find(s => s.value === statusFilter[0])?.label
-                    : `${statusFilter.length} statuses`}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0" align="start">
-                <div className="p-4 space-y-2 bg-popover">
-                  <div className="font-medium text-sm mb-2">Filter by Status</div>
-                  {statusOptions.map((status) => (
-                    <div key={status.value} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={status.value}
-                        checked={statusFilter.includes(status.value)}
-                        onCheckedChange={() => toggleStatus(status.value)}
-                      />
-                      <label
-                        htmlFor={status.value}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {status.label}
-                      </label>
-                    </div>
-                  ))}
-                  {statusFilter.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full mt-2"
-                      onClick={() => setStatusFilter([])}
-                    >
-                      Clear All
-                    </Button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Customer Filter - Multi-select with Search */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[200px] justify-start">
-                  <Filter className="h-4 w-4 mr-2" />
-                  {customerFilter.length === 0
-                    ? "All Customers"
-                    : customerFilter.length === 1
-                    ? customerFilter[0]
-                    : `${customerFilter.length} customers`}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[280px] p-0" align="start">
-                <div className="p-4 space-y-3 bg-popover">
-                  <div className="font-medium text-sm">Filter by Customer</div>
-                  
-                  {/* Customer Search */}
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="Search customers..."
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="pl-8 h-9"
-                    />
-                  </div>
-
-                  {/* Customer List */}
-                  <div className="max-h-[240px] overflow-y-auto space-y-2">
-                    {uniqueCustomers
-                      .filter(customer => 
-                        customer.toLowerCase().includes(customerSearch.toLowerCase())
-                      )
-                      .map((customer) => (
-                        <div key={customer} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`customer-${customer}`}
-                            checked={customerFilter.includes(customer)}
-                            onCheckedChange={() => toggleCustomer(customer)}
-                          />
-                          <label
-                            htmlFor={`customer-${customer}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
-                          >
-                            {customer}
-                          </label>
-                        </div>
-                      ))}
-                    {uniqueCustomers.filter(customer => 
-                      customer.toLowerCase().includes(customerSearch.toLowerCase())
-                    ).length === 0 && (
-                      <div className="text-sm text-muted-foreground text-center py-4">
-                        No customers found
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2 border-t">
-                    {customerFilter.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => setCustomerFilter([])}
-                      >
-                        Clear All
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => setCustomerSearch('')}
-                    >
-                      Reset Search
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Export Button */}
-            <Button variant="outline" size="default">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-
-      {/* Invoice Table */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
+      ) : (
+        <>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-semibold">All Invoices</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-1">
-                {filteredInvoices.length} of {invoices.length} invoice{invoices.length !== 1 ? 's' : ''}
-              </CardDescription>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Invoices</h2>
+              <p className="text-sm md:text-base text-muted-foreground">
+                Manage and track your invoices
+              </p>
             </div>
-            {selectedInvoices.length > 0 && (
-              <Badge variant="secondary" className="text-xs font-medium">
-                {selectedInvoices.length} selected
-              </Badge>
-            )}
+            <div className="hidden md:flex gap-2">
+              <ClearInvoicesButton />
+              <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Create New Invoice
+              </Button>
+            </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {filteredInvoices.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="flex justify-center mb-4">
-                  <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
-                    <FileText className="h-8 w-8 text-muted-foreground/50" />
+          
+          {/* Mobile FAB */}
+          <div className="md:hidden fixed bottom-20 right-4 z-50">
+            <Button 
+              onClick={() => setCreateDialogOpen(true)}
+              size="lg"
+              className="h-14 w-14 rounded-full shadow-lg"
+            >
+              <Plus className="h-6 w-6" />
+            </Button>
+          </div>
+
+          {/* Filters and Search */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base md:text-lg">Filter Invoices</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Search - Full width on mobile */}
+              <div className="space-y-2">
+                <Label className="text-sm">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Invoice number, customer..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Date Range */}
+                <div className="space-y-2">
+                  <Label className="text-sm">Date Range</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={filters.dateFrom}
+                      onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                      placeholder="From"
+                    />
+                    <Input
+                      type="date"
+                      value={filters.dateTo}
+                      onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                      placeholder="To"
+                    />
                   </div>
                 </div>
-                <h3 className="text-lg font-medium text-foreground mb-2">No invoices found</h3>
-                <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
-                  {searchTerm ? 'Try adjusting your search criteria to find what you\'re looking for' : 'Get started by creating your first invoice to track payments'}
-                </p>
-                <Button onClick={() => setShowInvoiceDialog(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Invoice
-                </Button>
+
+                {/* Status Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm">Status</Label>
+                  <Select 
+                    value={filters.status[0] || 'all'}
+                    onValueChange={(value) => {
+                      if (value === 'all') {
+                        setFilters({ ...filters, status: [] });
+                      } else {
+                        toggleStatus(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="sent">Sent</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Customer Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm">Customer</Label>
+                  <Select 
+                    value={filters.customer[0] || 'all'}
+                    onValueChange={(value) => {
+                      if (value === 'all') {
+                        setFilters({ ...filters, customer: [] });
+                      } else {
+                        toggleCustomer(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Customers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Customers</SelectItem>
+                      {uniqueCustomers.map(customer => (
+                        <SelectItem key={customer} value={customer}>
+                          {customer}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            ) : (
+
+              {/* Reset Filters Button */}
+              {(searchTerm || filters.dateFrom || filters.dateTo || filters.status.length > 0 || filters.customer.length > 0) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setFilters({ dateFrom: '', dateTo: '', status: [], customer: [] });
+                  }}
+                  className="w-full"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Desktop Table View */}
+          <Card className="border-0 shadow-sm hidden md:block">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>All Invoices</CardTitle>
+                <CardDescription>
+                  {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''} found
+                </CardDescription>
+              </div>
+              
+              {selectedInvoices.length > 0 && (
+                <Badge variant="secondary">
+                  {selectedInvoices.length} selected
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent>
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent">
+                  <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0}
+                        checked={selectedInvoices.length === paginatedInvoices.length && paginatedInvoices.length > 0}
                         onCheckedChange={toggleAllInvoices}
-                        aria-label="Select all"
                       />
                     </TableHead>
                     <TableHead>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => handleSort('invoice_number')}
-                      >
-                        Invoice Number
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('invoice_number')}>
+                        Invoice #
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => handleSort('customer')}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('customer')}>
                         Customer
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => handleSort('invoice_date')}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('invoice_date')}>
                         Invoice Date
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => handleSort('due_date')}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('due_date')}>
                         Due Date
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => handleSort('amount')}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('amount')}>
                         Amount
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
-                    <TableHead className="text-right">Payment</TableHead>
                     <TableHead>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-3 h-8 data-[state=open]:bg-accent"
-                        onClick={() => handleSort('status')}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('status')}>
                         Status
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
@@ -698,161 +507,232 @@ const Invoices = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredInvoices.map((invoice) => (
-                    <TableRow 
-                      key={invoice.id} 
-                      className="hover:bg-muted/50 cursor-pointer"
-                      onClick={() => handleRowClick(invoice.id)}
-                    >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={selectedInvoices.includes(invoice.id)}
-                          onCheckedChange={() => toggleInvoiceSelection(invoice.id)}
-                          aria-label={`Select invoice ${invoice.invoice_number}`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-foreground">
-                          {invoice.invoice_number}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
-                              {(invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'CU').substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-sm">
-                              {invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'N/A'}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {invoice.customer_profile?.email || 'N/A'}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {invoice.invoice_date ? format(new Date(invoice.invoice_date + 'T00:00:00'), 'MMM dd, yyyy') : 'N/A'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {invoice.due_date ? format(new Date(invoice.due_date + 'T00:00:00'), 'MMM dd, yyyy') : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-semibold text-sm">
-                          ${invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="text-xs space-y-0.5">
-                          <div className="text-green-600 font-medium">
-                            ${(invoice.amount_paid || 0).toFixed(2)}
-                          </div>
-                          <div className="text-muted-foreground">
-                            of ${invoice.total?.toFixed(2) || '0.00'}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={getStatusVariant(invoice.status)}
-                          className="font-medium capitalize"
-                        >
-                          {invoice.status || 'draft'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Open menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => window.location.href = `/invoices/${invoice.id}`}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => window.location.href = `/invoices/${invoice.id}`}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit Invoice
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Download className="mr-2 h-4 w-4" />
-                              Download PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Send className="mr-2 h-4 w-4" />
-                              Send to Customer
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => handleDeleteInvoice(invoice.id)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {paginatedInvoices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground">No invoices found</p>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    paginatedInvoices.map((invoice) => (
+                      <TableRow 
+                        key={invoice.id} 
+                        className="hover:bg-muted/50 cursor-pointer"
+                        onClick={() => handleRowClick(invoice.id)}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedInvoices.includes(invoice.id)}
+                            onCheckedChange={() => toggleInvoiceSelection(invoice.id)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {invoice.invoice_number}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {(invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'CU').substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium text-sm">
+                                {invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'N/A'}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {invoice.customer_profile?.email || 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(invoice.invoice_date), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(invoice.due_date), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          ${invoice.total.toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusVariant(invoice.status, invoice.amount_due || 0)}>
+                            {invoice.amount_due === 0 ? 'Paid' : invoice.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => window.location.href = `/invoices/${invoice.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-      {/* Pagination Controls */}
-      {Math.ceil(totalCount / PAGE_SIZE) > 1 && (
-        <Card className="border-0 shadow-sm mt-4">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * PAGE_SIZE) + 1} to {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount} invoices
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1 || loading}
-                >
-                  Previous
-                </Button>
-                <div className="text-sm">
-                  Page {currentPage} of {Math.ceil(totalCount / PAGE_SIZE)}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / PAGE_SIZE), p + 1))}
-                  disabled={currentPage === Math.ceil(totalCount / PAGE_SIZE) || loading}
-                >
-                  Next
-                </Button>
-              </div>
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <p className="text-sm text-muted-foreground">
+                {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            
+            {paginatedInvoices.length === 0 ? (
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-8 text-center">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No invoices found</p>
+                </CardContent>
+              </Card>
+            ) : (
+              paginatedInvoices.map((invoice) => (
+                <Card 
+                  key={invoice.id} 
+                  className="border-0 shadow-sm active:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => handleRowClick(invoice.id)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-base truncate">
+                            {invoice.invoice_number}
+                          </h3>
+                          <Badge 
+                            variant={getStatusVariant(invoice.status, invoice.amount_due || 0)}
+                            className="shrink-0"
+                          >
+                            {invoice.amount_due === 0 ? 'Paid' : invoice.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {invoice.customer_profile?.display_name || 'No Customer'}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0 ml-4">
+                        <p className="font-semibold text-base">
+                          ${invoice.total.toFixed(2)}
+                        </p>
+                        {(invoice.amount_due ?? invoice.total) > 0 && (
+                          <p className="text-xs text-destructive">
+                            ${(invoice.amount_due ?? invoice.total).toFixed(2)} due
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <div>
+                        <span className="block">Invoice Date</span>
+                        <span className="font-medium text-foreground">
+                          {format(new Date(invoice.invoice_date), 'MMM d, yyyy')}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block">Due Date</span>
+                        <span className="font-medium text-foreground">
+                          {format(new Date(invoice.due_date), 'MMM d, yyyy')}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* Pagination */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-3 md:p-6">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 w-full md:w-auto justify-center">
+                  <span className="text-sm text-muted-foreground">Rows:</span>
+                  <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                    <SelectTrigger className="w-16">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-muted-foreground">
+                    {startIndex + 1}-{Math.min(endIndex, filteredInvoices.length)} of {filteredInvoices.length}
+                  </span>
+                </div>
+
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       <InvoiceDialog
-        open={showInvoiceDialog} 
-        onOpenChange={setShowInvoiceDialog}
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
         onSuccess={loadInvoices}
       />
 
-      <InvoicePreviewDialog
-        invoiceId={previewInvoiceId}
-        open={showPreviewDialog}
-        onOpenChange={setShowPreviewDialog}
-      />
+      {previewInvoiceId && (
+        <InvoicePreviewDialog
+          invoiceId={previewInvoiceId}
+          open={showPreviewDialog}
+          onOpenChange={setShowPreviewDialog}
+        />
+      )}
     </div>
   );
 };

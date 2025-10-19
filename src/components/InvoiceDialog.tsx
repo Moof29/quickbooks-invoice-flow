@@ -229,30 +229,30 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pr-12">
-          <DialogTitle>Create New Invoice</DialogTitle>
-          <DialogDescription>
+        <DialogHeader className="pr-8 md:pr-12">
+          <DialogTitle className="text-lg md:text-xl">Create New Invoice</DialogTitle>
+          <DialogDescription className="text-sm">
             Create a new invoice for your customer. Fill in the details below.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="customer">Customer *</Label>
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+          {/* Basic Information - Single column on mobile */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="customer" className="text-sm">Customer *</Label>
               <Select
                 value={formData.customer_id}
                 onValueChange={(value) => setFormData({ ...formData, customer_id: value })}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-12 md:h-10">
                   <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
                 <SelectContent>
                   {customers.map((customer) => (
                     <SelectItem key={customer.id} value={customer.id}>
-                      {customer.display_name} ({customer.email})
+                      {customer.display_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -260,110 +260,121 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="invoice_date">Invoice Date *</Label>
+              <Label htmlFor="invoice_date" className="text-sm">Invoice Date *</Label>
               <Input
                 id="invoice_date"
                 type="date"
                 value={formData.invoice_date}
                 onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
                 required
+                className="h-12 md:h-10"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="due_date">Due Date</Label>
+              <Label htmlFor="due_date" className="text-sm">Due Date</Label>
               <Input
                 id="due_date"
                 type="date"
                 value={formData.due_date}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                className="h-12 md:h-10"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="terms">Payment Terms</Label>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="terms" className="text-sm">Payment Terms</Label>
               <Input
                 id="terms"
                 placeholder="Net 30"
                 value={formData.terms}
                 onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
+                className="h-12 md:h-10"
               />
             </div>
           </div>
 
-          {/* Line Items */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex justify-between items-center">
+          {/* Line Items - Simplified for mobile */}
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex justify-between items-center">
                 Line Items
                 <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Item
+                  <span className="hidden md:inline">Add Item</span>
                 </Button>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {lineItems.map((item) => (
-                  <div key={item.id} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-4">
-                      <Label>Description *</Label>
-                      <Input
-                        placeholder="Item description"
-                        value={item.description}
-                        onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label>Quantity</Label>
+            <CardContent className="space-y-3">
+              {lineItems.map((item, index) => (
+                <div key={item.id} className="border rounded-lg p-3 space-y-3 bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Item {index + 1}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeLineItem(item.id)}
+                      disabled={lineItems.length === 1}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm">Description *</Label>
+                    <Input
+                      placeholder="Item description"
+                      value={item.description}
+                      onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
+                      required
+                      className="h-12 md:h-10"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Qty</Label>
                       <Input
                         type="number"
                         min="0"
                         step="0.01"
                         value={item.quantity}
                         onChange={(e) => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                        className="h-12 md:h-10"
                       />
                     </div>
-                    <div className="col-span-2">
-                      <Label>Unit Price</Label>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Price</Label>
                       <Input
                         type="number"
                         min="0"
                         step="0.01"
                         value={item.unit_price}
                         onChange={(e) => updateLineItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                        className="h-12 md:h-10"
                       />
                     </div>
-                    <div className="col-span-3">
-                      <Label>Amount</Label>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Total</Label>
                       <Input
                         type="number"
                         value={item.amount.toFixed(2)}
                         readOnly
-                        className="bg-gray-50"
+                        className="bg-muted h-12 md:h-10"
                       />
                     </div>
-                    <div className="col-span-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeLineItem(item.id)}
-                        disabled={lineItems.length === 1}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
               
-              <div className="mt-6 flex justify-end">
-                <div className="text-right">
-                  <div className="text-lg font-semibold">
-                    Total: ${calculateTotal().toFixed(2)}
-                  </div>
+              <div className="pt-3 border-t">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Total</span>
+                  <span className="text-xl md:text-2xl font-bold">
+                    ${calculateTotal().toFixed(2)}
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -371,17 +382,29 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
 
           {/* Memo */}
           <div className="space-y-2">
-            <Label htmlFor="memo">Memo</Label>
+            <Label htmlFor="memo" className="text-sm">Memo</Label>
             <Textarea
               id="memo"
               placeholder="Additional notes or memo"
               rows={3}
               value={formData.memo}
               onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
+              className="resize-none"
             />
           </div>
 
-          <DialogFooter className="gap-3 pt-4">
+          {/* Fixed bottom action bar on mobile */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading} className="flex-1">
+              {loading ? 'Creating...' : 'Create'}
+            </Button>
+          </div>
+
+          {/* Desktop footer */}
+          <DialogFooter className="hidden md:flex gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

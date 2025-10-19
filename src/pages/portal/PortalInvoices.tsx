@@ -89,82 +89,85 @@ export default function PortalInvoices() {
 
   return (
     <div className="min-h-screen bg-muted/40">
-      <header className="border-b bg-background">
-        <div className="max-w-6xl mx-auto px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-primary" />
+      <header className="border-b bg-background sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-3 md:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+            <div className="h-8 w-8 md:h-10 md:w-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+              <Building2 className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold">{customerProfile?.company_name || 'Demo Customer'}</h1>
-              <p className="text-sm text-muted-foreground">Customer Portal</p>
+            <div className="min-w-0">
+              <h1 className="text-base md:text-xl font-bold truncate">{customerProfile?.company_name || 'Demo Customer'}</h1>
+              <p className="text-xs md:text-sm text-muted-foreground hidden md:block">Customer Portal</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
+          <Button variant="ghost" size="sm" onClick={handleSignOut} className="shrink-0">
+            <LogOut className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Sign Out</span>
           </Button>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto p-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/portal/dashboard')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <h2 className="text-3xl font-bold tracking-tight mt-4">Your Invoices</h2>
-            <p className="text-muted-foreground">View and track your invoices</p>
+      <main className="max-w-6xl mx-auto p-4 md:p-8 space-y-4 md:space-y-8 pb-20 md:pb-8">
+        <div className="space-y-3 md:space-y-0">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/portal/dashboard')} className="-ml-2">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          <div className="mt-2 md:mt-4">
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Your Invoices</h2>
+            <p className="text-sm md:text-base text-muted-foreground">View and track your invoices</p>
           </div>
         </div>
 
         {invoices.length === 0 ? (
           <Card className="border-0 shadow-sm">
-            <CardContent className="p-12 text-center">
+            <CardContent className="p-8 md:p-12 text-center">
               <p className="text-muted-foreground">No invoices found</p>
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {invoices.map((invoice) => (
-              <Card key={invoice.id} className="border-0 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{invoice.invoice_number}</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Invoice Date: {format(new Date(invoice.invoice_date), 'MMM d, yyyy')}
+              <Card key={invoice.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-base md:text-lg truncate">{invoice.invoice_number}</CardTitle>
+                      <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                        {format(new Date(invoice.invoice_date), 'MMM d, yyyy')}
                       </p>
                     </div>
-                    <Badge variant={getStatusVariant(invoice.status, invoice.amount_due)}>
+                    <Badge 
+                      variant={getStatusVariant(invoice.status, invoice.amount_due)}
+                      className="shrink-0"
+                    >
                       {invoice.amount_due === 0 ? 'Paid' : invoice.status}
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-4 gap-4 text-sm">
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-sm">
                     <div>
-                      <div className="font-medium">Due Date</div>
-                      <div className="text-muted-foreground">
+                      <div className="font-medium text-xs text-muted-foreground mb-1">Due Date</div>
+                      <div className="text-sm font-medium">
                         {format(new Date(invoice.due_date), 'MMM d, yyyy')}
                       </div>
                     </div>
                     <div>
-                      <div className="font-medium">Total</div>
-                      <div className="text-muted-foreground">
+                      <div className="font-medium text-xs text-muted-foreground mb-1">Total</div>
+                      <div className="text-sm font-medium">
                         ${invoice.total.toFixed(2)}
                       </div>
                     </div>
                     <div>
-                      <div className="font-medium">Amount Paid</div>
-                      <div className="text-muted-foreground">
+                      <div className="font-medium text-xs text-muted-foreground mb-1">Paid</div>
+                      <div className="text-sm font-medium">
                         ${invoice.amount_paid.toFixed(2)}
                       </div>
                     </div>
                     <div>
-                      <div className="font-medium">Amount Due</div>
-                      <div className={invoice.amount_due > 0 ? "text-destructive font-semibold" : "text-muted-foreground"}>
+                      <div className="font-medium text-xs text-muted-foreground mb-1">Due</div>
+                      <div className={`text-sm font-semibold ${invoice.amount_due > 0 ? "text-destructive" : ""}`}>
                         ${invoice.amount_due.toFixed(2)}
                       </div>
                     </div>
