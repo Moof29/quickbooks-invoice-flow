@@ -112,7 +112,36 @@ Deno.serve(async (req) => {
     }
 
     console.log('✅ Batch job created:', insertedJob.id);
-    console.log('📊 Job will be processed by PostgreSQL cron (every 60 seconds)');
+    console.log('🚀 Starting immediate processing in background...');
+
+    // Start processing immediately in background (non-blocking)
+    // The cron job will still run as a fallback safety net
+    const processInBackground = async () => {
+      try {
+        // Use service role client to call the processing function
+        const serviceSupabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        );
+
+        console.log(`📋 Processing job ${insertedJob.id} immediately...`);
+        
+        const { error: rpcError } = await serviceSupabase.rpc('process_bulk_invoice_job_sql', {
+          p_job_id: insertedJob.id
+        });
+
+        if (rpcError) {
+          console.error('Background processing error:', rpcError);
+        } else {
+          console.log(`✅ Job ${insertedJob.id} processed successfully in background`);
+        }
+      } catch (bgError) {
+        console.error('Background task error:', bgError);
+      }
+    };
+
+    // Run in background without blocking response
+    EdgeRuntime.waitUntil(processInBackground());
 
     return new Response(
       JSON.stringify({
@@ -120,7 +149,7 @@ Deno.serve(async (req) => {
         job_id: insertedJob.id,
         total_orders: sales_order_ids.length,
         estimated_duration_seconds: insertedJob.estimated_duration_seconds,
-        message: 'Batch job queued. Processing will begin within 60 seconds via PostgreSQL.',
+        message: 'Batch job processing started immediately. Job will complete in the background.',
         polling_info: {
           check_status_table: 'batch_job_queue',
           check_status_query: `SELECT * FROM batch_job_queue WHERE id = '${insertedJob.id}'`
