@@ -42,6 +42,9 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       workbox: {
+        // Increase the maximum file size to allow caching larger bundles
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
+        
         // Cache-first strategy for static assets
         runtimeCaching: [
           {
@@ -93,5 +96,20 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor chunks for better caching
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-popover'],
+          'query-vendor': ['@tanstack/react-query'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+          'chart-vendor': ['recharts'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000, // Increase warning limit to 1MB
   },
 }));
