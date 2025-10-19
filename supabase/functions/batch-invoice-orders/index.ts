@@ -70,12 +70,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate batch size (500 max per best practices)
-    if (sales_order_ids.length > 500) {
+    // Allow large batches - they will be processed in chunks of 50 by the SQL function
+    if (sales_order_ids.length > 10000) {
       return new Response(
         JSON.stringify({ 
-          error: 'Batch size exceeds maximum of 500 orders',
-          details: 'For batches larger than 500 orders, split into multiple smaller batches'
+          error: 'Batch size exceeds maximum of 10,000 orders',
+          details: 'Orders will be processed in micro-batches of 50 for optimal database performance'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -112,44 +112,51 @@ Deno.serve(async (req) => {
     }
 
     console.log('✅ Batch job created:', insertedJob.id);
-    console.log('🚀 Starting immediate processing in background...');
+    console.log('📋 Job queued for background processing by cron job');
+    
+    // For small batches (< 100), process immediately
+    // For large batches, let cron job handle it to avoid timeouts
+    if (sales_order_ids.length < 100) {
+      console.log('🚀 Small batch - starting immediate processing...');
+      
+      const processInBackground = async () => {
+        try {
+          const serviceSupabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+          );
 
-    // Start processing immediately in background (non-blocking)
-    // The cron job will still run as a fallback safety net
-    const processInBackground = async () => {
-      try {
-        // Use service role client to call the processing function
-        const serviceSupabase = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-        );
+          const { error: rpcError } = await serviceSupabase.rpc('process_bulk_invoice_job_sql', {
+            p_job_id: insertedJob.id
+          });
 
-        console.log(`📋 Processing job ${insertedJob.id} immediately...`);
-        
-        const { error: rpcError } = await serviceSupabase.rpc('process_bulk_invoice_job_sql', {
-          p_job_id: insertedJob.id
-        });
-
-        if (rpcError) {
-          console.error('Background processing error:', rpcError);
-        } else {
-          console.log(`✅ Job ${insertedJob.id} processed successfully in background`);
+          if (rpcError) {
+            console.error('Background processing error:', rpcError);
+          } else {
+            console.log(`✅ Job ${insertedJob.id} processed successfully`);
+          }
+        } catch (bgError) {
+          console.error('Background task error:', bgError);
         }
-      } catch (bgError) {
-        console.error('Background task error:', bgError);
-      }
-    };
+      };
 
-    // Run in background without blocking response
-    EdgeRuntime.waitUntil(processInBackground());
+      EdgeRuntime.waitUntil(processInBackground());
+    } else {
+      console.log(`⏳ Large batch (${sales_order_ids.length} orders) - will be processed by cron job in micro-batches of 50`);
+    }
 
+    const processingMode = sales_order_ids.length < 100 ? 'immediate' : 'background';
+    
     return new Response(
       JSON.stringify({
         success: true,
         job_id: insertedJob.id,
         total_orders: sales_order_ids.length,
         estimated_duration_seconds: insertedJob.estimated_duration_seconds,
-        message: 'Batch job processing started immediately. Job will complete in the background.',
+        processing_mode: processingMode,
+        message: processingMode === 'immediate' 
+          ? 'Small batch - processing started immediately in background'
+          : `Large batch queued - will be processed by cron job in micro-batches of 50 for database health`,
         polling_info: {
           check_status_table: 'batch_job_queue',
           check_status_query: `SELECT * FROM batch_job_queue WHERE id = '${insertedJob.id}'`
