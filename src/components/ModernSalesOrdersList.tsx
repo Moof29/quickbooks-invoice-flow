@@ -47,6 +47,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { BulkInvoiceActions } from "@/components/sales-orders/BulkInvoiceActions";
 import {
   Tooltip,
   TooltipContent,
@@ -262,55 +263,7 @@ export function ModernSalesOrdersList() {
     },
   });
 
-  // Batch invoice mutation
-  const batchInvoiceMutation = useMutation({
-    mutationFn: async (orderIds: string[]) => {
-      const { data, error } = await supabase.functions.invoke("batch-invoice-orders", {
-        body: { 
-          sales_order_ids: orderIds,
-          invoice_date: new Date().toISOString().split('T')[0],
-          due_days: 30,
-        },
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
-      setSelectedOrders(new Set());
-      
-      const successCount = data.successful_count || 0;
-      const failCount = data.failed_count || 0;
-      const errors = data.errors || [];
-      
-      if (failCount > 0) {
-        // Show detailed errors
-        const errorMessages = errors.slice(0, 3).map((e: any) => 
-          `${e.order_id}: ${e.error}`
-        ).join('\n');
-        
-        toast({
-          title: "Batch invoicing completed with errors",
-          description: `${successCount} invoiced, ${failCount} failed.\n\n${errorMessages}${errors.length > 3 ? '\n...' : ''}`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Batch invoicing complete",
-          description: `${successCount} orders invoiced successfully`,
-        });
-      }
-      setIsBatchInvoicing(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Batch invoicing failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      setIsBatchInvoicing(false);
-    },
-  });
+  // Removed old batchInvoiceMutation - now using BulkInvoiceActions component
 
   // Review order mutation
   const reviewMutation = useMutation({
@@ -615,11 +568,7 @@ export function ModernSalesOrdersList() {
     return null;
   };
 
-  const handleBatchInvoice = () => {
-    const orderIds = Array.from(selectedOrders);
-    setIsBatchInvoicing(true);
-    batchInvoiceMutation.mutate(orderIds);
-  };
+  // Removed handleBatchInvoice - now using BulkInvoiceActions component
 
   const handleBatchReview = () => {
     const orderIds = Array.from(selectedOrders);
@@ -802,14 +751,13 @@ export function ModernSalesOrdersList() {
                     {isBatchReviewing ? "Reviewing..." : `Review ${selectedPendingCount}`}
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  onClick={handleBatchInvoice}
-                  disabled={isBatchInvoicing}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  {isBatchInvoicing ? "Processing..." : "Batch Invoice"}
-                </Button>
+                <BulkInvoiceActions
+                  selectedOrders={Array.from(selectedOrders)}
+                  onComplete={() => {
+                    setSelectedOrders(new Set());
+                    setIsBatchInvoicing(false);
+                  }}
+                />
                 <Button
                   variant="destructive"
                   size="sm"
