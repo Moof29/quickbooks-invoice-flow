@@ -112,40 +112,8 @@ Deno.serve(async (req) => {
     }
 
     console.log('✅ Batch job created:', insertedJob.id);
-    console.log('📋 Job queued for background processing by cron job');
-    
-    // For small batches (< 100), process immediately
-    // For large batches, let cron job handle it to avoid timeouts
-    if (sales_order_ids.length < 100) {
-      console.log('🚀 Small batch - starting immediate processing...');
-      
-      const processInBackground = async () => {
-        try {
-          const serviceSupabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-          );
-
-          const { error: rpcError } = await serviceSupabase.rpc('process_bulk_invoice_job_sql', {
-            p_job_id: insertedJob.id
-          });
-
-          if (rpcError) {
-            console.error('Background processing error:', rpcError);
-          } else {
-            console.log(`✅ Job ${insertedJob.id} processed successfully`);
-          }
-        } catch (bgError) {
-          console.error('Background task error:', bgError);
-        }
-      };
-
-      EdgeRuntime.waitUntil(processInBackground());
-    } else {
-      console.log(`⏳ Large batch (${sales_order_ids.length} orders) - will be processed by cron job in micro-batches of 50`);
-    }
-
-    const processingMode = sales_order_ids.length < 100 ? 'immediate' : 'background';
+    console.log('📋 Job queued for processing by cron job (runs every minute)');
+    console.log(`ℹ️ Job will be processed in micro-batches of 50 orders for database health`);
     
     return new Response(
       JSON.stringify({
@@ -153,10 +121,7 @@ Deno.serve(async (req) => {
         job_id: insertedJob.id,
         total_orders: sales_order_ids.length,
         estimated_duration_seconds: insertedJob.estimated_duration_seconds,
-        processing_mode: processingMode,
-        message: processingMode === 'immediate' 
-          ? 'Small batch - processing started immediately in background'
-          : `Large batch queued - will be processed by cron job in micro-batches of 50 for database health`,
+        message: `Job queued successfully. Will be processed in micro-batches of 50 orders by the cron job.`,
         polling_info: {
           check_status_table: 'batch_job_queue',
           check_status_query: `SELECT * FROM batch_job_queue WHERE id = '${insertedJob.id}'`
