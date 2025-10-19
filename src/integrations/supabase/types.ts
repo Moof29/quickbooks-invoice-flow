@@ -5311,6 +5311,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_invoice_from_sales_order_sql: {
+        Args: { p_organization_id: string; p_sales_order_id: string }
+        Returns: string
+      }
       create_sales_order_atomic: {
         Args: {
           p_customer_id: string
@@ -5504,6 +5508,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      process_bulk_invoice_job_sql: {
+        Args: { p_job_id: string }
+        Returns: Json
+      }
       process_invoice_batch: {
         Args: { p_payload: Json }
         Returns: Json
@@ -5552,6 +5560,10 @@ export type Database = {
       start_batch_job: {
         Args: { p_job_id: string }
         Returns: undefined
+      }
+      trigger_batch_invoice_processing: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       update_batch_job_progress: {
         Args: {
