@@ -123,6 +123,7 @@ export function ModernSalesOrdersList() {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 50;
   const [selectAllPages, setSelectAllPages] = useState(false);
+  const [allPagesPendingCount, setAllPagesPendingCount] = useState(0);
 
   const organizationId = profile?.organization_id;
 
@@ -591,6 +592,7 @@ export function ModernSalesOrdersList() {
     if (allSelected) {
       selectableOrders.forEach((o) => newSelected.delete(o.id));
       setSelectAllPages(false);
+      setAllPagesPendingCount(0);
     } else {
       selectableOrders.forEach((o) => newSelected.add(o.id));
     }
@@ -603,7 +605,7 @@ export function ModernSalesOrdersList() {
     // Fetch ALL non-invoiced order IDs matching current filters
     let query = supabase
       .from("sales_order")
-      .select("id, invoiced")
+      .select("id, invoiced, status")
       .eq("organization_id", organizationId)
       .eq("invoiced", false);
 
@@ -631,8 +633,11 @@ export function ModernSalesOrdersList() {
     }
 
     const allSelectableIds = data?.map(o => o.id) || [];
+    const pendingCount = data?.filter(o => o.status === "pending").length || 0;
+    
     setSelectedOrders(new Set(allSelectableIds));
     setSelectAllPages(true);
+    setAllPagesPendingCount(pendingCount);
   };
 
   const handleSelectAllPending = () => {
@@ -648,9 +653,11 @@ export function ModernSalesOrdersList() {
     setSelectedOrders(newSelected);
   };
 
-  const selectedPendingCount = Array.from(selectedOrders).filter(id => 
-    filteredOrders?.find(o => o.id === id && o.status === "pending")
-  ).length;
+  const selectedPendingCount = selectAllPages 
+    ? allPagesPendingCount 
+    : Array.from(selectedOrders).filter(id => 
+        filteredOrders?.find(o => o.id === id && o.status === "pending")
+      ).length;
 
   console.log(`🎯 Rendering component with ${filteredOrders?.length || 0} orders`);
   
@@ -779,6 +786,7 @@ export function ModernSalesOrdersList() {
                     onClick={() => {
                       setSelectedOrders(new Set());
                       setSelectAllPages(false);
+                      setAllPagesPendingCount(0);
                     }}
                   >
                     Clear Selection
@@ -841,6 +849,7 @@ export function ModernSalesOrdersList() {
                   onClick={() => {
                     setSelectedOrders(new Set());
                     setSelectAllPages(false);
+                    setAllPagesPendingCount(0);
                   }}
                   className="h-auto p-0 text-primary font-semibold"
                 >
