@@ -122,6 +122,7 @@ export function ModernSalesOrdersList() {
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 50;
+  const [selectAllPages, setSelectAllPages] = useState(false);
 
   const organizationId = profile?.organization_id;
 
@@ -589,10 +590,49 @@ export function ModernSalesOrdersList() {
 
     if (allSelected) {
       selectableOrders.forEach((o) => newSelected.delete(o.id));
+      setSelectAllPages(false);
     } else {
       selectableOrders.forEach((o) => newSelected.add(o.id));
     }
     setSelectedOrders(newSelected);
+  };
+
+  const handleSelectAllPages = async () => {
+    if (!organizationId) return;
+    
+    // Fetch ALL non-invoiced order IDs matching current filters
+    let query = supabase
+      .from("sales_order")
+      .select("id, invoiced")
+      .eq("organization_id", organizationId)
+      .eq("invoiced", false);
+
+    // Apply same filters as main query
+    if (selectedDates.length > 0) {
+      const dateStrings = selectedDates.map(date => format(date, "yyyy-MM-dd"));
+      query = query.in("delivery_date", dateStrings);
+    } else if (deliveryDateFilter !== "all") {
+      query = query.eq("delivery_date", deliveryDateFilter);
+    }
+
+    if (statusFilter !== "all") {
+      query = query.eq("status", statusFilter);
+    }
+
+    const { data, error } = await query;
+    
+    if (error) {
+      toast({
+        title: "Error selecting all",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const allSelectableIds = data?.map(o => o.id) || [];
+    setSelectedOrders(new Set(allSelectableIds));
+    setSelectAllPages(true);
   };
 
   const handleSelectAllPending = () => {
@@ -726,19 +766,23 @@ export function ModernSalesOrdersList() {
       {selectedOrders.size > 0 && (
         <Card className="border-primary">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">
-                {selectedOrders.size} order(s) selected
-                {selectedPendingCount > 0 && ` • ${selectedPendingCount} pending`}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedOrders(new Set())}
-                >
-                  Clear Selection
-                </Button>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  {selectedOrders.size} order(s) selected
+                  {selectedPendingCount > 0 && ` • ${selectedPendingCount} pending`}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedOrders(new Set());
+                      setSelectAllPages(false);
+                    }}
+                  >
+                    Clear Selection
+                  </Button>
                 {selectedPendingCount > 0 && (
                   <Button
                     variant="default"
@@ -769,6 +813,42 @@ export function ModernSalesOrdersList() {
                 </Button>
               </div>
             </div>
+            
+            {/* Select All Pages Banner */}
+            {!selectAllPages && selectedOrders.size > 0 && totalCount > filteredOrders.length && (
+              <div className="flex items-center justify-between p-3 bg-muted rounded-md border">
+                <span className="text-sm">
+                  All {filteredOrders.filter(o => !o.invoiced).length} orders on this page are selected.
+                </span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={handleSelectAllPages}
+                  className="h-auto p-0 text-primary font-semibold"
+                >
+                  Select all {totalCount} orders matching filters
+                </Button>
+              </div>
+            )}
+            {selectAllPages && (
+              <div className="flex items-center justify-between p-3 bg-primary/10 rounded-md border border-primary/20">
+                <span className="text-sm font-medium">
+                  All {selectedOrders.size} orders matching filters are selected.
+                </span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedOrders(new Set());
+                    setSelectAllPages(false);
+                  }}
+                  className="h-auto p-0 text-primary font-semibold"
+                >
+                  Clear selection
+                </Button>
+              </div>
+            )}
+          </div>
           </CardContent>
         </Card>
       )}
