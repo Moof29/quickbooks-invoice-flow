@@ -112,8 +112,17 @@ Deno.serve(async (req) => {
     }
 
     console.log('✅ Batch job created:', insertedJob.id);
-    console.log('📋 Job queued for processing by cron job (runs every minute)');
-    console.log(`ℹ️ Job will be processed in micro-batches of 50 orders for database health`);
+    
+    // Trigger immediate processing via PostgreSQL function
+    console.log('🚀 Triggering immediate processing...');
+    const { error: triggerError } = await supabase.rpc('trigger_batch_invoice_processing');
+    
+    if (triggerError) {
+      console.error('Warning: Failed to trigger immediate processing:', triggerError);
+      console.log('Job will be picked up by next cron cycle (backup mechanism)');
+    } else {
+      console.log('✅ Processing triggered immediately');
+    }
     
     return new Response(
       JSON.stringify({
@@ -121,7 +130,7 @@ Deno.serve(async (req) => {
         job_id: insertedJob.id,
         total_orders: sales_order_ids.length,
         estimated_duration_seconds: insertedJob.estimated_duration_seconds,
-        message: `Job queued successfully. Will be processed in micro-batches of 50 orders by the cron job.`,
+        message: `Processing started immediately. Job will be processed in chunks of 50 orders.`,
         polling_info: {
           check_status_table: 'batch_job_queue',
           check_status_query: `SELECT * FROM batch_job_queue WHERE id = '${insertedJob.id}'`

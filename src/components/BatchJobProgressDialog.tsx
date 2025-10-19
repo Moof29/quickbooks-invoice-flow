@@ -97,15 +97,10 @@ export function BatchJobProgressDialog({
               {/* Status Badge */}
               <div className="flex items-center justify-center gap-2">
                 {progress.isPending && (
-                  <div className="text-center space-y-2">
-                    <Badge variant="outline" className="gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Queued
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">
-                      Waiting for next processing cycle (runs every minute)
-                    </p>
-                  </div>
+                  <Badge variant="outline" className="gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Starting...
+                  </Badge>
                 )}
                 {progress.isProcessing && (
                   <Badge variant="outline" className="gap-1 bg-blue-50 dark:bg-blue-950">
