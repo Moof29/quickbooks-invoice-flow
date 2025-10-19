@@ -164,34 +164,14 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-        <DialogHeader className="pr-12">
-          <div className="flex items-center justify-between pr-4">
-            <DialogTitle>
-              Invoice Preview {invoice?.invoice_number && `- ${invoice.invoice_number}`}
-            </DialogTitle>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" onClick={handleEdit}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleSendToCustomer}>
-                <Send className="h-4 w-4 mr-2" />
-                Send
-              </Button>
-              <Button variant="destructive" size="sm" onClick={handleDelete}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
-            </div>
-          </div>
+      <DialogContent className="max-w-4xl md:h-[90vh] h-screen w-full max-w-full md:max-w-4xl flex flex-col p-0 gap-0">
+        <DialogHeader className="px-4 md:px-6 py-4 border-b shrink-0">
+          <DialogTitle className="text-base md:text-lg">
+            Invoice {invoice?.invoice_number && `${invoice.invoice_number}`}
+          </DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -205,6 +185,28 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
               No invoice data available
             </div>
           )}
+        </div>
+
+        {/* Mobile-optimized action buttons */}
+        <div className="shrink-0 border-t bg-background p-4 pb-safe">
+          <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2 md:gap-3">
+            <Button variant="outline" size="sm" onClick={handleEdit} className="w-full md:w-auto">
+              <Edit className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Edit</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="w-full md:w-auto">
+              <Download className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Download</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleSendToCustomer} className="w-full md:w-auto">
+              <Send className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Send</span>
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleDelete} className="w-full md:w-auto col-span-2 md:col-span-1">
+              <Trash2 className="h-4 w-4 md:mr-2" />
+              <span className="md:inline">Delete</span>
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
