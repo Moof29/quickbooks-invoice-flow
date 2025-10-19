@@ -148,22 +148,23 @@ const Dashboard = () => {
   );
 
   return (
-    <div className="flex-1 space-y-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex-1 space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-3 md:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">
               Welcome back, {profile?.first_name || 'there'}! Here's what's happening with your business today.
             </p>
           </div>
-          <Button>
+          <Button className="w-full sm:w-auto">
             Download Report
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Mobile: Single column stack, Desktop: Grid */}
+      <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Revenue"
           value={`$${stats.totalRevenue.toLocaleString()}`}
@@ -202,8 +203,8 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-full lg:col-span-4 border-border/40">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-7">
+        <Card className="col-span-1 lg:col-span-4 border-border/40">
           <CardHeader>
             <CardTitle>Revenue Overview</CardTitle>
             <CardDescription>
@@ -249,7 +250,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="col-span-full lg:col-span-3 border-border/40">
+        <Card className="col-span-1 lg:col-span-3 border-border/40">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>
@@ -308,7 +309,7 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
         <Card className="border-border/40">
           <CardHeader>
             <CardTitle>Sales Performance</CardTitle>

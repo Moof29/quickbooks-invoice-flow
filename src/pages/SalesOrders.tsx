@@ -56,66 +56,83 @@ export default function SalesOrders() {
   return (
     <>
       <BatchJobStatusBar />
-      <div className="space-y-6 p-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage daily orders for next-day delivery
-          </p>
+      <div className="space-y-4 md:space-y-6">
+        {/* Header - Mobile Optimized */}
+        <div className="flex flex-col gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Sales Orders</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">
+              Manage daily orders for next-day delivery
+            </p>
+          </div>
+          
+          {/* Desktop Actions */}
+          <div className="hidden md:flex gap-2">
+            <GenerateTemplateTestDataButton />
+            <GenerateDailyOrdersButton />
+            <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="lg">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear All Orders
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear All Sales Orders?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all sales orders, line items, and invoice links for your organization. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isClearing}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleClearAllOrders}
+                    disabled={isClearing}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {isClearing ? "Clearing..." : "Clear All Orders"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button onClick={() => navigate('/sales-orders/new')} size="lg">
+              <Plus className="h-4 w-4 mr-2" />
+              New Order
+            </Button>
+          </div>
+          
+          {/* Mobile: Only show most important actions */}
+          <div className="flex md:hidden gap-2">
+            <GenerateDailyOrdersButton />
+          </div>
         </div>
-        <div className="flex gap-2">
-          <GenerateTemplateTestDataButton />
-          <GenerateDailyOrdersButton />
-          <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="lg">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Clear All Orders
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Clear All Sales Orders?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete all sales orders, line items, and invoice links for your organization. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isClearing}>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleClearAllOrders}
-                  disabled={isClearing}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  {isClearing ? "Clearing..." : "Clear All Orders"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <Button onClick={() => navigate('/sales-orders/new')} size="lg">
-            <Plus className="h-4 w-4 mr-2" />
-            New Order
-          </Button>
-        </div>
-      </div>
 
-      <Tabs defaultValue="orders" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="orders">Sales Orders</TabsTrigger>
-          <TabsTrigger value="templates">Customer Templates</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="orders" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="orders">Sales Orders</TabsTrigger>
+            <TabsTrigger value="templates">Customer Templates</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="orders" className="mt-6">
-          <ModernSalesOrdersList />
-        </TabsContent>
+          <TabsContent value="orders" className="mt-4 md:mt-6">
+            <ModernSalesOrdersList />
+          </TabsContent>
 
-        <TabsContent value="templates" className="mt-6">
-          <CustomerTemplates />
-        </TabsContent>
+          <TabsContent value="templates" className="mt-4 md:mt-6">
+            <CustomerTemplates />
+          </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Mobile FAB for New Order */}
+      <Button
+        onClick={() => navigate('/sales-orders/new')}
+        size="lg"
+        className="md:hidden fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full shadow-lg hover:scale-110 transition-transform touch-manipulation"
+        aria-label="New Order"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </>
   );
 }

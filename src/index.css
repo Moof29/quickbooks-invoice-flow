@@ -12,6 +12,25 @@
   @apply outline-none ring-2 ring-ring ring-offset-2;
 }
 
+/* Mobile touch optimization */
+@layer base {
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  input, textarea, select {
+    font-size: 16px;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 /* Remove harsh borders for ShadcnUIKit */
 .card {
   @apply border-0 shadow-sm;

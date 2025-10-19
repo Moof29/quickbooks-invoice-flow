@@ -12,6 +12,8 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeProvider } from "next-themes";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -97,9 +99,10 @@ function AppLayout() {
         <AppSidebar />
         <SidebarInset className="flex flex-1 flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-y-auto bg-muted/40 p-4 md:p-6 lg:p-8">
+          <main className="flex-1 overflow-y-auto bg-muted/40 p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
             <Outlet />
           </main>
+          <MobileBottomNav />
         </SidebarInset>
       </div>
     </SidebarProvider>
@@ -116,6 +119,7 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
+            <PWAInstallPrompt />
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index />} />
