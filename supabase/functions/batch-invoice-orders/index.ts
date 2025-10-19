@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('=== Batch Invoice Orders (Pure PostgreSQL) ===');
+    console.log('=== Batch Invoice Orders (Immediate Processing) ===');
 
     // Authenticate user
     const supabase = createClient(
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
     console.log(`Creating batch job for ${sales_order_ids.length} orders`);
 
-    // Create job in queue (PostgreSQL will process it via pg_cron)
+    // Create job in queue
     const { data: insertedJob, error: insertError } = await supabase
       .from('batch_job_queue')
       .insert({
@@ -112,8 +112,34 @@ Deno.serve(async (req) => {
     }
 
     console.log('✅ Batch job created:', insertedJob.id);
-    console.log('📋 Job queued - will be processed by cron job (runs every minute)');
-    console.log(`ℹ️ Processing will happen in chunks of 50 orders for optimal performance`);
+    
+    // Trigger immediate background processing
+    const processInBackground = async () => {
+      console.log('🚀 Starting background processing...');
+      
+      // Create a service role client for background processing
+      const serviceSupabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      );
+      
+      try {
+        const { error: triggerError } = await serviceSupabase.rpc('trigger_batch_invoice_processing');
+        
+        if (triggerError) {
+          console.error('❌ Background processing error:', triggerError);
+        } else {
+          console.log('✅ Background processing completed successfully');
+        }
+      } catch (error) {
+        console.error('❌ Background processing exception:', error);
+      }
+    };
+    
+    // Start processing in background (non-blocking)
+    EdgeRuntime.waitUntil(processInBackground());
+    
+    console.log('📋 Immediate response sent, processing continues in background');
     
     return new Response(
       JSON.stringify({
@@ -121,7 +147,7 @@ Deno.serve(async (req) => {
         job_id: insertedJob.id,
         total_orders: sales_order_ids.length,
         estimated_duration_seconds: insertedJob.estimated_duration_seconds,
-        message: `Job queued successfully. Processing will begin within 60 seconds and complete in chunks of 50 orders.`,
+        message: `Processing started immediately in background. Job will be processed in chunks of 50 orders.`,
         polling_info: {
           check_status_table: 'batch_job_queue',
           check_status_query: `SELECT * FROM batch_job_queue WHERE id = '${insertedJob.id}'`

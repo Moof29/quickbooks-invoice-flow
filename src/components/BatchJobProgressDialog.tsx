@@ -100,10 +100,10 @@ export function BatchJobProgressDialog({
                   <div className="text-center space-y-2">
                     <Badge variant="outline" className="gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      Queued
+                      Starting...
                     </Badge>
                     <p className="text-xs text-muted-foreground">
-                      Processing starts within 10 seconds...
+                      Initializing batch processor...
                     </p>
                   </div>
                 )}
