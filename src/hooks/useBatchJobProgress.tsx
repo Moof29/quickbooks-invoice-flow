@@ -36,13 +36,40 @@ export function useBatchJobProgress(jobId: string | null, enabled: boolean = tru
     enabled: enabled && !!jobId,
     refetchInterval: (query) => {
       const job = query.state.data as BatchJob | null;
-      // Refetch every 2 seconds while processing, stop when completed/failed
+      // Refetch every 500ms while processing for smoother progress updates
       if (job?.status === "processing" || job?.status === "pending") {
-        return 2000;
+        return 500;
       }
       return false;
     },
   });
+
+  // Subscribe to real-time updates for instant progress
+  useEffect(() => {
+    if (!jobId || !enabled) return;
+
+    const channel = supabase
+      .channel(`batch-job-${jobId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'batch_job_queue',
+          filter: `id=eq.${jobId}`
+        },
+        (payload) => {
+          console.log('📊 Real-time job update:', payload.new);
+          // Immediately update the cache with new data
+          queryClient.setQueryData(["batch-job", jobId], payload.new as BatchJob);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [jobId, enabled, queryClient]);
 
   // Invalidate related queries when job completes
   useEffect(() => {
