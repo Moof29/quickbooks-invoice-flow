@@ -36,38 +36,55 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
 
     setIsCreating(true);
     try {
-      // Query order statuses
-      const { data: orders, error } = await supabase
-        .from('sales_order')
-        .select('id, order_number, status, invoiced')
-        .in('id', selectedOrders);
+      // For large selections, validate in chunks to avoid URL length limits
+      const chunkSize = 100;
+      let allValid: any[] = [];
+      let allAlreadyInvoiced: any[] = [];
+      let allNotReviewed: any[] = [];
 
-      if (error) throw error;
+      for (let i = 0; i < selectedOrders.length; i += chunkSize) {
+        const chunk = selectedOrders.slice(i, i + chunkSize);
+        
+        const { data: orders, error } = await supabase
+          .from('sales_order')
+          .select('id, order_number, status, invoiced')
+          .in('id', chunk);
 
-      const valid = orders?.filter(o => !o.invoiced && o.status === 'reviewed') || [];
-      const alreadyInvoiced = orders?.filter(o => o.invoiced) || [];
-      const notReviewed = orders?.filter(o => !o.invoiced && o.status !== 'reviewed') || [];
+        if (error) throw error;
 
-      setValidationResult({ valid, alreadyInvoiced, notReviewed });
+        const valid = orders?.filter(o => !o.invoiced && o.status === 'reviewed') || [];
+        const alreadyInvoiced = orders?.filter(o => o.invoiced) || [];
+        const notReviewed = orders?.filter(o => !o.invoiced && o.status !== 'reviewed') || [];
 
-      if (valid.length === 0) {
+        allValid = [...allValid, ...valid];
+        allAlreadyInvoiced = [...allAlreadyInvoiced, ...alreadyInvoiced];
+        allNotReviewed = [...allNotReviewed, ...notReviewed];
+      }
+
+      setValidationResult({ 
+        valid: allValid, 
+        alreadyInvoiced: allAlreadyInvoiced, 
+        notReviewed: allNotReviewed 
+      });
+
+      if (allValid.length === 0) {
         toast({
           title: "No Valid Orders",
-          description: `${alreadyInvoiced.length} already invoiced, ${notReviewed.length} not reviewed`,
+          description: `${allAlreadyInvoiced.length} already invoiced, ${allNotReviewed.length} not reviewed`,
           variant: "destructive",
         });
         setIsCreating(false);
         return;
       }
 
-      if (alreadyInvoiced.length > 0 || notReviewed.length > 0) {
+      if (allAlreadyInvoiced.length > 0 || allNotReviewed.length > 0) {
         setShowValidation(true);
         setIsCreating(false);
         return;
       }
 
       // All orders valid, proceed directly
-      await createBatchJob(valid.map(o => o.id));
+      await createBatchJob(allValid.map(o => o.id));
     } catch (error: any) {
       toast({
         title: "Validation Error",
