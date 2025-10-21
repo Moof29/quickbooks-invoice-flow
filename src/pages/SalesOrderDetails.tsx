@@ -542,18 +542,18 @@ export default function SalesOrderDetails() {
   }
 
   return (
-    <div className="space-y-6 p-8">
+    <div className="space-y-6 p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
               {order.customer_profile.company_name}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               <p className="text-sm text-muted-foreground">{order.order_number}</p>
               {getStatusBadge(order.status)}
               {order.is_no_order_today && (
@@ -566,7 +566,7 @@ export default function SalesOrderDetails() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <SalesOrderApprovalButton
             salesOrderId={order.id}
             currentStatus={order.status}
@@ -621,7 +621,7 @@ export default function SalesOrderDetails() {
       )}
 
       {/* Order Summary */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
         <Card className="border-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
@@ -686,7 +686,9 @@ export default function SalesOrderDetails() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
+          {/* Desktop & Tablet Table View */}
+          <div className="hidden sm:block overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px] text-center">Quantity</TableHead>
@@ -827,6 +829,7 @@ export default function SalesOrderDetails() {
                 <span>${order.total.toFixed(2)}</span>
               </div>
             </div>
+          </div>
           </div>
         </CardContent>
       </Card>

@@ -487,7 +487,7 @@ export default function InvoiceDetailsPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 space-y-4 p-8">
+      <div className="flex-1 space-y-4 p-4 md:p-6 lg:p-8">
         <div className="text-center py-16">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p>Loading invoice details...</p>
@@ -498,7 +498,7 @@ export default function InvoiceDetailsPage() {
 
   if (!invoice) {
     return (
-      <div className="flex-1 space-y-4 p-8">
+      <div className="flex-1 space-y-4 p-4 md:p-6 lg:p-8">
         <div className="text-center py-16">
           <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Invoice not found</h3>
@@ -515,22 +515,22 @@ export default function InvoiceDetailsPage() {
   const daysUntilDue = calculateDaysUntilDue();
 
   return (
-    <div className="flex-1 space-y-4 p-8">
+    <div className="flex-1 space-y-4 p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => navigate('/invoices')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{invoice.invoice_number}</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{invoice.invoice_number}</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">
               Invoice Details
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleShowPDF}>
             <Eye className="h-4 w-4 mr-2" />
             Show PDF
@@ -592,7 +592,7 @@ export default function InvoiceDetailsPage() {
       <Card className="border-0 shadow-sm">
         <CardContent className="pt-6">
           {editMode ? (
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div className="space-y-2">
                 <Label htmlFor="invoice_date">Invoice Date *</Label>
                 <Input
@@ -671,7 +671,7 @@ export default function InvoiceDetailsPage() {
           <Separator className="my-3" />
           
           {/* Customer Info Inline */}
-          <div className="flex flex-wrap items-center gap-6 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-wrap items-start md:items-center gap-4 md:gap-6 text-sm">
             <div>
               <span className="text-muted-foreground">Customer: </span>
               <span className="font-medium">{invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'N/A'}</span>
@@ -729,7 +729,8 @@ export default function InvoiceDetailsPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Desktop/Tablet Table View */}
+          <div className="hidden sm:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -883,8 +884,60 @@ export default function InvoiceDetailsPage() {
             </Table>
           </div>
 
+          {/* Mobile Card View */}
+          <div className="sm:hidden space-y-3 p-4">
+            {lineItems.map((item) => (
+              <Card key={item.id} className="border shadow-sm">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h4 className="font-medium">{item.item_record?.name || 'Unknown Item'}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                    </div>
+                    {editMode && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteLineItemMutation.mutate(item.id)}
+                        disabled={deleteLineItemMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Quantity</Label>
+                      {editMode ? (
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={quantities[item.id] || item.quantity}
+                          onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                          onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
+                          className="h-8 mt-1"
+                        />
+                      ) : (
+                        <p className="font-medium mt-1">{item.quantity}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Price</Label>
+                      <p className="font-medium mt-1">${item.unit_price.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Amount</Label>
+                      <p className="font-semibold mt-1">${item.amount.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
           {/* Totals */}
-          <div className="border-t px-6 py-3 bg-muted/20">
+          <div className="border-t px-4 md:px-6 py-3 bg-muted/20">
             <div className="flex flex-col items-end space-y-1 max-w-xs ml-auto text-sm">
               <div className="flex justify-between w-full">
                 <span className="text-muted-foreground">Subtotal:</span>
@@ -914,7 +967,7 @@ export default function InvoiceDetailsPage() {
       {(invoice.memo || editMode) && (
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <CardTitle>Memo</CardTitle>
+            <CardTitle className="text-lg">Memo</CardTitle>
           </CardHeader>
           <CardContent>
             {editMode ? (

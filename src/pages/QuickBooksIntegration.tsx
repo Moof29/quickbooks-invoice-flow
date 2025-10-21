@@ -270,16 +270,15 @@ const QuickBooksIntegration = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex-1 space-y-6 p-4 md:p-6 lg:p-8">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 py-4 sm:py-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">QuickBooks Integration</h1>
-              <p className="text-gray-600 mt-1 text-sm sm:text-base">Connect and sync your data with QuickBooks Online</p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+      <div>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">QuickBooks Integration</h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">Connect and sync your data with QuickBooks Online</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               {connection?.is_active ? (
                 <>
                   <Button 
@@ -300,31 +299,28 @@ const QuickBooksIntegration = () => {
                   <Zap className="w-4 h-4 mr-2" />
                   Connect to QuickBooks
                 </Button>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Connection Status */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Zap className="w-5 h-5 mr-2 text-blue-600" />
-              Connection Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {connection?.is_active ? (
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                  <span className="text-green-800 font-medium">Connected to QuickBooks Online</span>
-                  <Badge className="ml-2 bg-green-100 text-green-800">Active</Badge>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+      {/* Connection Status */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center text-lg">
+            <Zap className="w-5 h-5 mr-2" />
+            Connection Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {connection?.is_active ? (
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                <span className="font-medium">Connected to QuickBooks Online</span>
+                <Badge variant="default" className="ml-2">Active</Badge>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
                   <div>
                     <p className="text-sm text-gray-600">Company ID</p>
                     <p className="font-medium">{connection.qbo_company_id}</p>
@@ -366,12 +362,12 @@ const QuickBooksIntegration = () => {
           </CardContent>
         </Card>
 
-        {/* Integration Features */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Customers</CardTitle>
-            </CardHeader>
+      {/* Integration Features */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Customers</CardTitle>
+          </CardHeader>
             <CardContent>
               <p className="text-gray-600 mb-4">
                 Sync customer profiles between your app and QuickBooks
@@ -381,12 +377,12 @@ const QuickBooksIntegration = () => {
                 <span>Automatic sync enabled</span>
               </div>
             </CardContent>
-          </Card>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Invoices</CardTitle>
-            </CardHeader>
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Invoices</CardTitle>
+          </CardHeader>
             <CardContent>
               <p className="text-gray-600 mb-4">
                 Create invoices here and sync them to QuickBooks automatically
@@ -396,12 +392,12 @@ const QuickBooksIntegration = () => {
                 <span>Automatic sync enabled</span>
               </div>
             </CardContent>
-          </Card>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Items</CardTitle>
-            </CardHeader>
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Items</CardTitle>
+          </CardHeader>
             <CardContent>
               <p className="text-gray-600 mb-4">
                 Keep your product and service items in sync across platforms
@@ -411,17 +407,17 @@ const QuickBooksIntegration = () => {
                 <span>Automatic sync enabled</span>
               </div>
             </CardContent>
-          </Card>
-        </div>
+        </Card>
+      </div>
 
-        {/* Sync History */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Sync History</CardTitle>
-            <CardDescription>
-              Recent synchronization activities with QuickBooks
-            </CardDescription>
-          </CardHeader>
+      {/* Sync History */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg">Sync History</CardTitle>
+          <CardDescription>
+            Recent synchronization activities with QuickBooks
+          </CardDescription>
+        </CardHeader>
           <CardContent>
             {syncHistory.length === 0 ? (
               <div className="text-center py-8">
@@ -434,63 +430,62 @@ const QuickBooksIntegration = () => {
                   }
                 </p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {syncHistory.map((sync) => (
-                  <div key={sync.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className="bg-blue-100 p-2 rounded-lg flex-shrink-0">
-                        <RefreshCw className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{sync.sync_type} Sync</p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(sync.started_at).toLocaleString()}
-                        </p>
-                      </div>
+          ) : (
+            <div className="space-y-4">
+              {syncHistory.map((sync) => (
+                <div key={sync.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-blue-100 p-2 rounded-lg flex-shrink-0">
+                      <RefreshCw className="h-5 w-5 text-blue-600" />
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                      <div className="text-left sm:text-right">
-                        <p className="text-sm">
-                          {sync.success_count}/{sync.entity_count} successful
-                        </p>
-                        {sync.failure_count > 0 && (
-                          <p className="text-sm text-red-600">
-                            {sync.failure_count} failed
-                          </p>
-                        )}
-                      </div>
-                      <Badge className={`${getStatusColor(sync.status)} w-fit`}>
-                        {sync.status}
-                      </Badge>
+                    <div>
+                      <p className="font-medium">{sync.sync_type} Sync</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(sync.started_at).toLocaleString()}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                    <div className="text-left md:text-right">
+                      <p className="text-sm">
+                        {sync.success_count}/{sync.entity_count} successful
+                      </p>
+                      {sync.failure_count > 0 && (
+                        <p className="text-sm text-red-600">
+                          {sync.failure_count} failed
+                        </p>
+                      )}
+                    </div>
+                    <Badge className={`${getStatusColor(sync.status)} w-fit`}>
+                      {sync.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Setup Instructions */}
-        {!connection?.is_active && (
-          <Alert className="mt-8">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Setup Required:</strong> To connect with QuickBooks Online, you'll need to:
-              <ol className="list-decimal list-inside mt-2 space-y-1">
-                <li>Have a QuickBooks Online account</li>
-                <li>Authorize this application to access your QuickBooks data</li>
-                <li>Configure sync preferences for your data</li>
-              </ol>
-              <Button variant="link" className="p-0 mt-2" asChild>
-                <a href="https://developer.intuit.com/" target="_blank" rel="noopener noreferrer">
-                  Learn more about QuickBooks API <ExternalLink className="w-3 h-3 ml-1" />
-                </a>
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-      </div>
+      {/* Setup Instructions */}
+      {!connection?.is_active && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Setup Required:</strong> To connect with QuickBooks Online, you'll need to:
+            <ol className="list-decimal list-inside mt-2 space-y-1">
+              <li>Have a QuickBooks Online account</li>
+              <li>Authorize this application to access your QuickBooks data</li>
+              <li>Configure sync preferences for your data</li>
+            </ol>
+            <Button variant="link" className="p-0 mt-2" asChild>
+              <a href="https://developer.intuit.com/" target="_blank" rel="noopener noreferrer">
+                Learn more about QuickBooks API <ExternalLink className="w-3 h-3 ml-1" />
+              </a>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 };

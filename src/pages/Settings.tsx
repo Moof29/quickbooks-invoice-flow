@@ -6,18 +6,18 @@ export default function Settings() {
   const { organization, profile, roles } = useAuthProfile();
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="flex-1 space-y-6 p-4 md:p-6 lg:p-8">
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
           Manage your organization settings and team members
         </p>
       </div>
 
       {organization && (
-        <Card>
+        <Card className="border-0 shadow-sm">
           <CardHeader>
-            <CardTitle>Organization Information</CardTitle>
+            <CardTitle className="text-lg">Organization Information</CardTitle>
             <CardDescription>
               Basic information about your organization
             </CardDescription>

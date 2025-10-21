@@ -148,7 +148,7 @@ const Dashboard = () => {
   );
 
   return (
-    <div className="flex-1 space-y-4 md:space-y-6">
+    <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6 lg:p-8">
       <div className="flex flex-col gap-3 md:gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4">
           <div>
@@ -163,8 +163,8 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Mobile: Single column stack, Desktop: Grid */}
-      <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Responsive grid: 1 col mobile, 2 cols tablet, 4 cols desktop */}
+      <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Revenue"
           value={`$${stats.totalRevenue.toLocaleString()}`}
@@ -203,8 +203,8 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-7">
-        <Card className="col-span-1 lg:col-span-4 border-border/40">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-3 lg:grid-cols-7">
+        <Card className="col-span-1 md:col-span-2 lg:col-span-4 border-border/40">
           <CardHeader>
             <CardTitle>Revenue Overview</CardTitle>
             <CardDescription>
@@ -250,7 +250,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="col-span-1 lg:col-span-3 border-border/40">
+        <Card className="col-span-1 md:col-span-1 lg:col-span-3 border-border/40">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>
@@ -309,7 +309,7 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
         <Card className="border-border/40">
           <CardHeader>
             <CardTitle>Sales Performance</CardTitle>

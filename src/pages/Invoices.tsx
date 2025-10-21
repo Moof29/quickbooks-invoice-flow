@@ -295,7 +295,7 @@ const Invoices = () => {
   const paginatedInvoices = filteredInvoices.slice(startIndex, endIndex);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pb-20 md:pb-8">
+    <div className="flex-1 space-y-4 p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
       {loading ? (
         <div className="text-center py-16">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -441,8 +441,8 @@ const Invoices = () => {
             </CardContent>
           </Card>
 
-          {/* Desktop Table View */}
-          <Card className="border-0 shadow-sm hidden md:block">
+          {/* Desktop & Tablet Table View */}
+          <Card className="border-0 shadow-sm hidden sm:block">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <div>
                 <CardTitle>All Invoices</CardTitle>
@@ -587,7 +587,7 @@ const Invoices = () => {
           </Card>
 
           {/* Mobile Card View */}
-          <div className="md:hidden space-y-3">
+          <div className="sm:hidden space-y-3">
             <div className="flex items-center justify-between px-1">
               <p className="text-sm text-muted-foreground">
                 {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
