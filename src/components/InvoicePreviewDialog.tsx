@@ -164,14 +164,14 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl md:h-[90vh] h-screen w-full max-w-full md:max-w-4xl flex flex-col p-0 gap-0">
-        <DialogHeader className="px-4 md:px-6 py-4 border-b shrink-0">
-          <DialogTitle className="text-base md:text-lg">
+      <DialogContent className="h-screen sm:h-[85vh] md:h-[90vh] w-full max-w-full sm:max-w-[95vw] md:max-w-5xl lg:max-w-6xl flex flex-col p-0 gap-0">
+        <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0">
+          <DialogTitle className="text-base sm:text-lg md:text-xl">
             Invoice {invoice?.invoice_number && `${invoice.invoice_number}`}
           </DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden bg-muted/10">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -187,24 +187,24 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
           )}
         </div>
 
-        {/* Mobile-optimized action buttons */}
-        <div className="shrink-0 border-t bg-background p-4 pb-safe">
-          <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2 md:gap-3">
-            <Button variant="outline" size="sm" onClick={handleEdit} className="w-full md:w-auto">
-              <Edit className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Edit</span>
+        {/* Responsive action buttons - stacked on mobile, row on tablet+ */}
+        <div className="shrink-0 border-t bg-background p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Button variant="outline" size="sm" onClick={handleEdit} className="w-full sm:flex-1 md:flex-initial md:w-auto">
+              <Edit className="h-4 w-4 mr-2" />
+              <span>Edit Invoice</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="w-full md:w-auto">
-              <Download className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Download</span>
+            <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="w-full sm:flex-1 md:flex-initial md:w-auto">
+              <Download className="h-4 w-4 mr-2" />
+              <span>Download PDF</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleSendToCustomer} className="w-full md:w-auto">
-              <Send className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Send</span>
+            <Button variant="outline" size="sm" onClick={handleSendToCustomer} className="w-full sm:flex-1 md:flex-initial md:w-auto">
+              <Send className="h-4 w-4 mr-2" />
+              <span>Send to Customer</span>
             </Button>
-            <Button variant="destructive" size="sm" onClick={handleDelete} className="w-full md:w-auto col-span-2 md:col-span-1">
-              <Trash2 className="h-4 w-4 md:mr-2" />
-              <span className="md:inline">Delete</span>
+            <Button variant="destructive" size="sm" onClick={handleDelete} className="w-full sm:flex-1 md:flex-initial md:w-auto">
+              <Trash2 className="h-4 w-4 mr-2" />
+              <span>Delete Invoice</span>
             </Button>
           </div>
         </div>
