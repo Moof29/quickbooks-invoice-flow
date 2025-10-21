@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -32,6 +32,8 @@ import {
 } from "lucide-react";
 import { format } from 'date-fns';
 import { Input } from "@/components/ui/input";
+import { MobileFAB } from "@/components/MobileFAB";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Item {
   id: string;
@@ -54,6 +56,7 @@ export default function Items() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   // Fetch items
   const { data: items = [], isLoading, error } = useQuery<Item[]>({
@@ -142,27 +145,30 @@ export default function Items() {
   const lowStockItems = filteredItems.filter(item => (item.quantity_on_hand || 0) < 10).length;
 
   return (
-    <div className="flex-1 space-y-6 p-8">
+    <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Products</h2>
-          <p className="text-muted-foreground">Manage your inventory and product catalog</p>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Products</h2>
+          <p className="text-sm md:text-base text-muted-foreground">Manage your inventory and product catalog</p>
         </div>
         <div className="flex items-center gap-2">
           <Button 
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
             variant="outline"
+            size={isMobile ? "sm" : "default"}
+            className="flex-1 md:flex-none"
           >
             {syncMutation.isPending ? (
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              <RefreshCw className="h-4 w-4 md:mr-2 animate-spin" />
             ) : (
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="h-4 w-4 md:mr-2" />
             )}
-            Sync from QB
+            <span className="hidden md:inline">Sync from QB</span>
+            <span className="md:hidden">Sync</span>
           </Button>
-          <Button>
+          <Button size={isMobile ? "sm" : "default"} className="hidden md:flex">
             <Plus className="w-4 h-4 mr-2" />
             Add Product
           </Button>
@@ -170,73 +176,73 @@ export default function Items() {
       </div>
 
       {/* Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Value</p>
-                <p className="text-2xl font-bold">${totalValue.toFixed(0)}</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Total Value</p>
+                <p className="text-lg md:text-2xl font-bold">${totalValue.toFixed(0)}</p>
               </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-blue-600" />
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
               </div>
             </div>
-            <div className="mt-2 flex items-center text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+            <div className="mt-2 flex items-center text-xs md:text-sm">
+              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
               <span className="text-green-600 font-medium">+20.1%</span>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Products</p>
-                <p className="text-2xl font-bold">{totalItems}</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Products</p>
+                <p className="text-lg md:text-2xl font-bold">{totalItems}</p>
               </div>
-              <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Box className="h-6 w-6 text-purple-600" />
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Box className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
               </div>
             </div>
-            <div className="mt-2 flex items-center text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+            <div className="mt-2 flex items-center text-xs md:text-sm">
+              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
               <span className="text-green-600 font-medium">+5.02</span>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Orders</p>
-                <p className="text-2xl font-bold">$4,530</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Orders</p>
+                <p className="text-lg md:text-2xl font-bold">$4,530</p>
               </div>
-              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <ShoppingCart className="h-6 w-6 text-green-600" />
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <ShoppingCart className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
               </div>
             </div>
-            <div className="mt-2 flex items-center text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+            <div className="mt-2 flex items-center text-xs md:text-sm">
+              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
               <span className="text-green-600 font-medium">+33%</span>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Low Stock</p>
-                <p className="text-2xl font-bold">{lowStockItems}</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Low Stock</p>
+                <p className="text-lg md:text-2xl font-bold">{lowStockItems}</p>
               </div>
-              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <Package className="h-6 w-6 text-red-600" />
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <Package className="h-5 w-5 md:h-6 md:w-6 text-red-600" />
               </div>
             </div>
-            <div className="mt-2 flex items-center text-sm">
+            <div className="mt-2 flex items-center text-xs md:text-sm">
               <span className="text-red-600 font-medium">-3.58%</span>
             </div>
           </CardContent>
@@ -244,161 +250,256 @@ export default function Items() {
       </div>
 
       {/* Search */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search products..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+      <div className="relative w-full">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
+          placeholder="Search products..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 h-10 md:h-auto"
+        />
       </div>
 
-      {/* Table */}
+      {/* Products List - Desktop Table / Mobile Cards */}
       {isLoading ? (
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-8">
-            <div className="animate-pulse space-y-4">
+          <CardContent className="p-4 md:p-8">
+            <div className="animate-pulse space-y-3 md:space-y-4">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-12 bg-muted rounded"></div>
+                <div key={i} className="h-16 md:h-12 bg-muted rounded"></div>
               ))}
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : filteredItems.length === 0 ? (
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={selectedItems.length === filteredItems.length && filteredItems.length > 0}
-                      onCheckedChange={toggleAll}
-                    />
-                  </TableHead>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Stock</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Rating</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedItems.includes(item.id)}
-                        onCheckedChange={() => toggleItem(item.id)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                            {item.name.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{item.name}</div>
-                          <div className="text-sm text-muted-foreground line-clamp-1">
-                            {item.description || 'No description'}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      ${(item.unit_price || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{item.item_type || 'General'}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className={
-                        (item.quantity_on_hand || 0) > 10 
-                          ? 'text-green-600 font-medium' 
-                          : (item.quantity_on_hand || 0) > 0 
-                            ? 'text-orange-600 font-medium' 
-                            : 'text-red-600 font-medium'
-                      }>
-                        {item.quantity_on_hand || 0}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {item.sku || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
-                        <span>4.65</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(item)}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            {filteredItems.length === 0 && (
-              <div className="text-center py-16">
-                <div className="flex justify-center mb-4">
-                  <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
-                    <Package className="h-8 w-8 text-muted-foreground/50" />
-                  </div>
+          <CardContent className="p-8 md:p-16">
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center">
+                  <Package className="h-8 w-8 text-muted-foreground/50" />
                 </div>
-                <h3 className="text-lg font-medium text-foreground mb-2">No products found</h3>
-                <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
-                  {searchTerm
-                    ? 'Try adjusting your search criteria'
-                    : 'Sync with QuickBooks to load your inventory'}
-                </p>
-                <Button 
-                  onClick={() => syncMutation.mutate()}
-                  disabled={syncMutation.isPending}
-                >
-                  {syncMutation.isPending ? (
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                  )}
-                  Sync from QuickBooks
-                </Button>
               </div>
-            )}
+              <h3 className="text-lg font-medium text-foreground mb-2">No products found</h3>
+              <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
+                {searchTerm
+                  ? 'Try adjusting your search criteria'
+                  : 'Sync with QuickBooks to load your inventory'}
+              </p>
+              <Button 
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending}
+              >
+                {syncMutation.isPending ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Sync from QuickBooks
+              </Button>
+            </div>
           </CardContent>
         </Card>
+      ) : (
+        <>
+          {/* Desktop Table View */}
+          <Card className="border-0 shadow-sm hidden md:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">
+                      <Checkbox
+                        checked={selectedItems.length === filteredItems.length && filteredItems.length > 0}
+                        onCheckedChange={toggleAll}
+                      />
+                    </TableHead>
+                    <TableHead>Product Name</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Rating</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedItems.includes(item.id)}
+                          onCheckedChange={() => toggleItem(item.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              {item.name.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{item.name}</div>
+                            <div className="text-sm text-muted-foreground line-clamp-1">
+                              {item.description || 'No description'}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        ${(item.unit_price || 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{item.item_type || 'General'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className={
+                          (item.quantity_on_hand || 0) > 10 
+                            ? 'text-green-600 font-medium' 
+                            : (item.quantity_on_hand || 0) > 0 
+                              ? 'text-orange-600 font-medium' 
+                              : 'text-red-600 font-medium'
+                        }>
+                          {item.quantity_on_hand || 0}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {item.sku || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
+                          <span>4.65</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(item)}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3">
+            {filteredItems.map((item) => (
+              <Card key={item.id} className="border-0 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={selectedItems.includes(item.id)}
+                      onCheckedChange={() => toggleItem(item.id)}
+                      className="mt-1"
+                    />
+                    <Avatar className="h-12 w-12 shrink-0">
+                      <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                        {item.name.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm truncate">{item.name}</h3>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {item.description || 'No description'}
+                          </p>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Price:</span>
+                          <span className="ml-1 font-semibold">${(item.unit_price || 0).toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Stock:</span>
+                          <span className={`ml-1 font-semibold ${
+                            (item.quantity_on_hand || 0) > 10 
+                              ? 'text-green-600' 
+                              : (item.quantity_on_hand || 0) > 0 
+                                ? 'text-orange-600' 
+                                : 'text-red-600'
+                          }`}>
+                            {item.quantity_on_hand || 0}
+                          </span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">SKU:</span>
+                          <span className="ml-1 font-mono">{item.sku || '-'}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                        <Badge variant="outline" className="text-xs">
+                          {item.item_type || 'General'}
+                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center">
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 mr-1" />
+                            <span className="text-xs">4.65</span>
+                          </div>
+                          {getStatusBadge(item)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
+
+      {/* Mobile FAB */}
+      <MobileFAB onClick={() => {}} label="Add Product" />
     </div>
   );
 }
