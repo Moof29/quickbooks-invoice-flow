@@ -8,7 +8,7 @@ import { pdf } from '@react-pdf/renderer';
 import { InvoicePDF } from './InvoicePDF';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Edit, Download, Send, Trash2, FileText, X } from 'lucide-react';
+import { Loader2, Edit, Download, Send, Trash2, FileText, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface InvoicePreviewDialogProps {
   invoiceId: string | null;
@@ -51,7 +51,20 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string>('');
+  const [zoom, setZoom] = useState(100);
   const { toast } = useToast();
+
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 25, 200));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 25, 50));
+  };
+
+  const handleResetZoom = () => {
+    setZoom(100);
+  };
 
   useEffect(() => {
     if (open && invoiceId) {
@@ -268,24 +281,72 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
           </div>
         </DialogHeader>
         
-        {/* Native PDF Viewer with built-in pinch-to-zoom */}
-        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-2">
-          <div className="h-full rounded-lg shadow-xl bg-background border overflow-hidden">
+        {/* Native PDF Viewer with zoom controls */}
+        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-2 relative">
+          {/* Zoom Controls */}
+          {pdfUrl && (
+            <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 bg-background border rounded-lg shadow-lg p-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleZoomIn}
+                disabled={zoom >= 200}
+                className="h-8 w-8"
+                title="Zoom In"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleResetZoom}
+                className="h-8 w-8 text-xs font-semibold"
+                title="Reset Zoom"
+              >
+                {zoom}%
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleZoomOut}
+                disabled={zoom <= 50}
+                className="h-8 w-8"
+                title="Zoom Out"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          
+          <div className="h-full rounded-lg shadow-xl bg-background border overflow-auto">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">Loading invoice...</p>
               </div>
             ) : pdfUrl ? (
-              <iframe
-                src={`${pdfUrl}#view=FitH`}
-                className="w-full h-full border-0"
-                title="Invoice PDF"
+              <div 
+                className="h-full w-full flex items-start justify-center p-4"
                 style={{ 
-                  touchAction: 'manipulation',
-                  backgroundColor: '#525659'
+                  transformOrigin: 'top center',
+                  minHeight: '100%'
                 }}
-              />
+              >
+                <iframe
+                  src={`${pdfUrl}#view=FitH`}
+                  className="border-0 shadow-lg"
+                  title="Invoice PDF"
+                  style={{ 
+                    touchAction: 'manipulation',
+                    backgroundColor: '#525659',
+                    transform: `scale(${zoom / 100})`,
+                    transformOrigin: 'top center',
+                    width: `${100 / (zoom / 100)}%`,
+                    height: `${100 / (zoom / 100)}%`,
+                    transition: 'transform 0.2s ease-in-out'
+                  }}
+                />
+              </div>
             ) : invoice && lineItems.length > 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
