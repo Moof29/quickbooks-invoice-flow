@@ -61,24 +61,40 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
 
   // Generate PDF blob URL when invoice data is loaded
   useEffect(() => {
+    if (!invoice || lineItems.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+
     const generatePdfUrl = async () => {
-      if (invoice && lineItems.length > 0) {
-        try {
-          const blob = await pdf(<InvoicePDF invoice={invoice} lineItems={lineItems} />).toBlob();
+      try {
+        console.log('Generating PDF blob...');
+        const blob = await pdf(<InvoicePDF invoice={invoice} lineItems={lineItems} />).toBlob();
+        
+        if (!isCancelled) {
           const url = URL.createObjectURL(blob);
+          console.log('PDF blob URL created:', url);
           setPdfUrl(url);
-          
-          // Cleanup previous URL
-          return () => {
-            if (url) URL.revokeObjectURL(url);
-          };
-        } catch (error) {
-          console.error('Error generating PDF:', error);
         }
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        toast({
+          title: "Error",
+          description: "Failed to generate PDF preview",
+          variant: "destructive",
+        });
       }
     };
 
     generatePdfUrl();
+
+    return () => {
+      isCancelled = true;
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+    };
   }, [invoice, lineItems]);
 
   const loadInvoiceData = async () => {
@@ -208,15 +224,18 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
       <DialogContent className="h-screen sm:h-[85vh] w-full max-w-full sm:w-[65.7vh] sm:max-w-[65.7vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Professional Header */}
         <DialogHeader className="px-4 sm:px-5 py-3 border-b bg-gradient-to-r from-background to-muted/20 shrink-0">
+          <div className="sr-only">
+            <DialogTitle>Invoice Preview</DialogTitle>
+          </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-lg bg-primary/10">
                 <FileText className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <DialogTitle className="text-base sm:text-lg font-semibold tracking-tight">
+                <div className="text-base sm:text-lg font-semibold tracking-tight">
                   {invoice?.invoice_number || 'Invoice Preview'}
-                </DialogTitle>
+                </div>
                 {invoice && (
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs sm:text-sm text-muted-foreground truncate max-w-[150px] sm:max-w-none">
@@ -259,11 +278,19 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
               </div>
             ) : pdfUrl ? (
               <iframe
-                src={pdfUrl}
+                src={`${pdfUrl}#view=FitH`}
                 className="w-full h-full border-0"
                 title="Invoice PDF"
-                style={{ touchAction: 'manipulation' }}
+                style={{ 
+                  touchAction: 'manipulation',
+                  backgroundColor: '#525659'
+                }}
               />
+            ) : invoice && lineItems.length > 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Generating PDF...</p>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <FileText className="h-12 w-12 text-muted-foreground/40" />
