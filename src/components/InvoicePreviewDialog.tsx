@@ -181,31 +181,31 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-screen sm:h-[90vh] md:h-[92vh] w-full max-w-full sm:max-w-[96vw] md:max-w-6xl lg:max-w-7xl flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="h-screen sm:h-[85vh] w-full max-w-full sm:max-w-[90vw] md:max-w-4xl lg:max-w-5xl flex flex-col p-0 gap-0 overflow-hidden">
         {/* Professional Header */}
-        <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-background to-muted/20 shrink-0">
+        <DialogHeader className="px-4 sm:px-6 py-3 border-b bg-gradient-to-r from-background to-muted/20 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
-                <FileText className="h-5 w-5 text-primary" />
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
               <div>
-                <DialogTitle className="text-xl font-semibold tracking-tight">
+                <DialogTitle className="text-base sm:text-lg font-semibold tracking-tight">
                   {invoice?.invoice_number || 'Invoice Preview'}
                 </DialogTitle>
                 {invoice && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs sm:text-sm text-muted-foreground">
                       {invoice.customer_profile?.company_name || invoice.customer_profile?.display_name}
                     </span>
-                    <Separator orientation="vertical" className="h-4" />
+                    <Separator orientation="vertical" className="h-3 sm:h-4" />
                     <Badge variant={getStatusVariant(invoice.status)} className="text-xs">
                       {invoice.status}
                     </Badge>
                     {invoice.total && (
                       <>
-                        <Separator orientation="vertical" className="h-4" />
-                        <span className="text-sm font-semibold">
+                        <Separator orientation="vertical" className="h-3 sm:h-4" />
+                        <span className="text-xs sm:text-sm font-semibold">
                           ${invoice.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </>
@@ -218,7 +218,7 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
               variant="ghost"
               size="icon"
               onClick={() => onOpenChange(false)}
-              className="h-8 w-8 rounded-full hover:bg-muted"
+              className="h-7 w-7 sm:h-8 sm:w-8 rounded-full hover:bg-muted shrink-0"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -226,8 +226,8 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
         </DialogHeader>
         
         {/* PDF Viewer with Shadow Effect */}
-        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-4 sm:p-6">
-          <div className="h-full rounded-lg overflow-hidden shadow-2xl bg-background border">
+        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-3 sm:p-4">
+          <div className="h-full rounded-lg overflow-hidden shadow-xl bg-background border">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -247,13 +247,13 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
         </div>
 
         {/* Professional Action Bar */}
-        <div className="shrink-0 border-t bg-gradient-to-r from-background to-muted/20 px-6 py-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="shrink-0 border-t bg-gradient-to-r from-background to-muted/20 px-4 sm:px-6 py-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {/* Primary Actions */}
             <div className="flex flex-1 gap-2">
               <Button 
                 variant="default" 
-                size="default"
+                size="sm"
                 onClick={handleEdit} 
                 className="flex-1 sm:flex-initial font-medium shadow-sm hover:shadow-md transition-all"
               >
@@ -262,7 +262,7 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
               </Button>
               <Button 
                 variant="default" 
-                size="default"
+                size="sm"
                 onClick={handleDownloadPDF} 
                 className="flex-1 sm:flex-initial font-medium shadow-sm hover:shadow-md transition-all"
               >
@@ -271,7 +271,7 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
               </Button>
               <Button 
                 variant="default" 
-                size="default"
+                size="sm"
                 onClick={handleSendToCustomer} 
                 className="flex-1 sm:flex-initial font-medium shadow-sm hover:shadow-md transition-all"
               >
@@ -286,7 +286,7 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
             {/* Destructive Action */}
             <Button 
               variant="destructive" 
-              size="default"
+              size="sm"
               onClick={handleDelete} 
               className="font-medium shadow-sm hover:shadow-md transition-all"
             >
