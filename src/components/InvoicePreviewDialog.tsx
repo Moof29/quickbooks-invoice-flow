@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import * as React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,13 +50,49 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [isPinching, setIsPinching] = useState(false);
+  const pdfContainerRef = React.useRef<HTMLDivElement>(null);
+  const initialDistanceRef = React.useRef<number>(0);
+  const initialScaleRef = React.useRef<number>(1);
   const { toast } = useToast();
 
   useEffect(() => {
     if (open && invoiceId) {
       loadInvoiceData();
+      setScale(1); // Reset zoom when opening
     }
   }, [open, invoiceId]);
+
+  // Touch gesture handlers for pinch-to-zoom
+  const getTouchDistance = (touches: React.TouchList) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      setIsPinching(true);
+      initialDistanceRef.current = getTouchDistance(e.touches);
+      initialScaleRef.current = scale;
+      e.preventDefault();
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isPinching && e.touches.length === 2) {
+      const currentDistance = getTouchDistance(e.touches);
+      const scaleChange = currentDistance / initialDistanceRef.current;
+      const newScale = Math.min(Math.max(initialScaleRef.current * scaleChange, 0.5), 3);
+      setScale(newScale);
+      e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsPinching(false);
+  };
 
   const loadInvoiceData = async () => {
     if (!invoiceId) return;
@@ -225,18 +262,38 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
           </div>
         </DialogHeader>
         
-        {/* PDF Viewer with minimal padding */}
-        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-2">
-          <div className="h-full rounded-lg overflow-hidden shadow-xl bg-background border">
+        {/* PDF Viewer with pinch-to-zoom support */}
+        <div className="flex-1 min-h-0 overflow-auto bg-muted/30 p-2">
+          <div 
+            ref={pdfContainerRef}
+            className="h-full rounded-lg shadow-xl bg-background border overflow-auto"
+            style={{ 
+              touchAction: isPinching ? 'none' : 'pan-x pan-y',
+              cursor: isPinching ? 'grabbing' : 'default'
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">Loading invoice...</p>
               </div>
             ) : invoice ? (
-              <PDFViewer width="100%" height="100%" className="border-0">
-                <InvoicePDF invoice={invoice} lineItems={lineItems} />
-              </PDFViewer>
+              <div 
+                style={{ 
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'center top',
+                  transition: isPinching ? 'none' : 'transform 0.2s ease-out',
+                  width: '100%',
+                  height: '100%'
+                }}
+              >
+                <PDFViewer width="100%" height="100%" className="border-0">
+                  <InvoicePDF invoice={invoice} lineItems={lineItems} />
+                </PDFViewer>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <FileText className="h-12 w-12 text-muted-foreground/40" />
