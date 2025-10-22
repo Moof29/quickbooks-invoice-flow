@@ -181,13 +181,13 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-screen sm:h-[85vh] w-full max-w-full sm:max-w-[85vw] md:max-w-3xl lg:max-w-4xl flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="h-screen sm:h-[85vh] w-full max-w-full sm:max-w-[75vw] md:max-w-2xl lg:max-w-3xl flex flex-col p-0 gap-0 overflow-hidden">
         {/* Professional Header */}
-        <DialogHeader className="px-4 sm:px-6 py-3 border-b bg-gradient-to-r from-background to-muted/20 shrink-0">
+        <DialogHeader className="px-4 sm:px-5 py-3 border-b bg-gradient-to-r from-background to-muted/20 shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-primary/10">
+                <FileText className="h-4 w-4 text-primary" />
               </div>
               <div>
                 <DialogTitle className="text-base sm:text-lg font-semibold tracking-tight">
@@ -195,7 +195,7 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
                 </DialogTitle>
                 {invoice && (
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs sm:text-sm text-muted-foreground">
+                    <span className="text-xs sm:text-sm text-muted-foreground truncate max-w-[150px] sm:max-w-none">
                       {invoice.customer_profile?.company_name || invoice.customer_profile?.display_name}
                     </span>
                     <Separator orientation="vertical" className="h-3 sm:h-4" />
@@ -218,7 +218,7 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
               variant="ghost"
               size="icon"
               onClick={() => onOpenChange(false)}
-              className="h-7 w-7 sm:h-8 sm:w-8 rounded-full hover:bg-muted shrink-0"
+              className="h-7 w-7 rounded-full hover:bg-muted shrink-0"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -226,7 +226,7 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
         </DialogHeader>
         
         {/* PDF Viewer with minimal padding */}
-        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-2 sm:p-3">
+        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-2">
           <div className="h-full rounded-lg overflow-hidden shadow-xl bg-background border">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
