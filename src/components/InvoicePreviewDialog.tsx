@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { PDFViewer } from '@react-pdf/renderer';
 import { InvoicePDF } from './InvoicePDF';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Edit, Download, Send, Trash2 } from 'lucide-react';
+import { Loader2, Edit, Download, Send, Trash2, FileText, X } from 'lucide-react';
 
 interface InvoicePreviewDialogProps {
   invoiceId: string | null;
@@ -162,49 +164,134 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
     }
   };
 
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status?.toLowerCase()) {
+      case 'paid':
+        return 'default';
+      case 'sent':
+        return 'secondary';
+      case 'overdue':
+        return 'destructive';
+      case 'draft':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-screen sm:h-[85vh] md:h-[90vh] w-full max-w-full sm:max-w-[95vw] md:max-w-5xl lg:max-w-6xl flex flex-col p-0 gap-0">
-        <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0">
-          <DialogTitle className="text-base sm:text-lg md:text-xl">
-            Invoice {invoice?.invoice_number && `${invoice.invoice_number}`}
-          </DialogTitle>
+      <DialogContent className="h-screen sm:h-[90vh] md:h-[92vh] w-full max-w-full sm:max-w-[96vw] md:max-w-6xl lg:max-w-7xl flex flex-col p-0 gap-0 overflow-hidden">
+        {/* Professional Header */}
+        <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-background to-muted/20 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-semibold tracking-tight">
+                  {invoice?.invoice_number || 'Invoice Preview'}
+                </DialogTitle>
+                {invoice && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm text-muted-foreground">
+                      {invoice.customer_profile?.company_name || invoice.customer_profile?.display_name}
+                    </span>
+                    <Separator orientation="vertical" className="h-4" />
+                    <Badge variant={getStatusVariant(invoice.status)} className="text-xs">
+                      {invoice.status}
+                    </Badge>
+                    {invoice.total && (
+                      <>
+                        <Separator orientation="vertical" className="h-4" />
+                        <span className="text-sm font-semibold">
+                          ${invoice.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+              className="h-8 w-8 rounded-full hover:bg-muted"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
         
-        <div className="flex-1 min-h-0 overflow-hidden bg-muted/10">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : invoice ? (
-            <PDFViewer width="100%" height="100%" className="border-0">
-              <InvoicePDF invoice={invoice} lineItems={lineItems} />
-            </PDFViewer>
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              No invoice data available
-            </div>
-          )}
+        {/* PDF Viewer with Shadow Effect */}
+        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-4 sm:p-6">
+          <div className="h-full rounded-lg overflow-hidden shadow-2xl bg-background border">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Loading invoice...</p>
+              </div>
+            ) : invoice ? (
+              <PDFViewer width="100%" height="100%" className="border-0">
+                <InvoicePDF invoice={invoice} lineItems={lineItems} />
+              </PDFViewer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <FileText className="h-12 w-12 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">No invoice data available</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Responsive action buttons - stacked on mobile, row on tablet+ */}
-        <div className="shrink-0 border-t bg-background p-3 sm:p-4">
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <Button variant="outline" size="sm" onClick={handleEdit} className="w-full sm:flex-1 md:flex-initial md:w-auto">
-              <Edit className="h-4 w-4 mr-2" />
-              <span>Edit Invoice</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="w-full sm:flex-1 md:flex-initial md:w-auto">
-              <Download className="h-4 w-4 mr-2" />
-              <span>Download PDF</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleSendToCustomer} className="w-full sm:flex-1 md:flex-initial md:w-auto">
-              <Send className="h-4 w-4 mr-2" />
-              <span>Send to Customer</span>
-            </Button>
-            <Button variant="destructive" size="sm" onClick={handleDelete} className="w-full sm:flex-1 md:flex-initial md:w-auto">
+        {/* Professional Action Bar */}
+        <div className="shrink-0 border-t bg-gradient-to-r from-background to-muted/20 px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Primary Actions */}
+            <div className="flex flex-1 gap-2">
+              <Button 
+                variant="default" 
+                size="default"
+                onClick={handleEdit} 
+                className="flex-1 sm:flex-initial font-medium shadow-sm hover:shadow-md transition-all"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+              <Button 
+                variant="default" 
+                size="default"
+                onClick={handleDownloadPDF} 
+                className="flex-1 sm:flex-initial font-medium shadow-sm hover:shadow-md transition-all"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+              <Button 
+                variant="default" 
+                size="default"
+                onClick={handleSendToCustomer} 
+                className="flex-1 sm:flex-initial font-medium shadow-sm hover:shadow-md transition-all"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Send
+              </Button>
+            </div>
+            
+            {/* Separator for desktop */}
+            <Separator orientation="vertical" className="hidden sm:block h-8" />
+            
+            {/* Destructive Action */}
+            <Button 
+              variant="destructive" 
+              size="default"
+              onClick={handleDelete} 
+              className="font-medium shadow-sm hover:shadow-md transition-all"
+            >
               <Trash2 className="h-4 w-4 mr-2" />
-              <span>Delete Invoice</span>
+              Delete
             </Button>
           </div>
         </div>
