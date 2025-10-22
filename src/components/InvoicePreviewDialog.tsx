@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { PDFViewer } from '@react-pdf/renderer';
+import { pdf } from '@react-pdf/renderer';
 import { InvoicePDF } from './InvoicePDF';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -50,49 +50,36 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [scale, setScale] = useState(1);
-  const [isPinching, setIsPinching] = useState(false);
-  const pdfContainerRef = React.useRef<HTMLDivElement>(null);
-  const initialDistanceRef = React.useRef<number>(0);
-  const initialScaleRef = React.useRef<number>(1);
+  const [pdfUrl, setPdfUrl] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
     if (open && invoiceId) {
       loadInvoiceData();
-      setScale(1); // Reset zoom when opening
     }
   }, [open, invoiceId]);
 
-  // Touch gesture handlers for pinch-to-zoom
-  const getTouchDistance = (touches: React.TouchList) => {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
+  // Generate PDF blob URL when invoice data is loaded
+  useEffect(() => {
+    const generatePdfUrl = async () => {
+      if (invoice && lineItems.length > 0) {
+        try {
+          const blob = await pdf(<InvoicePDF invoice={invoice} lineItems={lineItems} />).toBlob();
+          const url = URL.createObjectURL(blob);
+          setPdfUrl(url);
+          
+          // Cleanup previous URL
+          return () => {
+            if (url) URL.revokeObjectURL(url);
+          };
+        } catch (error) {
+          console.error('Error generating PDF:', error);
+        }
+      }
+    };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      setIsPinching(true);
-      initialDistanceRef.current = getTouchDistance(e.touches);
-      initialScaleRef.current = scale;
-      e.preventDefault();
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (isPinching && e.touches.length === 2) {
-      const currentDistance = getTouchDistance(e.touches);
-      const scaleChange = currentDistance / initialDistanceRef.current;
-      const newScale = Math.min(Math.max(initialScaleRef.current * scaleChange, 0.5), 3);
-      setScale(newScale);
-      e.preventDefault();
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsPinching(false);
-  };
+    generatePdfUrl();
+  }, [invoice, lineItems]);
 
   const loadInvoiceData = async () => {
     if (!invoiceId) return;
@@ -262,38 +249,21 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
           </div>
         </DialogHeader>
         
-        {/* PDF Viewer with pinch-to-zoom support */}
-        <div className="flex-1 min-h-0 overflow-auto bg-muted/30 p-2">
-          <div 
-            ref={pdfContainerRef}
-            className="h-full rounded-lg shadow-xl bg-background border overflow-auto"
-            style={{ 
-              touchAction: isPinching ? 'none' : 'pan-x pan-y',
-              cursor: isPinching ? 'grabbing' : 'default'
-            }}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
+        {/* Native PDF Viewer with built-in pinch-to-zoom */}
+        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-2">
+          <div className="h-full rounded-lg shadow-xl bg-background border overflow-hidden">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">Loading invoice...</p>
               </div>
-            ) : invoice ? (
-              <div 
-                style={{ 
-                  transform: `scale(${scale})`,
-                  transformOrigin: 'center top',
-                  transition: isPinching ? 'none' : 'transform 0.2s ease-out',
-                  width: '100%',
-                  height: '100%'
-                }}
-              >
-                <PDFViewer width="100%" height="100%" className="border-0">
-                  <InvoicePDF invoice={invoice} lineItems={lineItems} />
-                </PDFViewer>
-              </div>
+            ) : pdfUrl ? (
+              <iframe
+                src={pdfUrl}
+                className="w-full h-full border-0"
+                title="Invoice PDF"
+                style={{ touchAction: 'manipulation' }}
+              />
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <FileText className="h-12 w-12 text-muted-foreground/40" />
