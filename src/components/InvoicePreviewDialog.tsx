@@ -181,7 +181,7 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-screen sm:h-[85vh] w-full max-w-full sm:max-w-[90vw] md:max-w-4xl lg:max-w-5xl flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="h-screen sm:h-[85vh] w-full max-w-full sm:max-w-[85vw] md:max-w-3xl lg:max-w-4xl flex flex-col p-0 gap-0 overflow-hidden">
         {/* Professional Header */}
         <DialogHeader className="px-4 sm:px-6 py-3 border-b bg-gradient-to-r from-background to-muted/20 shrink-0">
           <div className="flex items-center justify-between">
@@ -225,8 +225,8 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
           </div>
         </DialogHeader>
         
-        {/* PDF Viewer with Shadow Effect */}
-        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-3 sm:p-4">
+        {/* PDF Viewer with minimal padding */}
+        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 p-2 sm:p-3">
           <div className="h-full rounded-lg overflow-hidden shadow-xl bg-background border">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
