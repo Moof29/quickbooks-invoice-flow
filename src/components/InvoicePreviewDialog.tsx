@@ -181,7 +181,7 @@ export const InvoicePreviewDialog = ({ invoiceId, open, onOpenChange }: InvoiceP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-screen sm:h-[85vh] w-full max-w-full sm:max-w-[75vw] md:max-w-2xl lg:max-w-3xl flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="h-screen sm:h-[85vh] w-full max-w-full sm:w-[65.7vh] sm:max-w-[65.7vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Professional Header */}
         <DialogHeader className="px-4 sm:px-5 py-3 border-b bg-gradient-to-r from-background to-muted/20 shrink-0">
           <div className="flex items-center justify-between">
