@@ -19,7 +19,7 @@
       "purpose": "any maskable"
     }
   ],
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "scope": "/",
   "description": "Business management and QuickBooks integration",
   "categories": ["business", "productivity", "finance"],
