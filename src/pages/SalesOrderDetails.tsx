@@ -61,7 +61,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { SalesOrderApprovalButton } from "@/components/SalesOrderApprovalButton";
-import { SalesOrderConvertToInvoiceButton } from "@/components/SalesOrderConvertToInvoiceButton";
 
 interface SalesOrder {
   id: string;
@@ -568,10 +567,6 @@ export default function SalesOrderDetails() {
 
         <div className="flex flex-wrap items-center gap-2">
           <SalesOrderApprovalButton
-            salesOrderId={order.id}
-            currentStatus={order.status}
-          />
-          <SalesOrderConvertToInvoiceButton
             salesOrderId={order.id}
             currentStatus={order.status}
           />

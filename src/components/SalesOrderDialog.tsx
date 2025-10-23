@@ -23,7 +23,7 @@ interface SalesOrderDialogProps {
 
 interface SalesOrderDetails {
   id: string;
-  order_number: string;
+  invoice_number: string;
   order_date: string;
   status: string;
   customer_id: string;
@@ -86,12 +86,12 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
 
   // Fetch sales order details
   const { data: salesOrder, isLoading } = useQuery({
-    queryKey: ['sales-order', salesOrderId],
+    queryKey: ['invoice', salesOrderId],
     queryFn: async () => {
       if (!salesOrderId) return null;
       
-      const { data, error } = await supabase
-        .from('sales_order')
+      const { data, error } = await (supabase
+        .from('invoice_record') as any)
         .select(`
           *,
           customer_profile!inner(
@@ -109,12 +109,12 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
 
   // Fetch line items
   const { data: lineItems } = useQuery({
-    queryKey: ['sales-order-line-items', salesOrderId],
+    queryKey: ['invoice-line-items', salesOrderId],
     queryFn: async () => {
       if (!salesOrderId) return [];
       
       const { data, error } = await supabase
-        .from('sales_order_line_item')
+        .from('invoice_line_item')
         .select(`
           *,
           item_record!inner(
@@ -122,7 +122,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
             sku
           )
         `)
-        .eq('sales_order_id', salesOrderId)
+        .eq('invoice_id', salesOrderId)
         .order('created_at');
 
       if (error) throw error;
@@ -190,11 +190,11 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
               <FileText className="h-5 w-5" />
               <div>
                 <div className="text-lg font-semibold">
-                  {salesOrder?.order_number || 'Loading...'}
+                  {salesOrder?.invoice_number || 'Loading...'}
                 </div>
                 {salesOrder && (
                   <div className="text-sm text-muted-foreground">

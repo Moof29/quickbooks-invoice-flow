@@ -40,9 +40,9 @@ export function SalesOrderApprovalButton({
       }
 
       const { error } = await supabase
-        .from("sales_order")
+        .from("invoice_record")
         .update({ 
-          status: "reviewed", 
+          status: "confirmed", 
           approved_at: new Date().toISOString(),
           approved_by: profile.id
         })
@@ -51,26 +51,26 @@ export function SalesOrderApprovalButton({
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', salesOrderId] });
       toast({ 
-        title: 'Order marked as reviewed',
-        description: 'This order is now ready to be invoiced.'
+        title: 'Order confirmed',
+        description: 'This order is now confirmed and ready for delivery.'
       });
       setOpen(false);
       onApproval?.();
     },
     onError: (error: any) => {
       toast({ 
-        title: 'Failed to review order',
+        title: 'Failed to confirm order',
         description: error.message,
         variant: 'destructive'
       });
     },
   });
 
-  // Only show review button for pending orders
-  if (currentStatus !== 'pending') {
+  // Only show confirm button for draft orders
+  if (currentStatus !== 'draft') {
     return null;
   }
 
@@ -83,14 +83,14 @@ export function SalesOrderApprovalButton({
           disabled={reviewMutation.isPending}
         >
           <CheckCircle2 className="h-4 w-4" />
-          {reviewMutation.isPending ? 'Reviewing...' : 'Mark as Reviewed'}
+          {reviewMutation.isPending ? 'Confirming...' : 'Confirm Order'}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Mark Order as Reviewed</AlertDialogTitle>
+          <AlertDialogTitle>Confirm Order</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to mark this sales order as reviewed? Once reviewed, it can be converted to an invoice.
+            Are you sure you want to confirm this sales order? Once confirmed, it will be ready for delivery and fulfillment.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -102,7 +102,7 @@ export function SalesOrderApprovalButton({
             disabled={reviewMutation.isPending}
             className="bg-green-600 hover:bg-green-700"
           >
-            {reviewMutation.isPending ? 'Reviewing...' : 'Mark as Reviewed'}
+            {reviewMutation.isPending ? 'Confirming...' : 'Confirm Order'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

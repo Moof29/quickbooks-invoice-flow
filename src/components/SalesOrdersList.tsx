@@ -16,13 +16,12 @@ import { toast } from 'sonner';
 import { format, isToday, isPast, isTomorrow } from 'date-fns';
 import { CreateSalesOrderDialog } from '@/components/CreateSalesOrderDialog';
 import { GenerateTestDataButton } from '@/components/GenerateTestDataButton';
-import { SalesOrderConvertToInvoiceButton } from '@/components/SalesOrderConvertToInvoiceButton';
 
 import { cn } from '@/lib/utils';
 
 interface SalesOrder {
   id: string;
-  order_number: string;
+  invoice_number: string;
   order_date: string;
   delivery_date: string;
   status: string;
@@ -100,13 +99,13 @@ export function SalesOrdersList() {
   };
   // Fetch sales orders with customer names
   const { data: salesOrders, isLoading, error } = useQuery({
-    queryKey: ['sales-orders'],
+    queryKey: ['invoices'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sales_order')
+      const { data, error } = await (supabase
+        .from('invoice_record') as any)
         .select(`
           id,
-          order_number,
+          invoice_number,
           order_date,
           delivery_date,
           status,
@@ -135,7 +134,7 @@ export function SalesOrdersList() {
   // Filter sales orders based on search, status, and delivery date
   const filteredOrders = salesOrders?.filter(order => {
     const matchesSearch = 
-      (order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      (order.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
       order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (order.memo && order.memo.toLowerCase().includes(searchTerm.toLowerCase()));
     
@@ -178,14 +177,14 @@ export function SalesOrdersList() {
   const deleteMutation = useMutation({
     mutationFn: async (orderIds: string[]) => {
       const { error } = await supabase
-        .from('sales_order')
+        .from('invoice_record')
         .delete()
         .in('id', orderIds);
 
       if (error) throw error;
     },
     onSuccess: (_, orderIds) => {
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
       setSelectedOrders([]);
       toast.success('Orders deleted', { 
         description: `Successfully deleted ${orderIds.length} order${orderIds.length !== 1 ? 's' : ''}` 
@@ -221,7 +220,7 @@ export function SalesOrdersList() {
     const ordersToExport = sortedOrders.filter(o => selectedOrders.includes(o.id));
     const csvHeaders = ['Order Number', 'Customer', 'Order Date', 'Delivery Date', 'Status', 'Total'];
     const csvRows = ordersToExport.map(o => [
-      o.order_number,
+      o.invoice_number,
       o.customer_name,
       format(new Date(o.order_date), 'yyyy-MM-dd'),
       format(new Date(o.delivery_date), 'yyyy-MM-dd'),
@@ -350,7 +349,7 @@ export function SalesOrdersList() {
                   {ordersToDelete.map((order) => (
                     <div key={order.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/50 hover:bg-muted">
                       <div className="flex items-center gap-3">
-                        <span className="font-mono text-sm font-medium">{order.order_number}</span>
+                        <span className="font-mono text-sm font-medium">{order.invoice_number}</span>
                         <span className="text-sm text-muted-foreground">{order.customer_name}</span>
                       </div>
                       <span className="text-sm font-medium">{formatCurrency(order.total)}</span>
@@ -581,7 +580,7 @@ export function SalesOrdersList() {
                       />
                     </TableHead>
                     <TableHead className="py-1">
-                      <button type="button" onClick={() => handleSort('order_number')} className="flex items-center gap-1 hover:text-foreground">
+                      <button type="button" onClick={() => handleSort('invoice_number')} className="flex items-center gap-1 hover:text-foreground">
                         Order Number <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
@@ -611,7 +610,6 @@ export function SalesOrdersList() {
                         Total <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[140px] py-1">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -628,11 +626,11 @@ export function SalesOrdersList() {
                         <Checkbox
                           checked={selectedOrders.includes(order.id)}
                           onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)}
-                          aria-label={`Select order ${order.order_number}`}
+                          aria-label={`Select order ${order.invoice_number}`}
                         />
                       </TableCell>
                       <TableCell className="font-medium py-2">
-                        {order.order_number}
+                        {order.invoice_number}
                       </TableCell>
                       <TableCell className="py-2">{order.customer_name}</TableCell>
                       <TableCell className="py-2">
@@ -655,14 +653,6 @@ export function SalesOrdersList() {
                       </TableCell>
                       <TableCell className="text-right font-medium py-2">
                         {formatCurrency(order.total || 0)}
-                      </TableCell>
-                      <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="min-h-[32px] flex items-center">
-                          <SalesOrderConvertToInvoiceButton
-                            salesOrderId={order.id}
-                            currentStatus={order.status}
-                          />
-                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
