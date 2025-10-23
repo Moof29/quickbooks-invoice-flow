@@ -188,7 +188,7 @@ export default function SalesOrders() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Button onClick={() => navigate('/sales-orders/new')} size="lg">
+            <Button onClick={() => navigate('/orders/new')} size="lg">
               <Plus className="h-4 w-4 mr-2" />
               New Order
             </Button>
@@ -318,7 +318,7 @@ export default function SalesOrders() {
                       <p className="text-muted-foreground">
                         No {['all', 'templates'].includes(selectedStatus) ? '' : (InvoiceStatusLabels as any)[selectedStatus]?.toLowerCase() || ''} orders found
                       </p>
-                      <Button onClick={() => navigate('/sales-orders/new')} variant="outline">
+                      <Button onClick={() => navigate('/orders/new')} variant="outline">
                         <Plus className="h-4 w-4 mr-2" />
                         Create Order
                       </Button>
@@ -337,7 +337,7 @@ export default function SalesOrders() {
       
       {/* Mobile FAB */}
       <Button
-        onClick={() => navigate('/sales-orders/new')}
+        onClick={() => navigate('/orders/new')}
         size="lg"
         className="md:hidden fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full shadow-lg hover:scale-110 transition-transform"
         aria-label="New Order"

@@ -250,7 +250,7 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Sales order created successfully');
+      toast.success('Order created successfully');
       onOpenChange(false);
       form.reset();
       setDeliveryDate(addDays(new Date(), 1));
@@ -369,9 +369,9 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Sales Order</DialogTitle>
+          <DialogTitle>Create Order</DialogTitle>
           <DialogDescription>
-            Create a new sales order by filling out the form below.
+            Create a new order by filling out the form below.
           </DialogDescription>
         </DialogHeader>
 
@@ -741,7 +741,7 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
                 type="submit"
                 disabled={createSalesOrderMutation.isPending}
               >
-                {createSalesOrderMutation.isPending ? 'Creating...' : 'Create Sales Order'}
+                {createSalesOrderMutation.isPending ? 'Creating...' : 'Create Order'}
               </Button>
             </div>
           </form>

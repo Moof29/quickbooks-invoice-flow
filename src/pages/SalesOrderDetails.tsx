@@ -411,7 +411,7 @@ export default function SalesOrderDetails() {
     },
     onSuccess: () => {
       toast({ title: "Order deleted successfully" });
-      navigate("/sales-orders");
+      navigate("/orders");
     },
     onError: (error: any) => {
       toast({
@@ -529,8 +529,8 @@ export default function SalesOrderDetails() {
         <Card>
           <CardContent className="p-8 text-center">
             <p className="text-muted-foreground mb-4">Order not found</p>
-            <Button onClick={() => navigate("/sales-orders")}>
-              Back to Sales Orders
+            <Button onClick={() => navigate("/orders")}>
+              Back to Orders
             </Button>
           </CardContent>
         </Card>

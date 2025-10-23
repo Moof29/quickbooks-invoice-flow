@@ -648,7 +648,7 @@ export function SalesOrderDialog({ salesOrderId, open, onOpenChange }: SalesOrde
         ) : (
           <div className="text-center text-muted-foreground py-8">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Sales order not found</p>
+            <p>Order not found</p>
           </div>
         )}
       </DialogContent>

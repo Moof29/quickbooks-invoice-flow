@@ -250,7 +250,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Sales order created successfully');
+      toast.success('Order created successfully');
       onOpenChange(false);
       form.reset();
       setDeliveryDate(addDays(new Date(), 1));
@@ -369,9 +369,9 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Create Sales Order</SheetTitle>
+          <SheetTitle>Create Order</SheetTitle>
           <SheetDescription>
-            Create a new sales order by filling out the form below.
+            Create a new order by filling out the form below.
           </SheetDescription>
         </SheetHeader>
 
@@ -741,7 +741,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
                 type="submit"
                 disabled={createSalesOrderMutation.isPending}
               >
-                {createSalesOrderMutation.isPending ? 'Creating...' : 'Create Sales Order'}
+                {createSalesOrderMutation.isPending ? 'Creating...' : 'Create Order'}
               </Button>
             </div>
           </form>

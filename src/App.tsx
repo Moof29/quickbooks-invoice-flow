@@ -162,9 +162,17 @@ const App = () => {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/invoices" element={<Invoices />} />
                   <Route path="/invoices/:id" element={<InvoiceDetails />} />
+                  
+                  {/* Orders routes (new, cleaner URLs) */}
+                  <Route path="/orders" element={<SalesOrders />} />
+                  <Route path="/orders/new" element={<NewSalesOrder />} />
+                  <Route path="/orders/:id" element={<SalesOrderDetails />} />
+                  
+                  {/* Legacy sales-orders routes (keep for backward compatibility) */}
                   <Route path="/sales-orders" element={<SalesOrders />} />
                   <Route path="/sales-orders/new" element={<NewSalesOrder />} />
                   <Route path="/sales-orders/:id" element={<SalesOrderDetails />} />
+                  
                   <Route path="/items" element={<Items />} />
                   <Route path="/customers" element={<Customers />} />
                   <Route path="/quickbooks" element={<QuickBooksIntegration />} />

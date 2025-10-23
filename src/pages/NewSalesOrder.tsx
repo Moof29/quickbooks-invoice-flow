@@ -122,9 +122,9 @@ export default function NewSalesOrder() {
       return order;
     },
     onSuccess: (order) => {
-      toast.success('Sales order created successfully');
+      toast.success('Order created successfully');
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      navigate(`/sales-orders/${order.id}`);
+      navigate(`/orders/${order.id}`);
     },
     onError: (error: Error) => {
       toast.error(`Failed to create order: ${error.message}`);
@@ -187,19 +187,19 @@ export default function NewSalesOrder() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/sales-orders')}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">New Sales Order</h1>
-          <p className="text-muted-foreground mt-1">
-            Create a new sales order for next-day delivery
-          </p>
-        </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/orders')}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">New Order</h1>
+            <p className="text-muted-foreground mt-1">
+              Create a new order for next-day delivery
+            </p>
+          </div>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -342,7 +342,7 @@ export default function NewSalesOrder() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate('/sales-orders')}
+              onClick={() => navigate('/orders')}
             >
               Cancel
             </Button>

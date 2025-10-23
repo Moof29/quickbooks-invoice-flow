@@ -90,7 +90,7 @@ export function SalesOrderApprovalButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Confirm Order</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to confirm this sales order? Once confirmed, it will be ready for delivery and fulfillment.
+            Are you sure you want to confirm this order? Once confirmed, it will be ready for delivery and fulfillment.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
