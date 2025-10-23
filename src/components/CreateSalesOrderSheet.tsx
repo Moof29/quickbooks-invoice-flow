@@ -163,25 +163,27 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       if (!customerId) return null;
 
       const yesterday = addDays(new Date(), -1);
-      const { data, error } = await supabase
+      // @ts-ignore - Temporarily bypass TS deep instantiation during migration
+      const invoiceQuery = await supabase
         .from('invoice_record')
-        .select(`
-          id,
-          invoice_line_item (
-            item_id,
-            quantity,
-            unit_price,
-            description
-          )
-        `)
+        .select('id')
         .eq('customer_id', customerId)
         .eq('order_date', format(yesterday, 'yyyy-MM-dd'))
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
-      if (error) return null;
-      return data;
+      if (invoiceQuery.error || !invoiceQuery.data) return null;
+
+      // @ts-ignore
+      const { data: lineItems, error: lineItemsError } = await supabase
+        .from('invoice_line_item')
+        .select('item_id, quantity, unit_price, description')
+        .eq('invoice_id', invoiceQuery.data.id);
+
+      if (lineItemsError) return null;
+
+      return { id: invoiceQuery.data.id, invoice_line_item: lineItems };
     },
     enabled: !!form.watch('customer_id'),
   });

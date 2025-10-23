@@ -136,24 +136,10 @@ export function ModernSalesOrdersList() {
       const from = (currentPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
       
-      // Build base query
-      let query = supabase
+      // Build base query - explicit any to avoid TS deep instantiation
+      let query: any = supabase
         .from("invoice_record")
-        .select(
-          `
-          id,
-          invoice_number,
-          order_date,
-          delivery_date,
-          status,
-          total,
-          is_no_order,
-          invoiced,
-          customer_profile!inner(company_name),
-          invoice_line_item(count)
-        `,
-          { count: 'exact' }
-        )
+        .select('*', { count: 'exact' })
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false })
         .range(from, to); // Pagination
@@ -183,7 +169,29 @@ export function ModernSalesOrdersList() {
         setShowNoOrdersDialog(true);
       }
 
-      return { orders: data as SalesOrder[], totalCount: count || 0 };
+      // Fetch customer names and line item counts separately
+      const ordersWithDetails = await Promise.all(
+        (data || []).map(async (order: any) => {
+          const { data: customer } = await supabase
+            .from('customer_profile')
+            .select('company_name')
+            .eq('id', order.customer_id)
+            .single();
+          
+          const { count: itemCount } = await supabase
+            .from('invoice_line_item')
+            .select('*', { count: 'exact', head: true })
+            .eq('invoice_id', order.id);
+
+          return {
+            ...order,
+            customer_profile: { company_name: customer?.company_name || 'Unknown' },
+            invoice_line_item: [{ count: itemCount || 0 }]
+          };
+        })
+      );
+
+      return { orders: ordersWithDetails as SalesOrder[], totalCount: count || 0 };
     },
     enabled: !!organizationId,
     staleTime: 0, // Always fetch fresh data
@@ -349,30 +357,30 @@ export function ModernSalesOrdersList() {
 
       // Process each chunk
       for (const chunk of chunks) {
-        // Check which orders are invoiced
+        // Check which orders are confirmed/delivered/paid (old batch delete logic not yet updated)
         const { data: ordersToCheck, error: checkError } = await supabase
           .from("invoice_record")
-          .select("id, invoiced, invoice_number")
+          .select("id, status, invoice_number")
           .in("id", chunk);
         
         if (checkError) throw checkError;
         
-        const invoicedOrders = ordersToCheck?.filter(o => o.invoiced) || [];
-        const deletableOrders = ordersToCheck?.filter(o => !o.invoiced) || [];
+        const confirmedOrders = (ordersToCheck || []).filter((o: any) => ['confirmed', 'delivered', 'paid'].includes(o.status));
+        const deletableOrders = (ordersToCheck || []).filter((o: any) => !['confirmed', 'delivered', 'paid'].includes(o.status));
         
-        // Delete non-invoiced orders
+        // Delete non-confirmed orders
         if (deletableOrders.length > 0) {
           const { error: deleteError } = await supabase
             .from("invoice_record")
             .delete()
-            .in("id", deletableOrders.map(o => o.id));
+            .in("id", deletableOrders.map((o: any) => o.id));
           
           if (deleteError) throw deleteError;
           totalDeleted += deletableOrders.length;
         }
         
-        totalInvoiced += invoicedOrders.length;
-        allInvoicedOrderNumbers.push(...invoicedOrders.map(o => o.invoice_number));
+        totalInvoiced += confirmedOrders.length;
+        allInvoicedOrderNumbers.push(...confirmedOrders.map((o: any) => o.invoice_number));
       }
       
       return {
@@ -420,7 +428,7 @@ export function ModernSalesOrdersList() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = orders.filter(order => 
-        order.order_number?.toLowerCase().includes(query) ||
+        order.invoice_number?.toLowerCase().includes(query) ||
         order.customer_profile?.company_name?.toLowerCase().includes(query) ||
         order.total?.toString().includes(query)
       );
@@ -537,7 +545,7 @@ export function ModernSalesOrdersList() {
     setExpandedGroups(newExpanded);
   };
 
-  const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed" && !o.invoiced).length || 0;
+  const reviewedCount = filteredOrders?.filter(o => o.status === "confirmed").length || 0;
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -584,7 +592,7 @@ export function ModernSalesOrdersList() {
   };
 
   const handleSelectAll = () => {
-    const selectableOrders = filteredOrders?.filter((o) => !o.invoiced) || [];
+    const selectableOrders = filteredOrders?.filter((o) => o.status === 'draft') || [];
     const newSelected = new Set(selectedOrders);
     const allSelected = selectableOrders.every((o) => newSelected.has(o.id));
 
@@ -825,7 +833,7 @@ export function ModernSalesOrdersList() {
             {!selectAllPages && selectedOrders.size > 0 && totalCount > filteredOrders.length && (
               <div className="flex items-center justify-between p-3 bg-muted rounded-md border">
                 <span className="text-sm">
-                  All {filteredOrders.filter(o => !o.invoiced).length} orders on this page are selected.
+                  All {filteredOrders.filter(o => o.status === 'draft').length} orders on this page are selected.
                 </span>
                 <Button
                   variant="link"
@@ -920,7 +928,7 @@ export function ModernSalesOrdersList() {
                   <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
                     <Checkbox
                       checked={filteredOrders
-                        .filter((o) => !o.invoiced)
+                        .filter((o) => o.status === 'draft')
                         .every((o) => selectedOrders.has(o.id))}
                       onCheckedChange={() => handleSelectAll()}
                     />
@@ -972,7 +980,7 @@ export function ModernSalesOrdersList() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1">
-                      {!order.invoiced && (
+                      {order.status === 'draft' && (
                         <Checkbox
                           checked={selectedOrders.has(order.id)}
                           onCheckedChange={(checked) => {
@@ -1020,7 +1028,7 @@ export function ModernSalesOrdersList() {
                           Review
                         </Button>
                       )}
-                      {order.status === "reviewed" && !order.invoiced && (
+                      {order.status === "confirmed" && (
                         <Button
                           size="sm"
                           onClick={async (e) => {
@@ -1052,8 +1060,8 @@ export function ModernSalesOrdersList() {
                         </Button>
                       )}
                       
-                      {/* Cancel Order Button (for pending/reviewed only) */}
-                      {(order.status === "pending" || order.status === "reviewed") && !order.invoiced && (
+                      {/* Cancel Order Button (for draft/confirmed only) */}
+                      {(order.status === "draft" || order.status === "confirmed") && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1083,19 +1091,20 @@ export function ModernSalesOrdersList() {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (!order.invoiced) {
+                                  const canDelete = order.status === 'draft';
+                                  if (canDelete) {
                                     setDeleteOrderId(order.id);
                                   }
                                 }}
-                                disabled={order.invoiced}
-                                className={order.invoiced ? "opacity-50 cursor-not-allowed" : ""}
+                                disabled={order.status !== 'draft'}
+                                className={order.status !== 'draft' ? "opacity-50 cursor-not-allowed" : ""}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {order.invoiced ? "Cannot delete invoiced orders" : "Delete order"}
+                            {order.status !== 'draft' ? "Cannot delete confirmed orders" : "Delete order"}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -1118,7 +1127,7 @@ export function ModernSalesOrdersList() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
-                        {!order.invoiced && (
+                        {order.status === 'draft' && (
                           <Checkbox
                             checked={selectedOrders.has(order.id)}
                             onCheckedChange={(checked) => {
@@ -1166,7 +1175,7 @@ export function ModernSalesOrdersList() {
                             Review
                           </Button>
                         )}
-                        {order.status === "reviewed" && !order.invoiced && (
+                        {order.status === "confirmed" && (
                           <Button
                             size="sm"
                             onClick={async (e) => {
@@ -1198,8 +1207,8 @@ export function ModernSalesOrdersList() {
                           </Button>
                         )}
                         
-                        {/* Cancel Order Button (for pending/reviewed only) */}
-                        {(order.status === "pending" || order.status === "reviewed") && !order.invoiced && (
+                        {/* Cancel Order Button (for draft/confirmed only) */}
+                        {(order.status === "draft" || order.status === "confirmed") && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1229,19 +1238,19 @@ export function ModernSalesOrdersList() {
                                   size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (!order.invoiced) {
+                                    if (order.status === 'draft') {
                                       setDeleteOrderId(order.id);
                                     }
                                   }}
-                                  disabled={order.invoiced}
-                                  className={order.invoiced ? "opacity-50 cursor-not-allowed" : ""}
+                                  disabled={order.status !== 'draft'}
+                                  className={order.status !== 'draft' ? "opacity-50 cursor-not-allowed" : ""}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {order.invoiced ? "Cannot delete invoiced orders" : "Delete order"}
+                              {order.status !== 'draft' ? "Cannot delete confirmed orders" : "Delete order"}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
