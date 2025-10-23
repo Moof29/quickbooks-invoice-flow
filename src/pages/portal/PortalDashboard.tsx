@@ -40,7 +40,7 @@ export default function PortalDashboard() {
     try {
       const [ordersRes, invoicesRes] = await Promise.all([
         supabase
-          .from('sales_order')
+          .from('invoice_record')
           .select('id, status', { count: 'exact' })
           .eq('customer_id', customerProfile!.id),
         supabase
@@ -50,7 +50,7 @@ export default function PortalDashboard() {
       ]);
 
       const totalOrders = ordersRes.count || 0;
-      const pendingOrders = ordersRes.data?.filter(o => o.status === 'pending').length || 0;
+      const pendingOrders = ordersRes.data?.filter(o => o.status === 'draft').length || 0;
       const totalInvoices = invoicesRes.count || 0;
       const unpaidInvoices = invoicesRes.data?.filter(i => i.amount_due && i.amount_due > 0).length || 0;
 

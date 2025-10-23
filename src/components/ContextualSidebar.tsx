@@ -37,10 +37,10 @@ export function ContextualSidebar() {
     queryKey: ['contextual-sales-orders'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('sales_order')
+        .from('invoice_record')
         .select(`
           id,
-          order_number,
+          invoice_number,
           status,
           total,
           order_date,
@@ -169,7 +169,7 @@ export function ContextualSidebar() {
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">{order.order_number}</span>
+                    <span className="font-medium text-sm">{order.invoice_number}</span>
                     <Badge variant={getStatusVariant(order.status)} className="text-xs">
                       {getStatusLabel(order.status)}
                     </Badge>

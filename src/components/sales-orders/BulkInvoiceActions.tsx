@@ -46,15 +46,15 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
         const chunk = selectedOrders.slice(i, i + chunkSize);
         
         const { data: orders, error } = await supabase
-          .from('sales_order')
-          .select('id, order_number, status, invoiced')
+          .from('invoice_record')
+          .select('id, invoice_number, status')
           .in('id', chunk);
 
         if (error) throw error;
 
-        const valid = orders?.filter(o => !o.invoiced && o.status === 'reviewed') || [];
-        const alreadyInvoiced = orders?.filter(o => o.invoiced) || [];
-        const notReviewed = orders?.filter(o => !o.invoiced && o.status !== 'reviewed') || [];
+        const valid = orders?.filter(o => o.status === 'confirmed') || [];
+        const alreadyInvoiced = orders?.filter(o => o.status === 'delivered' || o.status === 'paid') || [];
+        const notReviewed = orders?.filter(o => o.status === 'draft') || [];
 
         allValid = [...allValid, ...valid];
         allAlreadyInvoiced = [...allAlreadyInvoiced, ...alreadyInvoiced];

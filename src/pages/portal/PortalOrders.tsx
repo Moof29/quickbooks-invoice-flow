@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 
 interface Order {
   id: string;
-  order_number: string;
+  invoice_number: string;
   order_date: string;
   delivery_date: string;
   status: string;
@@ -44,8 +44,8 @@ export default function PortalOrders() {
   const fetchOrders = async () => {
     try {
       const { data, error } = await supabase
-        .from('sales_order')
-        .select('id, order_number, order_date, delivery_date, status, total')
+        .from('invoice_record')
+        .select('id, invoice_number, order_date, delivery_date, status, total')
         .eq('customer_id', customerProfile!.id)
         .order('order_date', { ascending: false });
 
@@ -132,7 +132,7 @@ export default function PortalOrders() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-lg">{order.order_number}</CardTitle>
+                      <CardTitle className="text-lg">{order.invoice_number}</CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
                         Order Date: {format(new Date(order.order_date), 'MMM d, yyyy')}
                       </p>

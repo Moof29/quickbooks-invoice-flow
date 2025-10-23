@@ -200,22 +200,9 @@ export default function InvoiceDetailsPage() {
       if (lineItemsError) throw lineItemsError;
       setLineItems(lineItemsData || []);
 
-      // Fetch sales order links
-      const { data: linksData, error: linksError } = await supabase
-        .from('sales_order_invoice_link')
-        .select(`
-          id,
-          sales_order_id,
-          sales_order:sales_order_id (
-            order_number,
-            order_date,
-            delivery_date
-          )
-        `)
-        .eq('invoice_id', id);
-
-      if (linksError) throw linksError;
-      setSalesOrderLinks(linksData || []);
+      // Note: Sales order links may not be relevant in unified invoice system
+      // This data is kept for historical reference if needed
+      setSalesOrderLinks([]);
       
     } catch (error: any) {
       console.error('Error loading invoice details:', error);

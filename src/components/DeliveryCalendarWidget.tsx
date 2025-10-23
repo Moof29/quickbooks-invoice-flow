@@ -20,7 +20,7 @@ export function DeliveryCalendarWidget({ onDateSelect, selectedDate }: DeliveryC
     queryKey: ['order-counts-by-delivery-date'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('sales_order')
+        .from('invoice_record')
         .select('delivery_date')
         .not('delivery_date', 'is', null);
 
