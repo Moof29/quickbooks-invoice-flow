@@ -434,7 +434,7 @@ export function ModernSalesOrdersList() {
       );
     }
     
-    const statusOrder = { 'pending': 1, 'reviewed': 2, 'invoiced': 3 };
+    const statusOrder = { 'draft': 1, 'confirmed': 2, 'delivered': 3, 'paid': 4 };
     
     // Sort logic depends on filter selection
     if (deliveryDateFilter === 'all') {
@@ -549,12 +549,13 @@ export function ModernSalesOrdersList() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      pending: { variant: "secondary" as const, label: "Pending", icon: Clock, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-      reviewed: { variant: "default" as const, label: "Reviewed", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
-      invoiced: { variant: "outline" as const, label: "Invoiced", icon: Lock, className: "text-muted-foreground" },
-      canceled: { variant: "destructive" as const, label: "Canceled", icon: XCircle, className: "" },
+      draft: { variant: "secondary" as const, label: "Draft", icon: Clock, className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300" },
+      confirmed: { variant: "default" as const, label: "Confirmed", icon: CheckCircle2, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
+      delivered: { variant: "outline" as const, label: "Open Invoice", icon: FileText, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+      paid: { variant: "outline" as const, label: "Paid", icon: CheckCircle2, className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300" },
+      cancelled: { variant: "destructive" as const, label: "Cancelled", icon: XCircle, className: "" },
     };
-    const config = variants[status as keyof typeof variants] || variants.pending;
+    const config = variants[status as keyof typeof variants] || variants.draft;
     const Icon = config.icon;
     return (
       <Badge variant={config.variant} className={`gap-1 ${config.className}`}>
@@ -609,12 +610,12 @@ export function ModernSalesOrdersList() {
   const handleSelectAllPages = async () => {
     if (!organizationId) return;
     
-    // Fetch ALL non-invoiced order IDs matching current filters
-    let query = supabase
-      .from("sales_order")
-      .select("id, invoiced, status")
+    // Fetch ALL draft order IDs matching current filters
+    let query: any = supabase
+      .from("invoice_record")
+      .select("id, status")
       .eq("organization_id", organizationId)
-      .eq("invoiced", false);
+      .in("status", ["draft", "confirmed", "delivered"]); // Not paid/cancelled
 
     // Apply same filters as main query
     if (selectedDates.length > 0) {
@@ -640,22 +641,22 @@ export function ModernSalesOrdersList() {
     }
 
     const allSelectableIds = data?.map(o => o.id) || [];
-    const pendingCount = data?.filter(o => o.status === "pending").length || 0;
+    const draftCount = data?.filter(o => o.status === "draft").length || 0;
     
     setSelectedOrders(new Set(allSelectableIds));
     setSelectAllPages(true);
-    setAllPagesPendingCount(pendingCount);
+    setAllPagesPendingCount(draftCount);
   };
 
   const handleSelectAllPending = () => {
-    const pendingOrders = filteredOrders?.filter((o) => o.status === "pending") || [];
+    const draftOrders = filteredOrders?.filter((o) => o.status === "draft") || [];
     const newSelected = new Set(selectedOrders);
-    const allSelected = pendingOrders.every((o) => newSelected.has(o.id));
+    const allSelected = draftOrders.every((o) => newSelected.has(o.id));
 
     if (allSelected) {
-      pendingOrders.forEach((o) => newSelected.delete(o.id));
+      draftOrders.forEach((o) => newSelected.delete(o.id));
     } else {
-      pendingOrders.forEach((o) => newSelected.add(o.id));
+      draftOrders.forEach((o) => newSelected.add(o.id));
     }
     setSelectedOrders(newSelected);
   };
@@ -663,7 +664,7 @@ export function ModernSalesOrdersList() {
   const selectedPendingCount = selectAllPages 
     ? allPagesPendingCount 
     : Array.from(selectedOrders).filter(id => 
-        filteredOrders?.find(o => o.id === id && o.status === "pending")
+        filteredOrders?.find(o => o.id === id && o.status === "draft")
       ).length;
 
   console.log(`🎯 Rendering component with ${filteredOrders?.length || 0} orders`);
@@ -765,10 +766,11 @@ export function ModernSalesOrdersList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="reviewed">Reviewed</SelectItem>
-                  <SelectItem value="invoiced">Invoiced</SelectItem>
-                  <SelectItem value="canceled">Canceled</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1015,7 +1017,7 @@ export function ModernSalesOrdersList() {
 
                      {/* Actions */}
                     <div className="flex items-center gap-2">
-                      {order.status === "pending" && !selectedOrders.has(order.id) && (
+                      {order.status === "draft" && !selectedOrders.has(order.id) && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -1025,7 +1027,7 @@ export function ModernSalesOrdersList() {
                           }}
                         >
                           <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Review
+                          Confirm
                         </Button>
                       )}
                       {order.status === "confirmed" && (
@@ -1041,7 +1043,7 @@ export function ModernSalesOrdersList() {
                               if (error) throw error;
                               if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
                               
-                              queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+                              queryClient.invalidateQueries({ queryKey: ["invoices"] });
                               toast({ 
                                 title: "Invoice created successfully",
                                 description: `Invoice ${data.invoice?.invoice_number} created`
@@ -1162,7 +1164,7 @@ export function ModernSalesOrdersList() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2">
-                        {order.status === "pending" && !selectedOrders.has(order.id) && (
+                        {order.status === "draft" && !selectedOrders.has(order.id) && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -1172,7 +1174,7 @@ export function ModernSalesOrdersList() {
                             }}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-1" />
-                            Review
+                            Confirm
                           </Button>
                         )}
                         {order.status === "confirmed" && (
@@ -1188,7 +1190,7 @@ export function ModernSalesOrdersList() {
                                 if (error) throw error;
                                 if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
                                 
-                                queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+                                queryClient.invalidateQueries({ queryKey: ["invoices"] });
                                 toast({ 
                                   title: "Invoice created successfully",
                                   description: `Invoice ${data.invoice?.invoice_number} created`

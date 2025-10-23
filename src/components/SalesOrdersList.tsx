@@ -433,9 +433,9 @@ export function SalesOrdersList() {
                       <Calendar className="h-4 w-4 text-purple-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-muted-foreground truncate">Pending / Approved</p>
+                      <p className="text-xs font-medium text-muted-foreground truncate">Draft / Confirmed</p>
                       <p className="text-lg font-bold text-foreground">
-                        {filteredOrders.filter(order => order.status === 'pending').length} / {filteredOrders.filter(order => order.status === 'approved').length}
+                        {filteredOrders.filter(order => order.status === 'draft').length} / {filteredOrders.filter(order => order.status === 'confirmed').length}
                       </p>
                     </div>
                   </div>

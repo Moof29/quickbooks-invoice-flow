@@ -92,7 +92,7 @@ export default function NewSalesOrder() {
           invoice_number: invoiceNumber,
           order_date: orderDate,
           delivery_date: deliveryDate,
-          status: 'draft',
+          status: 'confirmed', // Manual orders are pre-verified
           subtotal,
           total: subtotal,
           memo,
