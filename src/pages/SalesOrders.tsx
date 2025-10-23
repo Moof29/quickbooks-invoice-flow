@@ -51,7 +51,7 @@ export default function SalesOrders() {
         .from('invoice_record')
         .select(`
           *,
-          customer_profile:customer_record(name, email)
+          customer_profile:customer_id(display_name, company_name, email)
         `)
         .eq('organization_id', organization.id)
         .order('created_at', { ascending: false });
