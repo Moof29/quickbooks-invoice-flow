@@ -1918,12 +1918,15 @@ export type Database = {
         Row: {
           amount_due: number | null
           amount_paid: number | null
+          approved_at: string | null
+          approved_by: string | null
           balance_due: number | null
           created_at: string | null
           created_by: string | null
           currency_id: string | null
           custom_fields: Json | null
           customer_id: string | null
+          delivery_date: string | null
           discount_rate: number | null
           discount_total: number | null
           discount_type: string | null
@@ -1932,9 +1935,11 @@ export type Database = {
           id: string
           invoice_date: string | null
           invoice_number: string | null
+          is_no_order: boolean | null
           last_sync_at: string | null
           memo: string | null
           message: string | null
+          order_date: string | null
           organization_id: string
           po_number: string | null
           qbo_id: string | null
@@ -1959,12 +1964,15 @@ export type Database = {
         Insert: {
           amount_due?: number | null
           amount_paid?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
           balance_due?: number | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
           custom_fields?: Json | null
           customer_id?: string | null
+          delivery_date?: string | null
           discount_rate?: number | null
           discount_total?: number | null
           discount_type?: string | null
@@ -1973,9 +1981,11 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          is_no_order?: boolean | null
           last_sync_at?: string | null
           memo?: string | null
           message?: string | null
+          order_date?: string | null
           organization_id: string
           po_number?: string | null
           qbo_id?: string | null
@@ -2000,12 +2010,15 @@ export type Database = {
         Update: {
           amount_due?: number | null
           amount_paid?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
           balance_due?: number | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
           custom_fields?: Json | null
           customer_id?: string | null
+          delivery_date?: string | null
           discount_rate?: number | null
           discount_total?: number | null
           discount_type?: string | null
@@ -2014,9 +2027,11 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          is_no_order?: boolean | null
           last_sync_at?: string | null
           memo?: string | null
           message?: string | null
+          order_date?: string | null
           organization_id?: string
           po_number?: string | null
           qbo_id?: string | null
