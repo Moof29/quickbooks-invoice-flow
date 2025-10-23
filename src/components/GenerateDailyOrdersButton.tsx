@@ -103,9 +103,9 @@ export function GenerateDailyOrdersButton() {
     queryFn: async () => {
       const targetDates = selectedDates.map(d => format(d, "yyyy-MM-dd"));
       
-      let query = supabase
-        .from("sales_order")
-        .select("customer_id, order_number, status, delivery_date")
+      let query = (supabase as any)
+        .from("invoice_record")
+        .select("customer_id, invoice_number, status, delivery_date")
         .eq("organization_id", organizationId)
         .in("delivery_date", targetDates);
 
@@ -192,7 +192,7 @@ export function GenerateDailyOrdersButton() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       
       const { orders_created, errors } = data;
       
@@ -205,7 +205,7 @@ export function GenerateDailyOrdersButton() {
       } else {
         toast({
           title: "Success!",
-          description: `Generated ${orders_created} sales order(s) for ${selectedDates.length} date(s).`,
+          description: `Generated ${orders_created} draft order(s) for ${selectedDates.length} date(s).`,
         });
       }
       
@@ -213,7 +213,7 @@ export function GenerateDailyOrdersButton() {
       
       // Auto-select the first generated date in the filter
       if (selectedDates.length > 0) {
-        navigate(`/sales-orders?date=${format(selectedDates[0], "yyyy-MM-dd")}`);
+        navigate(`/orders?date=${format(selectedDates[0], "yyyy-MM-dd")}`);
       }
     },
     onError: (error: any) => {
@@ -301,9 +301,9 @@ export function GenerateDailyOrdersButton() {
       </DialogTrigger>
       <DialogContent className="max-w-[95vw] sm:max-w-[700px] max-h-[85vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>Generate Sales Orders from Templates</DialogTitle>
+          <DialogTitle>Generate Orders from Templates</DialogTitle>
           <DialogDescription>
-            Select delivery dates and optionally filter customers to generate sales orders from active templates.
+            Select delivery dates and optionally filter customers to generate orders from active templates.
           </DialogDescription>
         </DialogHeader>
 
