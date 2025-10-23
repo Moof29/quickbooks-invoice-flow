@@ -67,7 +67,7 @@ const Dashboard = () => {
 
       if (invoicesResult.data) {
         const totalRevenue = invoicesResult.data.reduce((sum, inv) => sum + (inv.total || 0), 0);
-        const pendingInvoices = invoicesResult.data.filter(inv => inv.status === 'pending').length;
+        const pendingInvoices = invoicesResult.data.filter(inv => inv.status === 'draft').length;
 
         setStats({
           totalRevenue,
