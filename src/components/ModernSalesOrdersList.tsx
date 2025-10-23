@@ -17,6 +17,7 @@ import {
   Lock,
   Ban,
   ChevronDown,
+  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -290,6 +291,31 @@ export function ModernSalesOrdersList() {
     onError: (error: any) => {
       toast({
         title: "Error reviewing order",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mark as delivered mutation
+  const markDeliveredMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { error } = await supabase
+        .from("invoice_record")
+        .update({ 
+          status: "delivered",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      toast({ title: "Order marked as delivered" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error marking order as delivered",
         description: error.message,
         variant: "destructive",
       });
@@ -1031,35 +1057,57 @@ export function ModernSalesOrdersList() {
                         </Button>
                       )}
                       {order.status === "confirmed" && (
-                        <Button
-                          size="sm"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              const { data, error } = await supabase.functions.invoke(
-                                "create-invoice-from-order",
-                                { body: { order_id: order.id } }
-                              );
-                              if (error) throw error;
-                              if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
-                              
-                              queryClient.invalidateQueries({ queryKey: ["invoices"] });
-                              toast({ 
-                                title: "Invoice created successfully",
-                                description: `Invoice ${data.invoice?.invoice_number} created`
-                              });
-                            } catch (error: any) {
-                              toast({
-                                title: "Error creating invoice",
-                                description: error.message,
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                        >
-                          <FileText className="h-4 w-4 mr-1" />
-                          Invoice
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const { data, error } = await supabase.functions.invoke(
+                                  "create-invoice-from-order",
+                                  { body: { order_id: order.id } }
+                                );
+                                if (error) throw error;
+                                if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
+                                
+                                queryClient.invalidateQueries({ queryKey: ["invoices"] });
+                                toast({ 
+                                  title: "Invoice created successfully",
+                                  description: `Invoice ${data.invoice?.invoice_number} created`
+                                });
+                              } catch (error: any) {
+                                toast({
+                                  title: "Error creating invoice",
+                                  description: error.message,
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Invoice
+                          </Button>
+                          
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    markDeliveredMutation.mutate(order.id);
+                                  }}
+                                  disabled={markDeliveredMutation.isPending}
+                                >
+                                  <Truck className="h-4 w-4 mr-1" />
+                                  Deliver
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Mark order as delivered</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </>
                       )}
                       
                       {/* Cancel Order Button (for draft/confirmed only) */}
@@ -1178,35 +1226,57 @@ export function ModernSalesOrdersList() {
                           </Button>
                         )}
                         {order.status === "confirmed" && (
-                          <Button
-                            size="sm"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const { data, error } = await supabase.functions.invoke(
-                                  "create-invoice-from-order",
-                                  { body: { order_id: order.id } }
-                                );
-                                if (error) throw error;
-                                if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
-                                
-                                queryClient.invalidateQueries({ queryKey: ["invoices"] });
-                                toast({ 
-                                  title: "Invoice created successfully",
-                                  description: `Invoice ${data.invoice?.invoice_number} created`
-                                });
-                              } catch (error: any) {
-                                toast({
-                                  title: "Error creating invoice",
-                                  description: error.message,
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            Invoice
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  const { data, error } = await supabase.functions.invoke(
+                                    "create-invoice-from-order",
+                                    { body: { order_id: order.id } }
+                                  );
+                                  if (error) throw error;
+                                  if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
+                                  
+                                  queryClient.invalidateQueries({ queryKey: ["invoices"] });
+                                  toast({ 
+                                    title: "Invoice created successfully",
+                                    description: `Invoice ${data.invoice?.invoice_number} created`
+                                  });
+                                } catch (error: any) {
+                                  toast({
+                                    title: "Error creating invoice",
+                                    description: error.message,
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              Invoice
+                            </Button>
+                            
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      markDeliveredMutation.mutate(order.id);
+                                    }}
+                                    disabled={markDeliveredMutation.isPending}
+                                  >
+                                    <Truck className="h-4 w-4 mr-1" />
+                                    Deliver
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Mark order as delivered</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </>
                         )}
                         
                         {/* Cancel Order Button (for draft/confirmed only) */}
