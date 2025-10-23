@@ -283,7 +283,7 @@ export type Database = {
           entity_id: string
           entity_type: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           metadata: Json | null
           new_values: Json | null
           old_values: Json | null
@@ -299,7 +299,7 @@ export type Database = {
           entity_id: string
           entity_type: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           metadata?: Json | null
           new_values?: Json | null
           old_values?: Json | null
@@ -315,7 +315,7 @@ export type Database = {
           entity_id?: string
           entity_type?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           metadata?: Json | null
           new_values?: Json | null
           old_values?: Json | null
@@ -1918,12 +1918,16 @@ export type Database = {
         Row: {
           amount_due: number | null
           amount_paid: number | null
+          approved_at: string | null
+          approved_by: string | null
           balance_due: number | null
           created_at: string | null
           created_by: string | null
           currency_id: string | null
           custom_fields: Json | null
           customer_id: string | null
+          customer_po_number: string | null
+          delivery_date: string | null
           discount_rate: number | null
           discount_total: number | null
           discount_type: string | null
@@ -1932,13 +1936,17 @@ export type Database = {
           id: string
           invoice_date: string | null
           invoice_number: string | null
+          is_no_order: boolean | null
           last_sync_at: string | null
           memo: string | null
           message: string | null
+          order_date: string | null
           organization_id: string
           po_number: string | null
+          promised_ship_date: string | null
           qbo_id: string | null
           qbo_sync_status: string | null
+          requested_ship_date: string | null
           ship_date: string | null
           shipping_method: string | null
           shipping_total: number | null
@@ -1959,12 +1967,16 @@ export type Database = {
         Insert: {
           amount_due?: number | null
           amount_paid?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
           balance_due?: number | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
           custom_fields?: Json | null
           customer_id?: string | null
+          customer_po_number?: string | null
+          delivery_date?: string | null
           discount_rate?: number | null
           discount_total?: number | null
           discount_type?: string | null
@@ -1973,13 +1985,17 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          is_no_order?: boolean | null
           last_sync_at?: string | null
           memo?: string | null
           message?: string | null
+          order_date?: string | null
           organization_id: string
           po_number?: string | null
+          promised_ship_date?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          requested_ship_date?: string | null
           ship_date?: string | null
           shipping_method?: string | null
           shipping_total?: number | null
@@ -2000,12 +2016,16 @@ export type Database = {
         Update: {
           amount_due?: number | null
           amount_paid?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
           balance_due?: number | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
           custom_fields?: Json | null
           customer_id?: string | null
+          customer_po_number?: string | null
+          delivery_date?: string | null
           discount_rate?: number | null
           discount_total?: number | null
           discount_type?: string | null
@@ -2014,13 +2034,17 @@ export type Database = {
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
+          is_no_order?: boolean | null
           last_sync_at?: string | null
           memo?: string | null
           message?: string | null
+          order_date?: string | null
           organization_id?: string
           po_number?: string | null
+          promised_ship_date?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          requested_ship_date?: string | null
           ship_date?: string | null
           shipping_method?: string | null
           shipping_total?: number | null
@@ -2039,6 +2063,13 @@ export type Database = {
           updated_source?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "invoice_record_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoice_record_currency_id_fkey"
             columns: ["currency_id"]
@@ -3690,7 +3721,7 @@ export type Database = {
         }
         Relationships: []
       }
-      sales_order: {
+      sales_order_archived: {
         Row: {
           approved_at: string | null
           approved_by: string | null
@@ -3951,7 +3982,14 @@ export type Database = {
             foreignKeyName: "sales_order_fulfillment_sales_order_id_fkey"
             columns: ["sales_order_id"]
             isOneToOne: false
-            referencedRelation: "sales_order"
+            referencedRelation: "sales_order_archive_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_fulfillment_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_archived"
             referencedColumns: ["id"]
           },
           {
@@ -4028,12 +4066,12 @@ export type Database = {
             foreignKeyName: "sales_order_fulfillment_line_sales_order_line_item_id_fkey"
             columns: ["sales_order_line_item_id"]
             isOneToOne: false
-            referencedRelation: "sales_order_line_item"
+            referencedRelation: "sales_order_line_item_archived"
             referencedColumns: ["id"]
           },
         ]
       }
-      sales_order_invoice_link: {
+      sales_order_invoice_link_archived: {
         Row: {
           created_at: string | null
           created_by: string | null
@@ -4076,12 +4114,19 @@ export type Database = {
             foreignKeyName: "sales_order_invoice_link_sales_order_id_fkey"
             columns: ["sales_order_id"]
             isOneToOne: false
-            referencedRelation: "sales_order"
+            referencedRelation: "sales_order_archive_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_invoice_link_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_archived"
             referencedColumns: ["id"]
           },
         ]
       }
-      sales_order_line_item: {
+      sales_order_line_item_archived: {
         Row: {
           amount: number | null
           created_at: string | null
@@ -4160,7 +4205,14 @@ export type Database = {
             foreignKeyName: "sales_order_line_item_sales_order_id_fkey"
             columns: ["sales_order_id"]
             isOneToOne: false
-            referencedRelation: "sales_order"
+            referencedRelation: "sales_order_archive_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_line_item_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order_archived"
             referencedColumns: ["id"]
           },
         ]
@@ -4246,7 +4298,7 @@ export type Database = {
           accessed_column: string | null
           accessed_table: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           organization_id: string
           record_id: string | null
           sensitive_data_accessed: boolean | null
@@ -4259,7 +4311,7 @@ export type Database = {
           accessed_column?: string | null
           accessed_table: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           organization_id: string
           record_id?: string | null
           sensitive_data_accessed?: boolean | null
@@ -4272,7 +4324,7 @@ export type Database = {
           accessed_column?: string | null
           accessed_table?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           organization_id?: string
           record_id?: string | null
           sensitive_data_accessed?: boolean | null
@@ -5196,13 +5248,200 @@ export type Database = {
           },
         ]
       }
+      sales_order_archive_view: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          archive_status: string | null
+          created_at: string | null
+          created_by: string | null
+          currency_id: string | null
+          custom_fields: Json | null
+          customer_id: string | null
+          customer_po_number: string | null
+          delivery_date: string | null
+          discount_rate: number | null
+          discount_total: number | null
+          discount_type: string | null
+          exchange_rate: number | null
+          id: string | null
+          invoice_id: string | null
+          invoiced: boolean | null
+          is_no_order_today: boolean | null
+          last_sync_at: string | null
+          memo: string | null
+          message: string | null
+          order_date: string | null
+          order_number: string | null
+          organization_id: string | null
+          promised_ship_date: string | null
+          qbo_estimate_id: string | null
+          requested_ship_date: string | null
+          shipping_address_line1: string | null
+          shipping_address_line2: string | null
+          shipping_city: string | null
+          shipping_country: string | null
+          shipping_method: string | null
+          shipping_postal_code: string | null
+          shipping_state: string | null
+          shipping_terms: string | null
+          shipping_total: number | null
+          source_system: string | null
+          status: string | null
+          subtotal: number | null
+          sync_status: string | null
+          tax_total: number | null
+          terms: string | null
+          total: number | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          archive_status?: never
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          custom_fields?: Json | null
+          customer_id?: string | null
+          customer_po_number?: string | null
+          delivery_date?: string | null
+          discount_rate?: number | null
+          discount_total?: number | null
+          discount_type?: string | null
+          exchange_rate?: number | null
+          id?: string | null
+          invoice_id?: string | null
+          invoiced?: boolean | null
+          is_no_order_today?: boolean | null
+          last_sync_at?: string | null
+          memo?: string | null
+          message?: string | null
+          order_date?: string | null
+          order_number?: string | null
+          organization_id?: string | null
+          promised_ship_date?: string | null
+          qbo_estimate_id?: string | null
+          requested_ship_date?: string | null
+          shipping_address_line1?: string | null
+          shipping_address_line2?: string | null
+          shipping_city?: string | null
+          shipping_country?: string | null
+          shipping_method?: string | null
+          shipping_postal_code?: string | null
+          shipping_state?: string | null
+          shipping_terms?: string | null
+          shipping_total?: number | null
+          source_system?: string | null
+          status?: string | null
+          subtotal?: number | null
+          sync_status?: string | null
+          tax_total?: number | null
+          terms?: string | null
+          total?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          archive_status?: never
+          created_at?: string | null
+          created_by?: string | null
+          currency_id?: string | null
+          custom_fields?: Json | null
+          customer_id?: string | null
+          customer_po_number?: string | null
+          delivery_date?: string | null
+          discount_rate?: number | null
+          discount_total?: number | null
+          discount_type?: string | null
+          exchange_rate?: number | null
+          id?: string | null
+          invoice_id?: string | null
+          invoiced?: boolean | null
+          is_no_order_today?: boolean | null
+          last_sync_at?: string | null
+          memo?: string | null
+          message?: string | null
+          order_date?: string | null
+          order_number?: string | null
+          organization_id?: string | null
+          promised_ship_date?: string | null
+          qbo_estimate_id?: string | null
+          requested_ship_date?: string | null
+          shipping_address_line1?: string | null
+          shipping_address_line2?: string | null
+          shipping_city?: string | null
+          shipping_country?: string | null
+          shipping_method?: string | null
+          shipping_postal_code?: string | null
+          shipping_state?: string | null
+          shipping_terms?: string | null
+          shipping_total?: number | null
+          source_system?: string | null
+          status?: string | null
+          subtotal?: number | null
+          sync_status?: string | null
+          tax_total?: number | null
+          terms?: string | null
+          total?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       approve_sales_order: {
         Args: { p_approved_by: string; p_sales_order_id: string }
         Returns: undefined
       }
-      batch_create_invoices_from_orders: {
+      batch_create_invoices_from_orders_archived: {
         Args: {
           p_due_days?: number
           p_invoice_date?: string
@@ -5220,6 +5459,14 @@ export type Database = {
         Args: { p_orders: Json }
         Returns: Json
       }
+      bulk_update_invoice_status: {
+        Args: {
+          p_invoice_ids: string[]
+          p_new_status: string
+          p_updated_by: string
+        }
+        Returns: Json
+      }
       calculate_sales_order_totals: {
         Args: { p_sales_order_id: string }
         Returns: {
@@ -5229,18 +5476,12 @@ export type Database = {
           total: number
         }[]
       }
-      can_delete_sales_order: {
-        Args: { order_id: string }
-        Returns: boolean
-      }
+      can_delete_sales_order: { Args: { order_id: string }; Returns: boolean }
       cancel_batch_job: {
         Args: { p_cancelled_by: string; p_job_id: string }
         Returns: undefined
       }
-      cancel_bulk_invoice_job: {
-        Args: { p_job_id: string }
-        Returns: boolean
-      }
+      cancel_bulk_invoice_job: { Args: { p_job_id: string }; Returns: boolean }
       check_duplicate_orders: {
         Args: {
           p_customer_id: string
@@ -5261,21 +5502,15 @@ export type Database = {
           has_duplicate: boolean
         }[]
       }
-      check_user_is_admin: {
-        Args: { check_user_id: string }
-        Returns: boolean
-      }
+      check_user_is_admin: { Args: { check_user_id: string }; Returns: boolean }
       cleanup_stuck_batch_jobs: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           cleaned_jobs: number
           job_ids: string[]
         }[]
       }
-      clear_all_invoices: {
-        Args: { p_organization_id: string }
-        Returns: Json
-      }
+      clear_all_invoices: { Args: { p_organization_id: string }; Returns: Json }
       complete_batch_job: {
         Args: { p_job_id: string; p_result?: Json }
         Returns: undefined
@@ -5302,7 +5537,7 @@ export type Database = {
         }
         Returns: string
       }
-      create_invoice_from_sales_order: {
+      create_invoice_from_sales_order_archived: {
         Args: {
           p_due_days?: number
           p_invoice_date?: string
@@ -5311,7 +5546,7 @@ export type Database = {
         }
         Returns: string
       }
-      create_invoice_from_sales_order_sql: {
+      create_invoice_from_sales_order_sql_archived: {
         Args: {
           p_created_by: string
           p_organization_id: string
@@ -5347,10 +5582,7 @@ export type Database = {
         Args: { p_error_message: string; p_job_id: string }
         Returns: undefined
       }
-      generate_sales_order_number: {
-        Args: { org_id: string }
-        Returns: string
-      }
+      generate_sales_order_number: { Args: { org_id: string }; Returns: string }
       generate_sales_orders_from_templates: {
         Args: {
           p_customer_id?: string
@@ -5360,10 +5592,7 @@ export type Database = {
         }
         Returns: Json
       }
-      get_batch_processing_stats: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      get_batch_processing_stats: { Args: never; Returns: Json }
       get_bulk_invoice_job_status: {
         Args: { p_job_id: string }
         Returns: {
@@ -5386,7 +5615,7 @@ export type Database = {
         Returns: Json
       }
       get_next_batch_job: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           job_id: string
           job_type: string
@@ -5457,30 +5686,7 @@ export type Database = {
         }
         Returns: number
       }
-      get_user_organization_id: {
-        Args: { user_id: string }
-        Returns: string
-      }
-      gtrgm_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_options: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
-      gtrgm_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
+      get_user_organization_id: { Args: { user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -5496,10 +5702,7 @@ export type Database = {
         }
         Returns: string
       }
-      is_admin_user: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
+      is_admin_user: { Args: { user_id: string }; Returns: boolean }
       needs_qb_sync: {
         Args: {
           p_entity_id: string
@@ -5508,22 +5711,13 @@ export type Database = {
         }
         Returns: boolean
       }
-      process_all_pending_batches: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      process_all_pending_batches: { Args: never; Returns: Json }
       process_bulk_invoice_job_sql: {
         Args: { p_job_id: string }
         Returns: Json
       }
-      process_invoice_batch: {
-        Args: { p_payload: Json }
-        Returns: Json
-      }
-      process_pending_batch_jobs: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      process_invoice_batch: { Args: { p_payload: Json }; Returns: Json }
+      process_pending_batch_jobs: { Args: never; Returns: Json }
       qbo_enqueue_sync_operation: {
         Args: {
           p_entity_id: string
@@ -5545,30 +5739,12 @@ export type Database = {
         }
         Returns: string
       }
-      set_limit: {
-        Args: { "": number }
-        Returns: number
-      }
-      setup_table_rls: {
-        Args: { table_name: string }
-        Returns: undefined
-      }
-      show_limit: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      show_trgm: {
-        Args: { "": string }
-        Returns: string[]
-      }
-      start_batch_job: {
-        Args: { p_job_id: string }
-        Returns: undefined
-      }
-      trigger_batch_invoice_processing: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      rollback_to_sales_order_model: { Args: never; Returns: string }
+      setup_table_rls: { Args: { table_name: string }; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      start_batch_job: { Args: { p_job_id: string }; Returns: undefined }
+      trigger_batch_invoice_processing: { Args: never; Returns: Json }
       update_batch_job_progress: {
         Args: {
           p_errors?: Json
@@ -5598,16 +5774,16 @@ export type Database = {
         }
         Returns: undefined
       }
-      user_has_permission: {
-        Args:
-          | {
+      user_has_permission:
+        | {
+            Args: {
               p_action: Database["public"]["Enums"]["permission_action"]
               p_resource: Database["public"]["Enums"]["permission_resource"]
               p_user_id: string
             }
-          | { permission: string }
-        Returns: boolean
-      }
+            Returns: boolean
+          }
+        | { Args: { permission: string }; Returns: boolean }
       validate_customer_credit_limit: {
         Args: { p_customer_id: string; p_new_order_total?: number }
         Returns: {

@@ -67,36 +67,27 @@ export default function SalesOrders() {
     enabled: !!organization?.id && selectedStatus !== 'templates',
   });
 
-  // Bulk status update mutation
+  // Bulk status update mutation using RPC
   const bulkUpdateMutation = useMutation({
     mutationFn: async ({ invoiceIds, newStatus }: { invoiceIds: string[], newStatus: string }) => {
-      // Manually update each invoice for now (until types are regenerated)
-      const updates = await Promise.all(
-        invoiceIds.map(async (id) => {
-          const { error } = await supabase
-            .from('invoice_record')
-            .update({ 
-              status: newStatus,
-              updated_by: user?.id,
-              updated_at: new Date().toISOString(),
-              invoice_date: newStatus === 'confirmed' ? new Date().toISOString() : undefined
-            })
-            .eq('id', id)
-            .eq('organization_id', organization?.id!);
-          
-          return { success: !error, error: error?.message };
-        })
-      );
+      // Use the bulk update RPC function for better performance
+      const { data, error } = await supabase.rpc('bulk_update_invoice_status', {
+        p_invoice_ids: invoiceIds,
+        p_new_status: newStatus,
+        p_updated_by: user?.id
+      });
       
-      return updates;
+      if (error) throw error;
+      return data;
     },
-    onSuccess: (data: any[]) => {
-      const successCount = data.filter((r: any) => r.success).length;
-      const failCount = data.filter((r: any) => !r.success).length;
+    onSuccess: (data: any) => {
+      const updatedCount = data?.updated_count || 0;
+      const failedCount = data?.failed_count || 0;
       
-      toast.success(`Updated ${successCount} invoices`);
-      if (failCount > 0) {
-        toast.error(`Failed to update ${failCount} invoices`);
+      toast.success(`Updated ${updatedCount} invoice(s) successfully`);
+      
+      if (failedCount > 0) {
+        toast.error(`Failed to update ${failedCount} invoice(s)`);
       }
       
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
