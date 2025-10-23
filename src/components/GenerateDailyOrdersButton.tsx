@@ -493,7 +493,7 @@ export function GenerateDailyOrdersButton() {
             <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex gap-2">
                 <div className="text-blue-600 dark:text-blue-400 text-sm">
-                  <strong>Note:</strong> Orders will be created with status "pending" and can be reviewed before invoicing.
+                  <strong>Note:</strong> Orders will be created with status "draft" and can be reviewed before confirming.
                 </div>
               </div>
             </div>
