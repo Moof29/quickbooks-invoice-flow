@@ -64,21 +64,6 @@ async function clearInvoicesInBackground(organizationId: string) {
       console.log(`Deleted ${deletedInvoices} invoices so far...`);
     }
 
-    // Reset sales orders
-    console.log('Resetting sales orders...');
-    const { error: orderError } = await supabase
-      .from('sales_order')
-      .update({ 
-        status: 'reviewed',
-        invoiced: false,
-        invoice_id: null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('organization_id', organizationId)
-      .eq('invoiced', true);
-
-    if (orderError) throw orderError;
-
     console.log('=== Background Clear Completed ===');
     console.log(`Total deleted: ${deletedLineItems} line items, ${deletedInvoices} invoices`);
   } catch (error) {
