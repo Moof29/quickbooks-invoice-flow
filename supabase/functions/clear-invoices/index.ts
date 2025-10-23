@@ -13,7 +13,6 @@ async function clearInvoicesInBackground(organizationId: string) {
 
   const batchSize = 500;
   let deletedLineItems = 0;
-  let deletedLinks = 0;
   let deletedInvoices = 0;
 
   try {
@@ -39,30 +38,6 @@ async function clearInvoicesInBackground(organizationId: string) {
       
       deletedLineItems += items.length;
       console.log(`Deleted ${deletedLineItems} line items so far...`);
-    }
-
-    // Delete sales order invoice links in batches
-    console.log('Starting batched deletion of invoice links...');
-    while (true) {
-      const { data: links, error: fetchError } = await supabase
-        .from('sales_order_invoice_link')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .limit(batchSize);
-
-      if (fetchError) throw fetchError;
-      if (!links || links.length === 0) break;
-
-      const ids = links.map(link => link.id);
-      const { error: deleteError } = await supabase
-        .from('sales_order_invoice_link')
-        .delete()
-        .in('id', ids);
-
-      if (deleteError) throw deleteError;
-      
-      deletedLinks += links.length;
-      console.log(`Deleted ${deletedLinks} links so far...`);
     }
 
     // Delete invoices in batches
@@ -105,7 +80,7 @@ async function clearInvoicesInBackground(organizationId: string) {
     if (orderError) throw orderError;
 
     console.log('=== Background Clear Completed ===');
-    console.log(`Total deleted: ${deletedLineItems} line items, ${deletedLinks} links, ${deletedInvoices} invoices`);
+    console.log(`Total deleted: ${deletedLineItems} line items, ${deletedInvoices} invoices`);
   } catch (error) {
     console.error('=== Background Clear Error ===');
     console.error(error);
