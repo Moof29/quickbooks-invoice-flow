@@ -223,7 +223,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
           memo: data.memo || null,
           message: data.message || null,
           terms: data.terms || null,
-          status: 'draft',
+          status: 'confirmed',
         })
         .select()
         .single();

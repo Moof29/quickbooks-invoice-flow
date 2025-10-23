@@ -223,7 +223,7 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
           memo: data.memo || null,
           message: data.message || null,
           terms: data.terms || null,
-          status: 'draft',
+          status: 'confirmed',
         })
         .select()
         .single();

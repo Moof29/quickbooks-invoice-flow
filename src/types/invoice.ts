@@ -69,16 +69,16 @@ export interface InvoiceLineItem {
 }
 
 export const InvoiceStatusLabels: Record<InvoiceStatus, string> = {
-  draft: 'Draft Order',
+  draft: 'Draft',
   confirmed: 'Confirmed',
-  delivered: 'Delivered',
+  delivered: 'Open Invoice',
   paid: 'Paid',
   cancelled: 'Cancelled',
   partial: 'Partially Paid'
 };
 
 export const InvoiceStatusColors: Record<InvoiceStatus, string> = {
-  draft: 'bg-slate-100 text-slate-800',
+  draft: 'bg-amber-100 text-amber-800',
   confirmed: 'bg-blue-100 text-blue-800',
   delivered: 'bg-green-100 text-green-800',
   paid: 'bg-emerald-100 text-emerald-800',
