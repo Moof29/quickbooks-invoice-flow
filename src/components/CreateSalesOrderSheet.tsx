@@ -164,10 +164,10 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
 
       const yesterday = addDays(new Date(), -1);
       const { data, error } = await supabase
-        .from('sales_order')
+        .from('invoice_record')
         .select(`
           id,
-          sales_order_line_item (
+          invoice_line_item (
             item_id,
             quantity,
             unit_price,
@@ -199,9 +199,9 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
         throw new Error('At least one line item is required');
       }
 
-      // Create sales order first
+      // Create draft invoice (order)
       const { data: salesOrder, error: orderError } = await supabase
-        .from('sales_order')
+        .from('invoice_record')
         .insert({
           organization_id: profile.organization_id,
           customer_id: data.customer_id,
@@ -215,7 +215,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
           memo: data.memo || null,
           message: data.message || null,
           terms: data.terms || null,
-          status: 'pending',
+          status: 'draft',
         })
         .select()
         .single();
@@ -225,7 +225,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       // Create line items
       const lineItemsToInsert = validLineItems.map(item => ({
         organization_id: profile.organization_id,
-        sales_order_id: salesOrder.id,
+        invoice_id: salesOrder.id,
         item_id: item.item_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
@@ -233,7 +233,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       }));
 
       const { error: lineItemsError } = await supabase
-        .from('sales_order_line_item')
+        .from('invoice_line_item')
         .insert(lineItemsToInsert);
 
       if (lineItemsError) throw lineItemsError;
@@ -278,8 +278,8 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
   };
 
   const copyFromYesterday = () => {
-    if (yesterdayOrder?.sales_order_line_item) {
-      const yesterdayItems = yesterdayOrder.sales_order_line_item.map((item: any) => ({
+    if (yesterdayOrder?.invoice_line_item) {
+      const yesterdayItems = yesterdayOrder.invoice_line_item.map((item: any) => ({
         item_id: item.item_id,
         quantity: item.quantity,
         unit_price: item.unit_price,

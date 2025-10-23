@@ -57,7 +57,7 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       console.log('Updating sales order:', updates);
       
       const { error } = await supabase
-        .from('sales_order')
+        .from('invoice_record')
         .update(updates)
         .eq('id', salesOrderId);
 
@@ -96,7 +96,7 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       
       // Update only the quantity - database triggers handle amount and totals automatically
       const { error: updateError } = await supabase
-        .from('sales_order_line_item')
+        .from('invoice_line_item')
         .update({ quantity })
         .eq('id', lineItemId);
 
