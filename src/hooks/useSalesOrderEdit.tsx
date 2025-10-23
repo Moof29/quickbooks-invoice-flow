@@ -67,8 +67,8 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', salesOrderId] });
       toast({
         title: 'Success',
         description: 'Sales order updated successfully',
@@ -112,9 +112,9 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
     },
     onSuccess: (data) => {
       console.log('Mutation onSuccess:', data);
-      queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-line-items', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast({
         title: 'Success',
         description: `Quantity updated to ${data.quantity}`,

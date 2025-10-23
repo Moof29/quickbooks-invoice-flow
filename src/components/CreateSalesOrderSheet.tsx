@@ -163,9 +163,8 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       if (!customerId) return null;
 
       const yesterday = addDays(new Date(), -1);
-      // @ts-ignore - Temporarily bypass TS deep instantiation during migration
-      const invoiceQuery = await supabase
-        .from('invoice_record')
+      const { data: invoiceData, error: invoiceError } = await (supabase
+        .from('invoice_record') as any)
         .select('id')
         .eq('customer_id', customerId)
         .eq('order_date', format(yesterday, 'yyyy-MM-dd'))
@@ -173,17 +172,16 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
         .limit(1)
         .single();
 
-      if (invoiceQuery.error || !invoiceQuery.data) return null;
+      if (invoiceError || !invoiceData) return null;
 
-      // @ts-ignore
       const { data: lineItems, error: lineItemsError } = await supabase
         .from('invoice_line_item')
         .select('item_id, quantity, unit_price, description')
-        .eq('invoice_id', invoiceQuery.data.id);
+        .eq('invoice_id', invoiceData.id);
 
       if (lineItemsError) return null;
 
-      return { id: invoiceQuery.data.id, invoice_line_item: lineItems };
+      return { id: invoiceData.id, invoice_line_item: lineItems };
     },
     enabled: !!form.watch('customer_id'),
   });
@@ -201,11 +199,19 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
         throw new Error('At least one line item is required');
       }
 
+      // Generate invoice number
+      const { data: invoiceNumberData, error: invoiceNumberError } = await supabase
+        .rpc('get_next_invoice_number', { p_organization_id: profile.organization_id });
+      
+      if (invoiceNumberError) throw invoiceNumberError;
+      const invoiceNumber = invoiceNumberData as string;
+
       // Create draft invoice (order)
       const { data: salesOrder, error: orderError } = await supabase
         .from('invoice_record')
         .insert({
           organization_id: profile.organization_id,
+          invoice_number: invoiceNumber,
           customer_id: data.customer_id,
           order_date: data.order_date,
           delivery_date: data.delivery_date,
@@ -243,7 +249,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       return salesOrder;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast.success('Sales order created successfully');
       onOpenChange(false);
       form.reset();

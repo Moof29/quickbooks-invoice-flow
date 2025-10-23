@@ -128,7 +128,7 @@ export function ModernSalesOrdersList() {
 
   // Fetch orders with pagination
   const { data: ordersData, isLoading } = useQuery({
-    queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter, selectedDates, currentPage],
+    queryKey: ["invoices", organizationId, deliveryDateFilter, statusFilter, selectedDates, currentPage],
     queryFn: async () => {
       console.log('🔍 Fetching sales orders...');
       
@@ -219,7 +219,7 @@ export function ModernSalesOrdersList() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast({ title: "Order deleted successfully" });
       setDeleteOrderId(null);
     },
@@ -255,7 +255,7 @@ export function ModernSalesOrdersList() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast({
         title: "Order canceled",
         description: "A 'No Order Today' invoice has been created",
@@ -284,7 +284,7 @@ export function ModernSalesOrdersList() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast({ title: "Order reviewed successfully" });
     },
     onError: (error: any) => {
@@ -321,7 +321,7 @@ export function ModernSalesOrdersList() {
       return totalUpdated;
     },
     onSuccess: (count) => {
-      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       setSelectedOrders(new Set());
       toast({
         title: "Bulk review complete",
@@ -390,7 +390,7 @@ export function ModernSalesOrdersList() {
       };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       setSelectedOrders(new Set());
       
       if (result.invoiced > 0) {
