@@ -664,8 +664,19 @@ const Invoices = () => {
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2 w-full md:w-auto justify-center">
                   <span className="text-sm text-muted-foreground">Rows:</span>
-                  <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                    <SelectTrigger className="w-16">
+                  <Select 
+                    value={itemsPerPage === filteredInvoices.length ? "all" : String(itemsPerPage)} 
+                    onValueChange={(value) => {
+                      if (value === "all") {
+                        setItemsPerPage(filteredInvoices.length);
+                        setCurrentPage(1);
+                      } else {
+                        setItemsPerPage(Number(value));
+                        setCurrentPage(1);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-20">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -673,6 +684,7 @@ const Invoices = () => {
                       <SelectItem value="25">25</SelectItem>
                       <SelectItem value="50">50</SelectItem>
                       <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
                     </SelectContent>
                   </Select>
                   <span className="text-sm text-muted-foreground">
