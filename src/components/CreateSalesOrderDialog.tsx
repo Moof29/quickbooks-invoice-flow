@@ -223,7 +223,8 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
           memo: data.memo || null,
           message: data.message || null,
           terms: data.terms || null,
-          status: 'confirmed',
+          is_no_order: false, // This is a sales order, not a "No Order" invoice
+          status: 'draft', // New orders start as draft
         })
         .select()
         .single();

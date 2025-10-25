@@ -92,10 +92,10 @@ export default function NewSalesOrder() {
           invoice_number: invoiceNumber,
           order_date: orderDate,
           delivery_date: deliveryDate,
-          status: 'confirmed', // Manual orders are pre-verified
+          status: 'draft', // New orders start as draft
           subtotal,
           total: subtotal,
-          memo,
+          is_no_order: false, // This is a sales order, not a "No Order" invoice
         })
         .select()
         .single();

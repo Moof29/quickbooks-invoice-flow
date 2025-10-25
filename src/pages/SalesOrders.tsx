@@ -117,7 +117,7 @@ export default function SalesOrders() {
   const handleClearAllOrders = async () => {
     setIsClearing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('clear-sales-orders');
+      const { data, error } = await supabase.functions.invoke('clear-invoices');
       
       if (error) throw error;
       
