@@ -122,12 +122,17 @@ export default function SalesOrders() {
       if (error) throw error;
       
       toast.success(
-        `Cleared ${data.deleted.sales_orders} orders`
+        `Clearing started: ${data.deleted.invoices} invoices, ${data.deleted.line_items} line items. Refreshing...`
       );
       
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       
       setIsClearDialogOpen(false);
+      
+      // Wait 2 seconds before refreshing to allow background process
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error: any) {
       toast.error(`Failed to clear orders: ${error.message}`);
       console.error('Clear orders error:', error);

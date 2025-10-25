@@ -46,35 +46,35 @@ Deno.serve(async (req) => {
     // Delete in batches to avoid timeout
     let lineItemsCount = 0;
     let linksCount = 0;
-    let ordersCount = 0;
+    let invoicesCount = 0;
 
-    // Delete line items in batches of 500
+    // Delete invoice line items in batches of 500
     while (true) {
       const { data: batch, error: selectError } = await supabaseClient
-        .from('sales_order_line_item')
+        .from('invoice_line_item')
         .select('id')
         .eq('organization_id', organizationId)
         .limit(500);
 
       if (selectError) {
-        throw new Error(`Failed to fetch line items: ${selectError.message}`);
+        throw new Error(`Failed to fetch invoice line items: ${selectError.message}`);
       }
 
       if (!batch || batch.length === 0) break;
 
       const { error: deleteError } = await supabaseClient
-        .from('sales_order_line_item')
+        .from('invoice_line_item')
         .delete()
         .in('id', batch.map(item => item.id));
 
       if (deleteError) {
-        throw new Error(`Failed to delete line items batch: ${deleteError.message}`);
+        throw new Error(`Failed to delete invoice line items batch: ${deleteError.message}`);
       }
 
       lineItemsCount += batch.length;
     }
 
-    // Delete invoice links in batches of 500
+    // Delete sales order invoice links in batches of 500
     while (true) {
       const { data: batch, error: selectError } = await supabaseClient
         .from('sales_order_invoice_link')
@@ -100,41 +100,41 @@ Deno.serve(async (req) => {
       linksCount += batch.length;
     }
 
-    // Delete sales orders in batches of 500
+    // Delete invoices in batches of 500
     while (true) {
       const { data: batch, error: selectError } = await supabaseClient
-        .from('sales_order')
+        .from('invoice_record')
         .select('id')
         .eq('organization_id', organizationId)
         .limit(500);
 
       if (selectError) {
-        throw new Error(`Failed to fetch sales orders: ${selectError.message}`);
+        throw new Error(`Failed to fetch invoices: ${selectError.message}`);
       }
 
       if (!batch || batch.length === 0) break;
 
       const { error: deleteError } = await supabaseClient
-        .from('sales_order')
+        .from('invoice_record')
         .delete()
-        .in('id', batch.map(order => order.id));
+        .in('id', batch.map(invoice => invoice.id));
 
       if (deleteError) {
-        throw new Error(`Failed to delete sales orders batch: ${deleteError.message}`);
+        throw new Error(`Failed to delete invoices batch: ${deleteError.message}`);
       }
 
-      ordersCount += batch.length;
+      invoicesCount += batch.length;
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         deleted: {
-          sales_orders: ordersCount || 0,
+          invoices: invoicesCount || 0,
           line_items: lineItemsCount || 0,
           invoice_links: linksCount || 0,
         },
-        message: `Successfully cleared all sales orders for organization`,
+        message: `Successfully cleared all invoices for organization`,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

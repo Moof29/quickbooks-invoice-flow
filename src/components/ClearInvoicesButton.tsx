@@ -28,12 +28,14 @@ export function ClearInvoicesButton() {
 
       if (data?.success) {
         toast({
-          title: 'Invoices Cleared',
-          description: 'All invoices have been cleared and orders reset to reviewed status.',
+          title: 'Clearing Started',
+          description: 'Clearing invoices in background. Refresh the page in a few seconds to see results.',
         });
         
-        // Refresh the page to show updated data
-        window.location.reload();
+        // Wait 2 seconds before refreshing to allow background task to start
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       } else {
         throw new Error(data?.error || 'Failed to clear invoices');
       }
