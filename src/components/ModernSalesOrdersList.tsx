@@ -202,18 +202,18 @@ export function ModernSalesOrdersList() {
   const totalCount = ordersData?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Delete mutation (only for non-confirmed orders)
+  // Delete mutation (only for non-approved orders)
   const deleteMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      // Double-check order is not confirmed/delivered/paid
+      // Double-check order is not approved/sent/paid
       const { data: order } = await supabase
         .from("invoice_record")
         .select("status")
         .eq("id", orderId)
         .single();
       
-      if (order && ['confirmed', 'delivered', 'paid'].includes(order.status)) {
-        throw new Error("Cannot delete confirmed, delivered, or paid orders");
+      if (order && ['approved', 'sent', 'paid'].includes(order.status)) {
+        throw new Error("Cannot delete approved, sent, or paid orders");
       }
 
       const { error } = await supabase.from("invoice_record").delete().eq("id", orderId);
@@ -280,7 +280,7 @@ export function ModernSalesOrdersList() {
     mutationFn: async (orderId: string) => {
       const { error } = await supabase
         .from("invoice_record")
-        .update({ status: "confirmed", approved_at: new Date().toISOString() })
+        .update({ status: "approved", approved_at: new Date().toISOString() })
         .eq("id", orderId);
       if (error) throw error;
     },
@@ -338,7 +338,7 @@ export function ModernSalesOrdersList() {
       for (const chunk of chunks) {
         const { error } = await supabase
           .from("invoice_record")
-          .update({ status: "confirmed", approved_at: new Date().toISOString() })
+          .update({ status: "approved", approved_at: new Date().toISOString() })
           .in("id", chunk);
         if (error) throw error;
         totalUpdated += chunk.length;
@@ -383,7 +383,7 @@ export function ModernSalesOrdersList() {
 
       // Process each chunk
       for (const chunk of chunks) {
-        // Check which orders are confirmed/delivered/paid (old batch delete logic not yet updated)
+        // Check which orders are approved/sent/paid
         const { data: ordersToCheck, error: checkError } = await supabase
           .from("invoice_record")
           .select("id, status, invoice_number")
@@ -391,10 +391,10 @@ export function ModernSalesOrdersList() {
         
         if (checkError) throw checkError;
         
-        const confirmedOrders = (ordersToCheck || []).filter((o: any) => ['confirmed', 'delivered', 'paid'].includes(o.status));
-        const deletableOrders = (ordersToCheck || []).filter((o: any) => !['confirmed', 'delivered', 'paid'].includes(o.status));
+        const approvedOrders = (ordersToCheck || []).filter((o: any) => ['approved', 'sent', 'paid'].includes(o.status));
+        const deletableOrders = (ordersToCheck || []).filter((o: any) => !['approved', 'sent', 'paid'].includes(o.status));
         
-        // Delete non-confirmed orders
+        // Delete non-approved orders
         if (deletableOrders.length > 0) {
           const { error: deleteError } = await supabase
             .from("invoice_record")
@@ -405,8 +405,8 @@ export function ModernSalesOrdersList() {
           totalDeleted += deletableOrders.length;
         }
         
-        totalInvoiced += confirmedOrders.length;
-        allInvoicedOrderNumbers.push(...confirmedOrders.map((o: any) => o.invoice_number));
+        totalInvoiced += approvedOrders.length;
+        allInvoicedOrderNumbers.push(...approvedOrders.map((o: any) => o.invoice_number));
       }
       
       return {
@@ -460,7 +460,7 @@ export function ModernSalesOrdersList() {
       );
     }
     
-    const statusOrder = { 'draft': 1, 'confirmed': 2, 'delivered': 3, 'paid': 4 };
+    const statusOrder = { 'draft': 1, 'pending': 2, 'approved': 3, 'invoiced': 4, 'cancelled': 5 };
     
     // Sort logic depends on filter selection
     if (deliveryDateFilter === 'all') {
@@ -571,14 +571,14 @@ export function ModernSalesOrdersList() {
     setExpandedGroups(newExpanded);
   };
 
-  const reviewedCount = filteredOrders?.filter(o => o.status === "confirmed").length || 0;
+  const approvedCount = filteredOrders?.filter(o => o.status === "approved").length || 0;
 
   const getStatusBadge = (status: string) => {
     const variants = {
       draft: { variant: "secondary" as const, label: "Draft", icon: Clock, className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300" },
-      confirmed: { variant: "default" as const, label: "Confirmed", icon: CheckCircle2, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-      delivered: { variant: "outline" as const, label: "Open Invoice", icon: FileText, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
-      paid: { variant: "outline" as const, label: "Paid", icon: CheckCircle2, className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300" },
+      pending: { variant: "secondary" as const, label: "Pending", icon: Clock, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
+      approved: { variant: "default" as const, label: "Approved", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+      invoiced: { variant: "outline" as const, label: "Invoiced", icon: FileText, className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" },
       cancelled: { variant: "destructive" as const, label: "Cancelled", icon: XCircle, className: "" },
     };
     const config = variants[status as keyof typeof variants] || variants.draft;
@@ -641,7 +641,7 @@ export function ModernSalesOrdersList() {
       .from("invoice_record")
       .select("id, status")
       .eq("organization_id", organizationId)
-      .in("status", ["draft", "confirmed", "delivered"]); // Not paid/cancelled
+      .in("status", ["draft", "pending", "approved"]); // Not invoiced/paid/cancelled
 
     // Apply same filters as main query
     if (selectedDates.length > 0) {
@@ -793,8 +793,9 @@ export function ModernSalesOrdersList() {
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="invoiced">Invoiced</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
@@ -921,7 +922,7 @@ export function ModernSalesOrdersList() {
                   </CardTitle>
                    <p className="text-sm text-muted-foreground mt-1">
                     {filteredOrders.length} order(s)
-                    {reviewedCount > 0 && ` • ${reviewedCount} ready to invoice`}
+                    {approvedCount > 0 && ` • ${approvedCount} ready to invoice`}
                   </p>
                 </div>
               </div>
@@ -1056,7 +1057,7 @@ export function ModernSalesOrdersList() {
                           Confirm
                         </Button>
                       )}
-                      {order.status === "confirmed" && (
+                      {order.status === "approved" && (
                         <>
                           <Button
                             size="sm"
@@ -1110,8 +1111,8 @@ export function ModernSalesOrdersList() {
                         </>
                       )}
                       
-                      {/* Cancel Order Button (for draft/confirmed only) */}
-                      {(order.status === "draft" || order.status === "confirmed") && (
+                      {/* Cancel Order Button (for draft/pending/approved only) */}
+                      {['draft', 'pending', 'approved'].includes(order.status) && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1154,7 +1155,7 @@ export function ModernSalesOrdersList() {
                             </div>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {order.status !== 'draft' ? "Cannot delete confirmed orders" : "Delete order"}
+                            {order.status !== 'draft' ? "Cannot delete approved orders" : "Delete order"}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -1225,7 +1226,7 @@ export function ModernSalesOrdersList() {
                             Confirm
                           </Button>
                         )}
-                        {order.status === "confirmed" && (
+                        {order.status === "approved" && (
                           <>
                             <Button
                               size="sm"
@@ -1279,8 +1280,8 @@ export function ModernSalesOrdersList() {
                           </>
                         )}
                         
-                        {/* Cancel Order Button (for draft/confirmed only) */}
-                        {(order.status === "draft" || order.status === "confirmed") && (
+                        {/* Cancel Order Button (for draft/pending/approved only) */}
+                        {['draft', 'pending', 'approved'].includes(order.status) && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1322,7 +1323,7 @@ export function ModernSalesOrdersList() {
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {order.status !== 'draft' ? "Cannot delete confirmed orders" : "Delete order"}
+                              {order.status !== 'draft' ? "Cannot delete approved orders" : "Delete order"}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>

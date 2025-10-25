@@ -1,5 +1,5 @@
 // Unified Invoice/Order Types
-export type InvoiceStatus = 'draft' | 'confirmed' | 'delivered' | 'paid' | 'cancelled' | 'partial';
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled' | 'partial';
 export type ViewStatus = InvoiceStatus | 'all' | 'templates';
 
 export interface Invoice {
@@ -70,27 +70,27 @@ export interface InvoiceLineItem {
 
 export const InvoiceStatusLabels: Record<InvoiceStatus, string> = {
   draft: 'Draft',
-  confirmed: 'Confirmed',
-  delivered: 'Open Invoice',
+  sent: 'Sent',
   paid: 'Paid',
+  overdue: 'Overdue',
   cancelled: 'Cancelled',
   partial: 'Partially Paid'
 };
 
 export const InvoiceStatusColors: Record<InvoiceStatus, string> = {
   draft: 'bg-amber-100 text-amber-800',
-  confirmed: 'bg-blue-100 text-blue-800',
-  delivered: 'bg-green-100 text-green-800',
+  sent: 'bg-blue-100 text-blue-800',
   paid: 'bg-emerald-100 text-emerald-800',
-  cancelled: 'bg-red-100 text-red-800',
+  overdue: 'bg-red-100 text-red-800',
+  cancelled: 'bg-gray-100 text-gray-800',
   partial: 'bg-yellow-100 text-yellow-800'
 };
 
 export const InvoiceStatusVariants: Record<InvoiceStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   draft: 'secondary',
-  confirmed: 'default',
-  delivered: 'outline',
+  sent: 'default',
   paid: 'outline',
+  overdue: 'destructive',
   cancelled: 'destructive',
   partial: 'secondary'
 };

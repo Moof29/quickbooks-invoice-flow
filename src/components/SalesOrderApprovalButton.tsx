@@ -42,7 +42,7 @@ export function SalesOrderApprovalButton({
       const { error } = await supabase
         .from("invoice_record")
         .update({ 
-          status: "confirmed", 
+          status: "approved", 
           approved_at: new Date().toISOString(),
           approved_by: profile.id
         })
@@ -54,15 +54,15 @@ export function SalesOrderApprovalButton({
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice', salesOrderId] });
       toast({ 
-        title: 'Order confirmed',
-        description: 'This order is now confirmed and ready for delivery.'
+        title: 'Sales order approved',
+        description: 'This order is now approved and ready for delivery.'
       });
       setOpen(false);
       onApproval?.();
     },
     onError: (error: any) => {
       toast({ 
-        title: 'Failed to confirm order',
+        title: 'Failed to approve order',
         description: error.message,
         variant: 'destructive'
       });

@@ -398,8 +398,8 @@ export default function SalesOrderDetails() {
   // Delete order mutation
   const deleteOrderMutation = useMutation({
     mutationFn: async () => {
-      if (['confirmed', 'delivered', 'paid'].includes(order?.status || '')) {
-        throw new Error("Cannot delete confirmed orders");
+      if (['approved', 'sent', 'paid'].includes(order?.status || '')) {
+        throw new Error("Cannot delete approved orders");
       }
 
       const { error } = await supabase
@@ -497,12 +497,14 @@ export default function SalesOrderDetails() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
+      draft: { variant: "secondary" as const, label: "Draft", icon: Clock, className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300" },
       pending: { variant: "secondary" as const, label: "Pending", icon: Clock, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-      reviewed: { variant: "default" as const, label: "Reviewed", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+      approved: { variant: "default" as const, label: "Approved", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
       invoiced: { variant: "outline" as const, label: "Invoiced", icon: Lock, className: "text-muted-foreground" },
-      canceled: { variant: "destructive" as const, label: "Canceled", icon: XCircle, className: "" },
+      cancelled: { variant: "destructive" as const, label: "Cancelled", icon: XCircle, className: "" },
     };
-    const config = variants[status as keyof typeof variants] || variants.pending;
+    const config = variants[status as keyof typeof variants];
+    if (!config) return null;
     const Icon = config.icon;
     return (
       <Badge variant={config.variant} className={`gap-1 ${config.className}`}>
@@ -569,8 +571,8 @@ export default function SalesOrderDetails() {
             currentStatus={order.status}
           />
           
-          {/* Cancel Order Button (draft/confirmed only) */}
-          {(order.status === "draft" || order.status === "confirmed") && !(['confirmed', 'delivered', 'paid'].includes(order.status)) && (
+          {/* Cancel Order Button (all statuses except invoiced) */}
+          {order.status !== "invoiced" && (
             <Button
               variant="outline"
               onClick={() => setShowCancelDialog(true)}
@@ -581,7 +583,7 @@ export default function SalesOrderDetails() {
           )}
 
           {/* Delete Order Button */}
-          {!['confirmed', 'delivered', 'paid'].includes(order.status) ? (
+          {!['approved', 'sent', 'paid'].includes(order.status) ? (
             <Button
               variant="destructive"
               onClick={() => setShowDeleteDialog(true)}
@@ -593,18 +595,18 @@ export default function SalesOrderDetails() {
         </div>
       </div>
 
-      {/* Confirmed Warning Banner */}
-      {['confirmed', 'delivered', 'paid'].includes(order.status) && (
+      {/* Approved Warning Banner */}
+      {['approved', 'sent', 'paid'].includes(order.status) && (
         <Alert>
           <Lock className="h-4 w-4" />
           <AlertDescription>
-            This order is confirmed. Handle corrections in the Invoice module.
+            This order is approved. Handle corrections in the Invoice module.
           </AlertDescription>
         </Alert>
       )}
 
       {/* Duplicate Order Warning Banner */}
-      {duplicateWarning && !['confirmed', 'delivered', 'paid'].includes(order.status) && (
+      {duplicateWarning && !['approved', 'sent', 'paid'].includes(order.status) && (
         <Alert className="border-yellow-300 bg-yellow-50 text-yellow-800">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -670,7 +672,7 @@ export default function SalesOrderDetails() {
                 Click on quantity to edit. Changes are saved automatically.
               </CardDescription>
             </div>
-            {!['confirmed', 'delivered', 'paid'].includes(order.status) && (
+            {!['approved', 'sent', 'paid'].includes(order.status) && (
               <Button size="sm" onClick={() => setAddingItem(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
@@ -689,7 +691,7 @@ export default function SalesOrderDetails() {
                 <TableHead>Item</TableHead>
                 <TableHead className="w-[120px] text-right">Unit Price</TableHead>
                 <TableHead className="w-[120px] text-right">Amount</TableHead>
-                {!['confirmed', 'delivered', 'paid'].includes(order.status) && <TableHead className="w-[80px]"></TableHead>}
+                {!['approved', 'sent', 'paid'].includes(order.status) && <TableHead className="w-[80px]"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -703,7 +705,7 @@ export default function SalesOrderDetails() {
                       onBlur={() => handleQuantityBlur(item.id, item.quantity)}
                       onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
                       className="w-16 h-9 text-center border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      disabled={['confirmed', 'delivered', 'paid'].includes(order.status)}
+                      disabled={['approved', 'sent', 'paid'].includes(order.status)}
                       tabIndex={index + 1}
                     />
                   </TableCell>
@@ -721,7 +723,7 @@ export default function SalesOrderDetails() {
                   <TableCell className="text-right">
                     <span className="font-mono font-semibold">${item.amount.toFixed(2)}</span>
                   </TableCell>
-                  {!['confirmed', 'delivered', 'paid'].includes(order.status) && (
+                  {!['approved', 'sent', 'paid'].includes(order.status) && (
                     <TableCell className="text-center">
                       <Button
                         variant="ghost"
