@@ -17,7 +17,6 @@ import {
   Lock,
   Ban,
   ChevronDown,
-  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -297,30 +296,6 @@ export function ModernSalesOrdersList() {
     },
   });
 
-  // Mark as delivered mutation
-  const markDeliveredMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      const { error } = await supabase
-        .from("invoice_record")
-        .update({ 
-          status: "delivered",
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", orderId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      toast({ title: "Order marked as delivered" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error marking order as delivered",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   // Batch review mutation
   const batchReviewMutation = useMutation({
@@ -1085,31 +1060,11 @@ export function ModernSalesOrdersList() {
                               }
                             }}
                           >
-                            <FileText className="h-4 w-4 mr-1" />
-                            Invoice
-                          </Button>
-                          
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    markDeliveredMutation.mutate(order.id);
-                                  }}
-                                  disabled={markDeliveredMutation.isPending}
-                                >
-                                  <Truck className="h-4 w-4 mr-1" />
-                                  Deliver
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Mark order as delivered</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </>
-                      )}
+                          <FileText className="h-4 w-4 mr-1" />
+                          Invoice
+                        </Button>
+                      </>
+                    )}
                       
                       {/* Cancel Order Button (for draft/pending/approved only) */}
                       {['draft', 'pending', 'approved'].includes(order.status) && (
@@ -1254,31 +1209,11 @@ export function ModernSalesOrdersList() {
                                 }
                               }}
                             >
-                              <FileText className="h-4 w-4 mr-1" />
-                              Invoice
-                            </Button>
-                            
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      markDeliveredMutation.mutate(order.id);
-                                    }}
-                                    disabled={markDeliveredMutation.isPending}
-                                  >
-                                    <Truck className="h-4 w-4 mr-1" />
-                                    Deliver
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Mark order as delivered</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </>
-                        )}
+                            <FileText className="h-4 w-4 mr-1" />
+                            Invoice
+                          </Button>
+                        </>
+                      )}
                         
                         {/* Cancel Order Button (for draft/pending/approved only) */}
                         {['draft', 'pending', 'approved'].includes(order.status) && (

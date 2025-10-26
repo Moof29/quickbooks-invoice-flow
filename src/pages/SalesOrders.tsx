@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, CheckCircle2, Truck, DollarSign } from "lucide-react";
+import { Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { CustomerTemplates } from "@/components/CustomerTemplates";
 import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
 import { GenerateTemplateTestDataButton } from "@/components/GenerateTemplateTestDataButton";
@@ -33,7 +33,7 @@ export default function SalesOrders() {
   const { organization, user } = useAuthProfile();
   const queryClient = useQueryClient();
   
-  const [selectedStatus, setSelectedStatus] = useState<'draft' | 'confirmed' | 'delivered' | 'paid' | 'cancelled' | 'partial' | 'all' | 'templates'>('draft');
+  const [selectedStatus, setSelectedStatus] = useState<'draft' | 'pending' | 'approved' | 'invoiced' | 'cancelled' | 'all' | 'templates'>('draft');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -98,20 +98,12 @@ export default function SalesOrders() {
     }
   });
 
-  const handleBulkConfirm = () => {
+  const handleBulkApprove = () => {
     if (selectedIds.length === 0) {
-      toast.error('Please select orders to confirm');
+      toast.error('Please select orders to approve');
       return;
     }
-    bulkUpdateMutation.mutate({ invoiceIds: selectedIds, newStatus: 'confirmed' });
-  };
-
-  const handleBulkDeliver = () => {
-    if (selectedIds.length === 0) {
-      toast.error('Please select orders to mark as delivered');
-      return;
-    }
-    bulkUpdateMutation.mutate({ invoiceIds: selectedIds, newStatus: 'delivered' });
+    bulkUpdateMutation.mutate({ invoiceIds: selectedIds, newStatus: 'approved' });
   };
 
   const handleClearAllOrders = async () => {
@@ -197,11 +189,12 @@ export default function SalesOrders() {
         </div>
 
         <Tabs value={selectedStatus} onValueChange={(v) => setSelectedStatus(v as any)} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 lg:max-w-3xl">
+          <TabsList className="grid w-full grid-cols-7 lg:max-w-4xl">
             <TabsTrigger value="draft">Draft</TabsTrigger>
-            <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-            <TabsTrigger value="delivered">Delivered</TabsTrigger>
-            <TabsTrigger value="paid">Paid</TabsTrigger>
+            <TabsTrigger value="pending">Pending</TabsTrigger>
+            <TabsTrigger value="approved">Approved</TabsTrigger>
+            <TabsTrigger value="invoiced">Invoiced</TabsTrigger>
+            <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
           </TabsList>
@@ -217,22 +210,12 @@ export default function SalesOrders() {
                       <div className="flex gap-2">
                         {selectedStatus === 'draft' && (
                           <Button 
-                            onClick={handleBulkConfirm} 
+                            onClick={handleBulkApprove} 
                             size="sm"
                             disabled={bulkUpdateMutation.isPending}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Confirm ({selectedIds.length})
-                          </Button>
-                        )}
-                        {selectedStatus === 'confirmed' && (
-                          <Button 
-                            onClick={handleBulkDeliver} 
-                            size="sm"
-                            disabled={bulkUpdateMutation.isPending}
-                          >
-                            <Truck className="h-4 w-4 mr-2" />
-                            Mark Delivered ({selectedIds.length})
+                            Approve ({selectedIds.length})
                           </Button>
                         )}
                         <Button 
