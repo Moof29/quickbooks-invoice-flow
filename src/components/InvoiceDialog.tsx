@@ -147,6 +147,13 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
 
       const total = calculateTotal();
       
+      // Get current user for audit trail
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
       // Create invoice
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoice_record')
@@ -158,6 +165,9 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
           due_date: formData.due_date || null,
           subtotal: total,
           total: total,
+          amount_paid: 0,
+          amount_due: total,
+          created_by: user.id,
           memo: formData.memo || null,
           terms: formData.terms || null,
           status: 'draft'

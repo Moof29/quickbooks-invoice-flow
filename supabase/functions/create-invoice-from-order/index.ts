@@ -213,6 +213,9 @@ Deno.serve(async (req) => {
         subtotal: order.subtotal,
         tax_total: order.tax_total || 0,
         total: order.total,
+        amount_paid: 0, // New invoices start with no payments
+        amount_due: order.total, // Full total is initially due
+        created_by: createdBy, // Audit trail
         status: 'draft', // Valid status: draft, sent, paid, partial, void, overdue
         source_system: 'ERP',
         memo: `Generated from Sales Order ${order.order_number}`,

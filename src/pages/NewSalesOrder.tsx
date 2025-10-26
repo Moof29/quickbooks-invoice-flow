@@ -83,6 +83,13 @@ export default function NewSalesOrder() {
 
       if (rpcError) throw rpcError;
 
+      // Get current user for audit trail
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       // Create invoice (unified sales order/invoice)
       const { data: order, error: orderError } = await supabase
         .from('invoice_record')
@@ -95,7 +102,11 @@ export default function NewSalesOrder() {
           status: 'draft', // New orders start as draft
           subtotal,
           total: subtotal,
+          amount_paid: 0, // New orders start with no payments
+          amount_due: subtotal, // Full total is initially due
+          created_by: user.id, // Audit trail
           is_no_order: false, // This is a sales order, not a "No Order" invoice
+          memo,
         })
         .select()
         .single();

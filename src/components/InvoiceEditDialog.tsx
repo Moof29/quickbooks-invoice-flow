@@ -295,7 +295,24 @@ export const InvoiceEditDialog = ({
 
       const calculatedTotal = lineItemsData?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
 
-      // STEP 5: Update invoice header with calculated totals
+      // Get current user for audit trail
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // STEP 5: Get current payment info to recalculate amount_due
+      const { data: currentInvoice } = await supabase
+        .from('invoice_record')
+        .select('amount_paid')
+        .eq('id', invoiceId)
+        .single();
+
+      const amountPaid = currentInvoice?.amount_paid || 0;
+      const amountDue = calculatedTotal - amountPaid;
+
+      // STEP 6: Update invoice header with calculated totals and payment tracking
       const { error: invoiceError } = await supabase
         .from('invoice_record')
         .update({
@@ -305,6 +322,8 @@ export const InvoiceEditDialog = ({
           memo: formData.memo || null,
           subtotal: calculatedTotal,
           total: calculatedTotal,
+          amount_due: amountDue,
+          updated_by: user.id,
           updated_at: new Date().toISOString(),
         })
         .eq('id', invoiceId);

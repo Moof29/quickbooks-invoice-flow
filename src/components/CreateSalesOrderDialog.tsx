@@ -206,6 +206,16 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
       if (invoiceNumberError) throw invoiceNumberError;
       const invoiceNumber = invoiceNumberData as string;
 
+      // Get current user for audit trail
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Calculate subtotal for initial amount_due
+      const subtotal = validLineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+
       // Create draft invoice (order)
       const { data: salesOrder, error: orderError } = await supabase
         .from('invoice_record')
@@ -225,6 +235,9 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
           terms: data.terms || null,
           is_no_order: false, // This is a sales order, not a "No Order" invoice
           status: 'draft', // New orders start as draft
+          amount_paid: 0, // New orders start with no payments
+          amount_due: subtotal, // Full subtotal is initially due
+          created_by: user.id, // Audit trail
         })
         .select()
         .single();
