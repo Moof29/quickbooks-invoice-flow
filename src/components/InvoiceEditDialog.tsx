@@ -224,6 +224,46 @@ export const InvoiceEditDialog = ({
     setLoading(true);
 
     try {
+      // Validate date order
+      if (formData.due_date && formData.due_date < formData.invoice_date) {
+        toast({
+          title: 'Validation Error',
+          description: 'Due date cannot be before invoice date',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Validate that at least one line item exists (excluding template items with 0 qty)
+      const validItems = lineItems.filter(item => 
+        item.description.trim() !== '' && 
+        item.quantity > 0 && 
+        !item.isTemplate
+      );
+      if (validItems.length === 0) {
+        toast({
+          title: 'Validation Error',
+          description: 'Please add at least one line item with quantity greater than 0',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Validate that all non-template items have positive quantities and prices
+      const invalidItem = validItems.find(item => 
+        !item.quantity || item.quantity <= 0 || !item.unit_price || item.unit_price <= 0
+      );
+      if (invalidItem) {
+        toast({
+          title: 'Validation Error',
+          description: 'All line items must have quantity and price greater than 0',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
       // Get existing line item IDs
       const existingIds = initialLineItems.map(item => item.id);
       const currentIds = lineItems.filter(item => !item.isNew).map(item => item.id);

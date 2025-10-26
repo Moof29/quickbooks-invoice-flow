@@ -132,6 +132,43 @@ export const InvoiceDialog = ({ open, onOpenChange, onSuccess }: InvoiceDialogPr
         throw new Error('No organization found for user');
       }
 
+      // Validate date order
+      if (formData.due_date && formData.due_date < formData.invoice_date) {
+        toast({
+          title: 'Validation Error',
+          description: 'Due date cannot be before invoice date',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Validate that at least one line item exists
+      const validItems = lineItems.filter(item => item.description.trim() !== '');
+      if (validItems.length === 0) {
+        toast({
+          title: 'Validation Error',
+          description: 'Please add at least one line item',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Validate that all items have positive quantities and prices
+      const invalidItem = validItems.find(item => 
+        !item.quantity || item.quantity <= 0 || !item.unit_price || item.unit_price <= 0
+      );
+      if (invalidItem) {
+        toast({
+          title: 'Validation Error',
+          description: 'All line items must have quantity and price greater than 0',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
       // Generate invoice number (simple increment-based)
       const { data: lastInvoice } = await supabase
         .from('invoice_record')

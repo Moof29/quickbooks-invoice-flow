@@ -830,10 +830,10 @@ export default function InvoiceDetailsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={async () => {
-                            if (!newItem.item_id || !newItem.quantity || !newItem.unit_price) {
+                            if (!newItem.item_id || !newItem.quantity || parseFloat(newItem.quantity) <= 0 || !newItem.unit_price || parseFloat(newItem.unit_price) <= 0) {
                               toast({
                                 title: 'Error',
-                                description: 'Please select an item, enter quantity and price',
+                                description: 'Please select an item and enter quantity and price greater than 0',
                                 variant: 'destructive',
                               });
                               return;
