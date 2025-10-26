@@ -30,6 +30,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   Plus,
   Eye,
@@ -82,6 +92,8 @@ const Invoices = () => {
     status: [] as string[],
     customer: [] as string[],
   });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -256,30 +268,33 @@ const Invoices = () => {
     }
   };
 
-  const handleDeleteInvoice = async (invoiceId: string) => {
-    if (!confirm('Are you sure you want to delete this invoice?')) return;
+  const handleDeleteInvoice = async () => {
+    if (!invoiceToDelete) return;
 
     try {
       const { error } = await supabase
         .from('invoice_record')
         .delete()
-        .eq('id', invoiceId);
+        .eq('id', invoiceToDelete);
 
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Invoice deleted successfully",
+        title: 'Success',
+        description: 'Invoice deleted successfully',
       });
 
       loadInvoices();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting invoice:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete invoice",
-        variant: "destructive",
+        title: 'Error',
+        description: error.message || 'Failed to delete invoice',
+        variant: 'destructive',
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setInvoiceToDelete(null);
     }
   };
 
@@ -745,6 +760,24 @@ const Invoices = () => {
           onOpenChange={setShowPreviewDialog}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this invoice? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setInvoiceToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteInvoice} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -35,7 +35,6 @@ import {
 import {
   ArrowLeft,
   Download,
-  Send,
   Edit,
   Trash2,
   CheckCircle,
@@ -525,10 +524,6 @@ export default function InvoiceDetailsPage() {
           <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
             <Download className="h-4 w-4 mr-2" />
             Download PDF
-          </Button>
-          <Button variant="outline" size="sm">
-            <Send className="h-4 w-4 mr-2" />
-            Send Email
           </Button>
           {invoice.status?.toLowerCase() !== 'paid' && (
             <Button variant="outline" size="sm" onClick={handleMarkAsPaid}>

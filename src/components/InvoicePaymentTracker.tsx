@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Trash2, DollarSign, CreditCard, Banknote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +40,8 @@ export const InvoicePaymentTracker = ({
 }: InvoicePaymentTrackerProps) => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     payment_date: new Date().toISOString().split('T')[0],
@@ -121,14 +124,14 @@ export const InvoicePaymentTracker = ({
     }
   };
 
-  const handleDeletePayment = async (paymentId: string) => {
-    if (!confirm('Are you sure you want to delete this payment record?')) return;
+  const handleDeletePayment = async () => {
+    if (!paymentToDelete) return;
 
     try {
       const { error } = await supabase
         .from('invoice_payment')
         .delete()
-        .eq('id', paymentId);
+        .eq('id', paymentToDelete);
 
       if (error) throw error;
 
@@ -143,9 +146,12 @@ export const InvoicePaymentTracker = ({
       console.error('Error deleting payment:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete payment',
+        description: error.message || 'Failed to delete payment',
         variant: 'destructive',
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setPaymentToDelete(null);
     }
   };
 
@@ -258,7 +264,10 @@ export const InvoicePaymentTracker = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeletePayment(payment.id)}
+                            onClick={() => {
+                              setPaymentToDelete(payment.id);
+                              setDeleteDialogOpen(true);
+                            }}
                             className="h-8 w-8 p-0"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -376,6 +385,24 @@ export const InvoicePaymentTracker = ({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this payment record? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPaymentToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePayment} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
