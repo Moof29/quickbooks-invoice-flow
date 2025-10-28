@@ -140,9 +140,9 @@ export default function SalesOrders() {
         {/* Header */}
         <div className="flex flex-col gap-3">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Orders & Invoices</h1>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Orders</h1>
             <p className="text-sm md:text-base text-muted-foreground mt-1">
-              Unified order and invoice management
+              Create and manage sales orders
             </p>
           </div>
           
