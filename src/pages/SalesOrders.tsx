@@ -265,7 +265,9 @@ export default function SalesOrders() {
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-lg">{invoice.customer_profile?.name}</span>
+                              <span className="font-semibold text-lg">
+                                {invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'Unknown Customer'}
+                              </span>
                               <Badge className={InvoiceStatusColors[invoice.status]}>
                                 {InvoiceStatusLabels[invoice.status]}
                               </Badge>
