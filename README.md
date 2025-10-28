@@ -17,6 +17,10 @@
 - **[INTERNAL_LAUNCH.md](./INTERNAL_LAUNCH.md)** - Complete internal launch plan (5 days)
 - **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Daily workflow cheat sheet
 
+### For QuickBooks Integration:
+- **[QBO_SYNC_STRATEGY.md](./QBO_SYNC_STRATEGY.md)** - Complete sync strategy (Batchly = operations, QB = financials only)
+- **[QBO_IMPLEMENTATION_ROADMAP.md](./QBO_IMPLEMENTATION_ROADMAP.md)** - Implementation tasks, timeline, code examples
+
 ### For External Launch (Future):
 - **[PRD.md](./PRD.md)** - Full Product Requirements Document
 - **[PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md)** - Comprehensive production readiness checklist

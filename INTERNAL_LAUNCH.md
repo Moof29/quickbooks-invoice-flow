@@ -284,6 +284,70 @@ This is a **radically simplified** launch plan focused on getting Batchly workin
 
 ---
 
+## QuickBooks Sync Status & Expectations
+
+### What Works Now ✅
+- **OAuth Connection** (100%) - You can connect to QuickBooks
+- **Customer Sync TO QB** (70%) - Customers sync from Batchly → QuickBooks
+- **Item Sync FROM QB** (80%) - Items pull from QuickBooks → Batchly
+- **Database Infrastructure** (90%) - All tables and security in place
+
+### What's Missing ⚠️
+- **Invoice Sync TO QB** (0%) - CRITICAL - Not implemented yet
+- **Payment Sync FROM QB** (0%) - CRITICAL - Not implemented yet
+- **Automatic Sync Processing** (0%) - No background worker yet
+- **Scheduled Syncs** (0%) - No daily/weekly automation
+
+### Impact on Your Internal Launch
+
+**Can you launch without complete QB sync?** YES, with caveats:
+
+**Option 1: Launch WITHOUT full QB sync (Faster)**
+```
+Timeline: 1-5 days
+Process:
+  1. Use Batchly for orders and invoices
+  2. Manually create invoices in QuickBooks (old way)
+  3. Track dual entry pain points
+  4. Build QB sync in parallel (2-3 weeks)
+  5. Switch to automatic sync when ready
+
+Pros: Launch immediately, test Batchly workflows
+Cons: Still doing dual entry (defeats main purpose)
+```
+
+**Option 2: Wait for Invoice Sync (Recommended)**
+```
+Timeline: 1-2 weeks + internal launch
+Process:
+  1. Complete Phase 1 of QBO_IMPLEMENTATION_ROADMAP.md (1 week)
+     - Invoice sync to QB (2-3 days)
+     - Sync queue processor (1-2 days)
+     - Payment sync from QB (1-2 days)
+  2. Test with sample data (2-3 days)
+  3. Launch internally with automatic sync
+  4. Never touch QuickBooks for operations
+
+Pros: Full automation from day 1, maximum time savings
+Cons: 1-2 week delay before launch
+```
+
+### Our Recommendation
+
+**For maximum value: Option 2 (wait 1-2 weeks)**
+
+**Why:**
+- The whole point is to NOT use QuickBooks for operations
+- Invoice sync is the #1 time-saver (2-3 hours/day)
+- 1-2 weeks to build is worth it vs. months of dual entry
+- You can test Batchly in dev environment while building sync
+
+**See detailed implementation plan:**
+- **[QBO_SYNC_STRATEGY.md](./QBO_SYNC_STRATEGY.md)** - Complete sync strategy (one-way flows, never touch QB for operations)
+- **[QBO_IMPLEMENTATION_ROADMAP.md](./QBO_IMPLEMENTATION_ROADMAP.md)** - Exact tasks, timeline, code examples
+
+---
+
 ## What to Skip (For Now)
 
 ### Skip Entirely for Internal Launch:
