@@ -265,7 +265,7 @@ export default function SalesOrders() {
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold">{invoice.invoice_number}</span>
+                              <span className="font-semibold text-lg">{invoice.customer_profile?.name}</span>
                               <Badge className={InvoiceStatusColors[invoice.status]}>
                                 {InvoiceStatusLabels[invoice.status]}
                               </Badge>
@@ -273,9 +273,11 @@ export default function SalesOrders() {
                                 <Badge variant="outline" className="bg-gray-100">NO ORDER</Badge>
                               )}
                             </div>
-                            <div className="text-sm text-muted-foreground mt-1">
-                              {invoice.customer_profile?.name} • 
-                              Delivery: {invoice.delivery_date ? format(new Date(invoice.delivery_date), 'MMM dd, yyyy') : 'N/A'}
+                            <div className="text-sm mt-1 space-x-2">
+                              <span className="font-medium">
+                                Delivery: {invoice.delivery_date ? format(new Date(invoice.delivery_date), 'MMM dd, yyyy') : 'N/A'}
+                              </span>
+                              <span className="text-muted-foreground">• {invoice.invoice_number}</span>
                             </div>
                           </div>
                           
