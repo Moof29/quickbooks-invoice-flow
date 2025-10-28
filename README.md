@@ -1,4 +1,43 @@
-# Welcome to your Lovable project
+# Batchly - B2B Order & Invoice Management System
+
+**Batchly** is an ERP platform for wholesale and distribution businesses that automates order-to-invoice workflows with QuickBooks Online integration.
+
+## 🚀 Quick Start (Internal Launch)
+
+**Want to deploy for your business TODAY?** → See [DEPLOY_NOW.md](./DEPLOY_NOW.md) (3-4 hours)
+
+**Want to understand the full plan?** → See [INTERNAL_LAUNCH.md](./INTERNAL_LAUNCH.md) (1 week timeline)
+
+**Need a daily reference guide?** → See [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) (print this!)
+
+## 📚 Documentation
+
+### For Internal Deployment:
+- **[DEPLOY_NOW.md](./DEPLOY_NOW.md)** - Deploy in 1 day (absolute minimum)
+- **[INTERNAL_LAUNCH.md](./INTERNAL_LAUNCH.md)** - Complete internal launch plan (5 days)
+- **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Daily workflow cheat sheet
+
+### For External Launch (Future):
+- **[PRD.md](./PRD.md)** - Full Product Requirements Document
+- **[PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md)** - Comprehensive production readiness checklist
+- **[GAP_ANALYSIS.md](./GAP_ANALYSIS.md)** - Gap analysis and timeline to external launch
+
+## 🎯 Core Features
+
+- **Automated Order Generation** - Create bulk orders from customer templates with day-of-week rules
+- **Batch Invoice Processing** - Convert 500+ orders to invoices in minutes
+- **QuickBooks Integration** - Bi-directional sync of customers, items, and invoices
+- **Customer Portal** - Self-service portal for customers to view orders and invoices
+- **Real-time Analytics** - Dashboard with revenue trends and sales metrics
+
+## 🛠️ Tech Stack
+
+- **Frontend:** React 18 + TypeScript + Vite
+- **UI:** shadcn/ui (Radix UI + Tailwind CSS)
+- **Backend:** Supabase (PostgreSQL + Auth + Edge Functions)
+- **Integration:** QuickBooks Online API
+- **State:** TanStack Query (React Query)
+- **PDF:** react-pdf/renderer
 
 ## Project info
 
