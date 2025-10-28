@@ -277,7 +277,7 @@ export default function SalesOrders() {
                             </div>
                             <div className="text-sm mt-1 space-x-2">
                               <span className="font-medium">
-                                Delivery: {invoice.delivery_date ? format(new Date(invoice.delivery_date), 'MMM dd, yyyy') : 'N/A'}
+                                Delivery: {invoice.delivery_date ? format(new Date(invoice.delivery_date), 'EEE, MMM dd, yyyy') : 'N/A'}
                               </span>
                               <span className="text-muted-foreground">• {invoice.invoice_number}</span>
                             </div>
