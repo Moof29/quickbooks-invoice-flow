@@ -104,8 +104,8 @@ export function GenerateDailyOrdersButton() {
       const targetDates = selectedDates.map(d => format(d, "yyyy-MM-dd"));
       
       let query = (supabase as any)
-        .from("invoice_record")
-        .select("customer_id, invoice_number, status, delivery_date")
+        .from("sales_order")
+        .select("customer_id, order_number, status, delivery_date")
         .eq("organization_id", organizationId)
         .in("delivery_date", targetDates);
 
@@ -192,7 +192,7 @@ export function GenerateDailyOrdersButton() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       
       const { orders_created, errors } = data;
       

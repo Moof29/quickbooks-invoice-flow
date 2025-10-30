@@ -67,16 +67,15 @@ import { Label } from "@/components/ui/label";
 
 interface SalesOrder {
   id: string;
-  invoice_number: string;
+  order_number: string;
   order_date: string;
   delivery_date: string;
   status: string;
   total: number;
-  is_no_order: boolean;
   customer_profile: {
     company_name: string;
   };
-  invoice_line_item: { count: number }[];
+  sales_order_line_item: { count: number }[];
 }
 
 export function ModernSalesOrdersList() {
@@ -128,7 +127,7 @@ export function ModernSalesOrdersList() {
 
   // Fetch orders with pagination
   const { data: ordersData, isLoading } = useQuery({
-    queryKey: ["invoices", organizationId, deliveryDateFilter, statusFilter, selectedDates, currentPage],
+    queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter, selectedDates, currentPage],
     queryFn: async () => {
       console.log('🔍 Fetching sales orders...');
       
@@ -138,7 +137,7 @@ export function ModernSalesOrdersList() {
       
       // Build base query - explicit any to avoid TS deep instantiation
       let query: any = supabase
-        .from("invoice_record")
+        .from("sales_order")
         .select('*', { count: 'exact' })
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false })
@@ -179,14 +178,14 @@ export function ModernSalesOrdersList() {
             .single();
           
           const { count: itemCount } = await supabase
-            .from('invoice_line_item')
+            .from('sales_order_line_item')
             .select('*', { count: 'exact', head: true })
-            .eq('invoice_id', order.id);
+            .eq('sales_order_id', order.id);
 
           return {
             ...order,
             customer_profile: { company_name: customer?.company_name || 'Unknown' },
-            invoice_line_item: [{ count: itemCount || 0 }]
+            sales_order_line_item: [{ count: itemCount || 0 }]
           };
         })
       );
@@ -206,20 +205,20 @@ export function ModernSalesOrdersList() {
     mutationFn: async (orderId: string) => {
       // Double-check order is not approved/sent/paid
       const { data: order } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .select("status")
         .eq("id", orderId)
         .single();
       
-      if (order && ['approved', 'sent', 'paid'].includes(order.status)) {
-        throw new Error("Cannot delete approved, sent, or paid orders");
+      if (order && ['approved', 'invoiced', 'cancelled'].includes(order.status)) {
+        throw new Error("Cannot delete invoiced or cancelled orders");
       }
 
-      const { error } = await supabase.from("invoice_record").delete().eq("id", orderId);
+      const { error } = await supabase.from("sales_order").delete().eq("id", orderId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({ title: "Order deleted successfully" });
       setDeleteOrderId(null);
     },
@@ -237,7 +236,7 @@ export function ModernSalesOrdersList() {
     mutationFn: async (orderId: string) => {
       // First update order status to canceled
       const { error: updateError } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .update({ status: "cancelled" })
         .eq("id", orderId);
       
@@ -255,7 +254,7 @@ export function ModernSalesOrdersList() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({
         title: "Order canceled",
         description: "A 'No Order Today' invoice has been created",
@@ -278,13 +277,13 @@ export function ModernSalesOrdersList() {
   const reviewMutation = useMutation({
     mutationFn: async (orderId: string) => {
       const { error } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .update({ status: "approved", approved_at: new Date().toISOString() })
         .eq("id", orderId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({ title: "Order reviewed successfully" });
     },
     onError: (error: any) => {
@@ -312,7 +311,7 @@ export function ModernSalesOrdersList() {
       // Process each chunk
       for (const chunk of chunks) {
         const { error } = await supabase
-          .from("invoice_record")
+          .from("sales_order")
           .update({ status: "approved", approved_at: new Date().toISOString() })
           .in("id", chunk);
         if (error) throw error;
@@ -322,7 +321,7 @@ export function ModernSalesOrdersList() {
       return totalUpdated;
     },
     onSuccess: (count) => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       setSelectedOrders(new Set());
       toast({
         title: "Bulk review complete",
@@ -358,21 +357,21 @@ export function ModernSalesOrdersList() {
 
       // Process each chunk
       for (const chunk of chunks) {
-        // Check which orders are approved/sent/paid
+        // Check which orders are invoiced/cancelled
         const { data: ordersToCheck, error: checkError } = await supabase
-          .from("invoice_record")
-          .select("id, status, invoice_number")
+          .from("sales_order")
+          .select("id, status, order_number")
           .in("id", chunk);
         
         if (checkError) throw checkError;
         
-        const approvedOrders = (ordersToCheck || []).filter((o: any) => ['approved', 'sent', 'paid'].includes(o.status));
-        const deletableOrders = (ordersToCheck || []).filter((o: any) => !['approved', 'sent', 'paid'].includes(o.status));
+        const invoicedOrders = (ordersToCheck || []).filter((o: any) => ['invoiced', 'cancelled'].includes(o.status));
+        const deletableOrders = (ordersToCheck || []).filter((o: any) => !['invoiced', 'cancelled'].includes(o.status));
         
-        // Delete non-approved orders
+        // Delete non-invoiced orders
         if (deletableOrders.length > 0) {
           const { error: deleteError } = await supabase
-            .from("invoice_record")
+            .from("sales_order")
             .delete()
             .in("id", deletableOrders.map((o: any) => o.id));
           
@@ -380,8 +379,8 @@ export function ModernSalesOrdersList() {
           totalDeleted += deletableOrders.length;
         }
         
-        totalInvoiced += approvedOrders.length;
-        allInvoicedOrderNumbers.push(...approvedOrders.map((o: any) => o.invoice_number));
+        totalInvoiced += invoicedOrders.length;
+        allInvoicedOrderNumbers.push(...invoicedOrders.map((o: any) => o.order_number));
       }
       
       return {
@@ -391,7 +390,7 @@ export function ModernSalesOrdersList() {
       };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       setSelectedOrders(new Set());
       
       if (result.invoiced > 0) {
@@ -429,7 +428,7 @@ export function ModernSalesOrdersList() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = orders.filter(order => 
-        order.invoice_number?.toLowerCase().includes(query) ||
+        order.order_number?.toLowerCase().includes(query) ||
         order.customer_profile?.company_name?.toLowerCase().includes(query) ||
         order.total?.toString().includes(query)
       );
@@ -1002,16 +1001,10 @@ export function ModernSalesOrdersList() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-semibold text-base">{order.customer_profile.company_name}</span>
-                          {order.is_no_order && (
-                            <Badge variant="outline" className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700">
-                              <AlertCircle className="h-3 w-3" />
-                              No Order Today
-                            </Badge>
-                          )}
                           {getStatusBadge(order.status)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {order.invoice_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.invoice_line_item?.[0]?.count || 0} items • $
+                          {order.order_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.sales_order_line_item?.[0]?.count || 0} items • $
                           {order.total.toFixed(2)}
                         </div>
                       </div>
@@ -1151,16 +1144,10 @@ export function ModernSalesOrdersList() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-semibold text-base">{order.customer_profile.company_name}</span>
-                            {order.is_no_order && (
-                              <Badge variant="outline" className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700">
-                                <AlertCircle className="h-3 w-3" />
-                                No Order Today
-                              </Badge>
-                            )}
                             {getStatusBadge(order.status)}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {order.invoice_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.invoice_line_item?.[0]?.count || 0} items • $
+                            {order.order_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.sales_order_line_item?.[0]?.count || 0} items • $
                             {order.total.toFixed(2)}
                           </div>
                         </div>

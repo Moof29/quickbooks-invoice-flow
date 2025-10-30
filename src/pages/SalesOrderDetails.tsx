@@ -64,14 +64,13 @@ import { SalesOrderApprovalButton } from "@/components/SalesOrderApprovalButton"
 
 interface SalesOrder {
   id: string;
-  invoice_number: string;
+  order_number: string;
   order_date: string;
   delivery_date: string;
   status: string;
   customer_id: string;
   subtotal: number;
   total: number;
-  is_no_order: boolean;
   memo: string | null;
   customer_profile: {
     company_name: string;
@@ -111,20 +110,19 @@ export default function SalesOrderDetails() {
 
   // Fetch order
   const { data: order, isLoading: orderLoading } = useQuery({
-    queryKey: ["invoice", salesOrderId],
+    queryKey: ["sales-order", salesOrderId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .select(`
           id,
-          invoice_number,
+          order_number,
           order_date,
           delivery_date,
           status,
           customer_id,
           subtotal,
           total,
-          is_no_order,
           memo,
           customer_profile!inner(company_name)
         `)
@@ -139,10 +137,10 @@ export default function SalesOrderDetails() {
 
   // Fetch line items
   const { data: lineItems = [], isLoading: itemsLoading } = useQuery({
-    queryKey: ["invoice-line-items", salesOrderId],
+    queryKey: ["sales-order-line-items", salesOrderId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("invoice_line_item")
+        .from("sales_order_line_item")
         .select(`
           id,
           item_id,
@@ -151,7 +149,7 @@ export default function SalesOrderDetails() {
           amount,
           item_record!inner(name)
         `)
-        .eq("invoice_id", salesOrderId)
+        .eq("sales_order_id", salesOrderId)
         .order("created_at");
 
       if (error) throw error;
@@ -250,15 +248,15 @@ export default function SalesOrderDetails() {
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ lineItemId, quantity }: { lineItemId: string; quantity: number }) => {
       const { error } = await supabase
-        .from("invoice_line_item")
+        .from("sales_order_line_item")
         .update({ quantity })
         .eq("id", lineItemId);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoice-line-items", salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ["invoice", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order-line-items", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       toast({ title: "Quantity updated successfully" });
     },
     onError: (error: any) => {
@@ -274,15 +272,15 @@ export default function SalesOrderDetails() {
   const deleteLineItemMutation = useMutation({
     mutationFn: async (lineItemId: string) => {
       const { error } = await supabase
-        .from("invoice_line_item")
+        .from("sales_order_line_item")
         .delete()
         .eq("id", lineItemId);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoice-line-items", salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ["invoice", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order-line-items", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       toast({ title: "Line item deleted" });
       setDeleteLineItemId(null);
     },
@@ -307,8 +305,8 @@ export default function SalesOrderDetails() {
       }
 
       // Use 0 as default price - user can edit inline after adding
-      const { error } = await supabase.from("invoice_line_item").insert({
-        invoice_id: salesOrderId,
+      const { error } = await supabase.from("sales_order_line_item").insert({
+        sales_order_id: salesOrderId,
         item_id: item.id,
         quantity,
         unit_price: 0,
@@ -320,8 +318,8 @@ export default function SalesOrderDetails() {
       return { item_id: item.id, item_name: item.name };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["invoice-line-items", salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ["invoice", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order-line-items", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       toast({ title: "Item added successfully" });
       setAddingItem(false);
       setNewItem({ item_id: "", quantity: "1" });
@@ -403,7 +401,7 @@ export default function SalesOrderDetails() {
       }
 
       const { error } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .delete()
         .eq("id", salesOrderId);
 
@@ -427,7 +425,7 @@ export default function SalesOrderDetails() {
     mutationFn: async () => {
       // Update status to cancelled
       const { error: updateError } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .update({ status: "cancelled" })
         .eq("id", salesOrderId);
       
@@ -445,8 +443,8 @@ export default function SalesOrderDetails() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoice", salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({
         title: "Order canceled",
         description: "A 'No Order Today' invoice has been created",

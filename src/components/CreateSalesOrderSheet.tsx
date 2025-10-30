@@ -163,8 +163,8 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       if (!customerId) return null;
 
       const yesterday = addDays(new Date(), -1);
-      const { data: invoiceData, error: invoiceError } = await (supabase
-        .from('invoice_record') as any)
+      const { data: orderData, error: orderError } = await (supabase
+        .from('sales_order') as any)
         .select('id')
         .eq('customer_id', customerId)
         .eq('order_date', format(yesterday, 'yyyy-MM-dd'))
@@ -172,16 +172,16 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
         .limit(1)
         .single();
 
-      if (invoiceError || !invoiceData) return null;
+      if (orderError || !orderData) return null;
 
       const { data: lineItems, error: lineItemsError } = await supabase
-        .from('invoice_line_item')
+        .from('sales_order_line_item')
         .select('item_id, quantity, unit_price, description')
-        .eq('invoice_id', invoiceData.id);
+        .eq('sales_order_id', orderData.id);
 
       if (lineItemsError) return null;
 
-      return { id: invoiceData.id, invoice_line_item: lineItems };
+      return { id: orderData.id, sales_order_line_item: lineItems };
     },
     enabled: !!form.watch('customer_id'),
   });
@@ -206,24 +206,17 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       if (invoiceNumberError) throw invoiceNumberError;
       const invoiceNumber = invoiceNumberData as string;
 
-      // Create draft invoice (order)
+      // Create sales order
       const { data: salesOrder, error: orderError } = await supabase
-        .from('invoice_record')
+        .from('sales_order')
         .insert({
           organization_id: profile.organization_id,
-          invoice_number: invoiceNumber,
+          order_number: invoiceNumber,
           customer_id: data.customer_id,
           order_date: data.order_date,
           delivery_date: data.delivery_date,
-          customer_po_number: data.customer_po_number || null,
-          requested_ship_date: data.requested_ship_date || null,
-          promised_ship_date: data.promised_ship_date || null,
-          shipping_method: data.shipping_method || null,
-          shipping_terms: data.shipping_terms || null,
           memo: data.memo || null,
-          message: data.message || null,
-          terms: data.terms || null,
-          status: 'confirmed',
+          status: 'pending',
         })
         .select()
         .single();
@@ -233,7 +226,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       // Create line items
       const lineItemsToInsert = validLineItems.map(item => ({
         organization_id: profile.organization_id,
-        invoice_id: salesOrder.id,
+        sales_order_id: salesOrder.id,
         item_id: item.item_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
@@ -241,7 +234,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       }));
 
       const { error: lineItemsError } = await supabase
-        .from('invoice_line_item')
+        .from('sales_order_line_item')
         .insert(lineItemsToInsert);
 
       if (lineItemsError) throw lineItemsError;
@@ -249,7 +242,7 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
       return salesOrder;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       toast.success('Order created successfully');
       onOpenChange(false);
       form.reset();
@@ -286,8 +279,8 @@ export function CreateSalesOrderSheet({ open, onOpenChange }: CreateSalesOrderSh
   };
 
   const copyFromYesterday = () => {
-    if (yesterdayOrder?.invoice_line_item) {
-      const yesterdayItems = yesterdayOrder.invoice_line_item.map((item: any) => ({
+    if (yesterdayOrder?.sales_order_line_item) {
+      const yesterdayItems = yesterdayOrder.sales_order_line_item.map((item: any) => ({
         item_id: item.item_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
