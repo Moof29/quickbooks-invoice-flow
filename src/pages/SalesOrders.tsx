@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Trash2, CheckCircle2, Search, X } from "lucide-react";
 import { CustomerTemplates } from "@/components/CustomerTemplates";
 import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
 import { GenerateTemplateTestDataButton } from "@/components/GenerateTemplateTestDataButton";
@@ -37,6 +38,7 @@ export default function SalesOrders() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch invoices (unified orders/invoices)
   const { data: invoices, isLoading } = useQuery({
@@ -66,6 +68,21 @@ export default function SalesOrders() {
     },
     enabled: !!organization?.id && selectedStatus !== 'templates',
   });
+
+  // Filter invoices based on search query
+  const filteredInvoices = useMemo(() => {
+    if (!invoices) return [];
+    if (!searchQuery.trim()) return invoices;
+    
+    const query = searchQuery.toLowerCase();
+    return invoices.filter(invoice => {
+      const customerName = invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || '';
+      const invoiceNumber = invoice.invoice_number || '';
+      
+      return customerName.toLowerCase().includes(query) || 
+             invoiceNumber.toLowerCase().includes(query);
+    });
+  }, [invoices, searchQuery]);
 
   // Bulk status update mutation using RPC
   const bulkUpdateMutation = useMutation({
@@ -188,6 +205,36 @@ export default function SalesOrders() {
           </div>
         </div>
 
+        {/* Search Bar */}
+        {selectedStatus !== 'templates' && (
+          <Card className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by customer name or order number..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10 h-11 text-base"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            {searchQuery && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Found {filteredInvoices.length} result{filteredInvoices.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </Card>
+        )}
+
         <Tabs value={selectedStatus} onValueChange={(v) => setSelectedStatus(v as any)} className="w-full">
           <TabsList className="grid w-full grid-cols-7 lg:max-w-4xl">
             <TabsTrigger value="draft">Draft</TabsTrigger>
@@ -238,9 +285,9 @@ export default function SalesOrders() {
                       <p className="text-sm text-muted-foreground">Loading...</p>
                     </div>
                   </div>
-                ) : invoices && invoices.length > 0 ? (
+                ) : filteredInvoices && filteredInvoices.length > 0 ? (
                   <div className="space-y-2">
-                    {invoices.map((invoice) => (
+                    {filteredInvoices.map((invoice) => (
                       <Card
                         key={invoice.id}
                         className="p-4 hover:bg-muted/50 transition-colors cursor-pointer"
@@ -299,12 +346,22 @@ export default function SalesOrders() {
                   <Card className="p-12">
                     <div className="text-center space-y-2">
                       <p className="text-muted-foreground">
-                        No {['all', 'templates'].includes(selectedStatus) ? '' : (InvoiceStatusLabels as any)[selectedStatus]?.toLowerCase() || ''} orders found
+                        {searchQuery 
+                          ? `No orders found matching "${searchQuery}"`
+                          : `No ${['all', 'templates'].includes(selectedStatus) ? '' : (InvoiceStatusLabels as any)[selectedStatus]?.toLowerCase() || ''} orders found`
+                        }
                       </p>
-                      <Button onClick={() => navigate('/orders/new')} variant="outline">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create Order
-                      </Button>
+                      {searchQuery ? (
+                        <Button onClick={() => setSearchQuery("")} variant="outline">
+                          <X className="h-4 w-4 mr-2" />
+                          Clear Search
+                        </Button>
+                      ) : (
+                        <Button onClick={() => navigate('/orders/new')} variant="outline">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Order
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 )}
