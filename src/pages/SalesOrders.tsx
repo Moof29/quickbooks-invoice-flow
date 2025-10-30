@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, FileText, Loader2, Search, X, CheckCircle, XCircle } from "lucide-react";
+import { Plus, FileText, Loader2, Search, X, CheckCircle, XCircle, Clock, DollarSign, Ban } from "lucide-react";
 import { format, addDays, startOfDay } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,36 @@ const SalesOrders = () => {
   
   const { convertOrder, isConverting } = useOrderLifecycle();
   const visibleDeliveryDates = getVisibleDeliveryDates();
+
+  // Fetch all orders for stats (not filtered by delivery date)
+  const { data: allOrders } = useQuery({
+    queryKey: ['sales-orders-stats', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+
+      const { data, error } = await supabase
+        .from('sales_order' as any)
+        .select('id, status, total')
+        .eq('organization_id', organizationId);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!organizationId,
+  }) as any;
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    if (!allOrders) return { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 };
+    
+    return allOrders.reduce((acc, order) => {
+      if (order.status === 'pending') acc.pending++;
+      if (order.status === 'invoiced') acc.invoiced++;
+      if (order.status === 'cancelled') acc.cancelled++;
+      acc.totalValue += order.total || 0;
+      return acc;
+    }, { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 });
+  }, [allOrders]);
 
   // Fetch sales orders for upcoming deliveries
   const { data: orders, isLoading, error } = useQuery({
@@ -149,6 +179,57 @@ const SalesOrders = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
         <p className="text-muted-foreground">Orders for upcoming deliveries - temporary staging before invoice creation</p>
+      </div>
+
+      {/* Order Stats KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card className="card-kpi">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="kpi-label">Pending Orders</span>
+              <div className="icon-container info">
+                <Clock className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="kpi-value">{stats.pending}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-kpi">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="kpi-label">Invoiced</span>
+              <div className="icon-container success">
+                <CheckCircle className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="kpi-value">{stats.invoiced}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-kpi">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="kpi-label">Cancelled</span>
+              <div className="icon-container warning">
+                <Ban className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="kpi-value">{stats.cancelled}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-kpi">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="kpi-label">Total Value</span>
+              <div className="icon-container purple">
+                <DollarSign className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="kpi-value">${(stats.totalValue / 1000).toFixed(1)}k</p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
