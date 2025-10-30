@@ -24,6 +24,7 @@ import {
   XCircle,
   Ban,
   AlertTriangle,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -60,7 +61,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { SalesOrderApprovalButton } from "@/components/SalesOrderApprovalButton";
 
 interface SalesOrder {
   id: string;
@@ -461,6 +461,40 @@ export default function SalesOrderDetails() {
     },
   });
 
+  // Create invoice mutation
+  const createInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke(
+        "create-invoice-from-order",
+        { body: { order_id: salesOrderId } }
+      );
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error?.message || "Failed to create invoice");
+
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+      toast({
+        title: "Invoice created",
+        description: `Invoice ${data.invoice_number} created successfully`,
+      });
+      // Navigate to invoice details
+      if (data.invoice_id) {
+        navigate(`/invoices/${data.invoice_id}`);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error creating invoice",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleQuantityChange = (lineItemId: string, value: string) => {
     setQuantities(prev => ({ ...prev, [lineItemId]: value }));
   };
@@ -496,8 +530,7 @@ export default function SalesOrderDetails() {
   const getStatusBadge = (status: string) => {
     const variants = {
       pending: { variant: "secondary" as const, label: "Pending", icon: Clock, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-      reviewed: { variant: "default" as const, label: "Reviewed", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
-      invoiced: { variant: "outline" as const, label: "Invoiced", icon: Lock, className: "text-muted-foreground" },
+      invoiced: { variant: "default" as const, label: "Invoiced", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
       cancelled: { variant: "destructive" as const, label: "Cancelled", icon: XCircle, className: "" },
     };
     const config = variants[status as keyof typeof variants];
@@ -563,10 +596,16 @@ export default function SalesOrderDetails() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <SalesOrderApprovalButton
-            salesOrderId={order.id}
-            currentStatus={order.status}
-          />
+          {/* Create Invoice Button (only for pending orders) */}
+          {order.status === "pending" && (
+            <Button
+              onClick={() => createInvoiceMutation.mutate()}
+              disabled={createInvoiceMutation.isPending}
+            >
+              <Receipt className="h-4 w-4 mr-2" />
+              {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+            </Button>
+          )}
           
           {/* Cancel Order Button (all statuses except invoiced) */}
           {order.status !== "invoiced" && (

@@ -17,6 +17,7 @@ import {
   Lock,
   Ban,
   ChevronDown,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -107,8 +108,6 @@ export function ModernSalesOrdersList() {
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
   const [isBatchInvoicing, setIsBatchInvoicing] = useState(false);
-  const [isBatchReviewing, setIsBatchReviewing] = useState(false);
-  const [showBulkReviewDialog, setShowBulkReviewDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
@@ -273,74 +272,6 @@ export function ModernSalesOrdersList() {
 
   // Removed old batchInvoiceMutation - now using BulkInvoiceActions component
 
-  // Review order mutation
-  const reviewMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      const { error } = await supabase
-        .from("sales_order")
-        .update({ status: "reviewed", approved_at: new Date().toISOString() })
-        .eq("id", orderId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
-      toast({ title: "Order reviewed successfully" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error reviewing order",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-
-  // Batch review mutation
-  const batchReviewMutation = useMutation({
-    mutationFn: async (orderIds: string[]) => {
-      // Process in chunks to avoid URL length limits (max ~50 IDs per request)
-      const CHUNK_SIZE = 50;
-      const chunks = [];
-      for (let i = 0; i < orderIds.length; i += CHUNK_SIZE) {
-        chunks.push(orderIds.slice(i, i + CHUNK_SIZE));
-      }
-
-      let totalUpdated = 0;
-
-      // Process each chunk
-      for (const chunk of chunks) {
-        const { error } = await supabase
-          .from("sales_order")
-          .update({ status: "reviewed", approved_at: new Date().toISOString() })
-          .in("id", chunk);
-        if (error) throw error;
-        totalUpdated += chunk.length;
-      }
-
-      return totalUpdated;
-    },
-    onSuccess: (count) => {
-      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
-      setSelectedOrders(new Set());
-      toast({
-        title: "Bulk review complete",
-        description: `${count} orders marked as reviewed`,
-      });
-      setIsBatchReviewing(false);
-      setShowBulkReviewDialog(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Batch review failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      setIsBatchReviewing(false);
-      setShowBulkReviewDialog(false);
-    },
-  });
-
   // Batch delete mutation
   const batchDeleteMutation = useMutation({
     mutationFn: async (orderIds: string[]) => {
@@ -434,7 +365,7 @@ export function ModernSalesOrdersList() {
       );
     }
     
-    const statusOrder = { 'pending': 1, 'reviewed': 2, 'invoiced': 3, 'cancelled': 4 };
+    const statusOrder = { 'pending': 1, 'invoiced': 2, 'cancelled': 3 };
     
     // Sort logic depends on filter selection
     if (deliveryDateFilter === 'all') {
@@ -545,13 +476,12 @@ export function ModernSalesOrdersList() {
     setExpandedGroups(newExpanded);
   };
 
-  const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed").length || 0;
+  const pendingCount = filteredOrders?.filter(o => o.status === "pending").length || 0;
 
   const getStatusBadge = (status: string) => {
     const variants = {
       pending: { variant: "secondary" as const, label: "Pending", icon: Clock, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-      reviewed: { variant: "default" as const, label: "Reviewed", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
-      invoiced: { variant: "outline" as const, label: "Invoiced", icon: FileText, className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" },
+      invoiced: { variant: "default" as const, label: "Invoiced", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
       cancelled: { variant: "destructive" as const, label: "Cancelled", icon: XCircle, className: "" },
     };
     const config = variants[status as keyof typeof variants] || variants.pending;
@@ -579,12 +509,6 @@ export function ModernSalesOrdersList() {
 
   // Removed handleBatchInvoice - now using BulkInvoiceActions component
 
-  const handleBatchReview = () => {
-    const orderIds = Array.from(selectedOrders);
-    setIsBatchReviewing(true);
-    batchReviewMutation.mutate(orderIds);
-  };
-
   const handleBatchDelete = () => {
     const orderIds = Array.from(selectedOrders);
     setIsBatchDeleting(true);
@@ -609,12 +533,12 @@ export function ModernSalesOrdersList() {
   const handleSelectAllPages = async () => {
     if (!organizationId) return;
     
-    // Fetch ALL pending order IDs matching current filters
-    let query: any = supabase
-      .from("sales_order")
-      .select("id, status")
-      .eq("organization_id", organizationId)
-      .in("status", ["pending", "reviewed"]); // Not invoiced/cancelled
+      // Fetch ALL pending order IDs matching current filters
+      let query: any = supabase
+        .from("sales_order")
+        .select("id, status")
+        .eq("organization_id", organizationId)
+        .eq("status", "pending"); // Only pending orders
 
     // Apply same filters as main query
     if (selectedDates.length > 0) {
@@ -765,11 +689,8 @@ export function ModernSalesOrdersList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="invoiced">Invoiced</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
@@ -800,18 +721,6 @@ export function ModernSalesOrdersList() {
                   >
                     Clear Selection
                   </Button>
-                {selectedPendingCount > 0 && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => setShowBulkReviewDialog(true)}
-                    disabled={isBatchReviewing}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    {isBatchReviewing ? "Reviewing..." : `Review ${selectedPendingCount}`}
-                  </Button>
-                )}
                 <BulkInvoiceActions
                   selectedOrders={Array.from(selectedOrders)}
                   onComplete={() => {
@@ -835,7 +744,7 @@ export function ModernSalesOrdersList() {
             {!selectAllPages && selectedOrders.size > 0 && totalCount > filteredOrders.length && (
               <div className="flex items-center justify-between p-3 bg-muted rounded-md border">
                 <span className="text-sm">
-                  All {filteredOrders.filter(o => o.status === 'draft').length} orders on this page are selected.
+                  All {filteredOrders.filter(o => o.status === 'pending').length} orders on this page are selected.
                 </span>
                 <Button
                   variant="link"
@@ -895,7 +804,7 @@ export function ModernSalesOrdersList() {
                   </CardTitle>
                    <p className="text-sm text-muted-foreground mt-1">
                     {filteredOrders.length} order(s)
-                    {reviewedCount > 0 && ` • ${reviewedCount} ready to invoice`}
+                    {pendingCount > 0 && ` • ${pendingCount} ready to invoice`}
                   </p>
                 </div>
               </div>
@@ -1011,55 +920,40 @@ export function ModernSalesOrdersList() {
 
                      {/* Actions */}
                     <div className="flex items-center gap-2">
-                      {order.status === "draft" && !selectedOrders.has(order.id) && (
+                      {order.status === "pending" && !selectedOrders.has(order.id) && (
                         <Button
-                          variant="outline"
                           size="sm"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            reviewMutation.mutate(order.id);
+                            try {
+                              const { data, error } = await supabase.functions.invoke(
+                                "create-invoice-from-order",
+                                { body: { order_id: order.id } }
+                              );
+                              if (error) throw error;
+                              if (!data?.success) throw new Error(data?.error?.message || 'Failed to create invoice');
+                              
+                              queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+                              toast({ 
+                                title: "Invoice created successfully",
+                                description: `Invoice ${data.invoice_number} created`
+                              });
+                            } catch (error: any) {
+                              toast({
+                                title: "Error creating invoice",
+                                description: error.message,
+                                variant: "destructive",
+                              });
+                            }
                           }}
                         >
-                          <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Confirm
+                          <Receipt className="h-4 w-4 mr-1" />
+                          Create Invoice
                         </Button>
                       )}
-                      {order.status === "approved" && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const { data, error } = await supabase.functions.invoke(
-                                  "create-invoice-from-order",
-                                  { body: { order_id: order.id } }
-                                );
-                                if (error) throw error;
-                                if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
-                                
-                                queryClient.invalidateQueries({ queryKey: ["invoices"] });
-                                toast({ 
-                                  title: "Invoice created successfully",
-                                  description: `Invoice ${data.invoice?.invoice_number} created`
-                                });
-                              } catch (error: any) {
-                                toast({
-                                  title: "Error creating invoice",
-                                  description: error.message,
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                          >
-                          <FileText className="h-4 w-4 mr-1" />
-                          Invoice
-                        </Button>
-                      </>
-                    )}
                       
-                      {/* Cancel Order Button (for draft/pending/approved only) */}
-                      {['draft', 'pending', 'approved'].includes(order.status) && (
+                      {/* Cancel Order Button (for pending only) */}
+                      {order.status === "pending" && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1089,21 +983,21 @@ export function ModernSalesOrdersList() {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const canDelete = order.status === 'draft';
-                                  if (canDelete) {
-                                    setDeleteOrderId(order.id);
-                                  }
-                                }}
-                                disabled={order.status !== 'draft'}
-                                className={order.status !== 'draft' ? "opacity-50 cursor-not-allowed" : ""}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {order.status !== 'draft' ? "Cannot delete approved orders" : "Delete order"}
-                          </TooltipContent>
+                                const canDelete = order.status === 'pending';
+                                if (canDelete) {
+                                  setDeleteOrderId(order.id);
+                                }
+                              }}
+                              disabled={order.status !== 'pending'}
+                              className={order.status !== 'pending' ? "opacity-50 cursor-not-allowed" : ""}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {order.status !== 'pending' ? "Cannot delete invoiced orders" : "Delete order"}
+                        </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </div>
@@ -1152,57 +1046,42 @@ export function ModernSalesOrdersList() {
                         </div>
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        {order.status === "draft" && !selectedOrders.has(order.id) && (
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                        {order.status === "pending" && !selectedOrders.has(order.id) && (
                           <Button
-                            variant="outline"
                             size="sm"
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              reviewMutation.mutate(order.id);
+                              try {
+                                const { data, error } = await supabase.functions.invoke(
+                                  "create-invoice-from-order",
+                                  { body: { order_id: order.id } }
+                                );
+                                if (error) throw error;
+                                if (!data?.success) throw new Error(data?.error?.message || 'Failed to create invoice');
+                                
+                                queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
+                                toast({ 
+                                  title: "Invoice created successfully",
+                                  description: `Invoice ${data.invoice_number} created`
+                                });
+                              } catch (error: any) {
+                                toast({
+                                  title: "Error creating invoice",
+                                  description: error.message,
+                                  variant: "destructive",
+                                });
+                              }
                             }}
                           >
-                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                            Confirm
+                            <Receipt className="h-4 w-4 mr-1" />
+                            Create Invoice
                           </Button>
                         )}
-                        {order.status === "approved" && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  const { data, error } = await supabase.functions.invoke(
-                                    "create-invoice-from-order",
-                                    { body: { order_id: order.id } }
-                                  );
-                                  if (error) throw error;
-                                  if (!data?.success) throw new Error(data?.error || 'Failed to create invoice');
-                                  
-                                  queryClient.invalidateQueries({ queryKey: ["invoices"] });
-                                  toast({ 
-                                    title: "Invoice created successfully",
-                                    description: `Invoice ${data.invoice?.invoice_number} created`
-                                  });
-                                } catch (error: any) {
-                                  toast({
-                                    title: "Error creating invoice",
-                                    description: error.message,
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
-                            >
-                            <FileText className="h-4 w-4 mr-1" />
-                            Invoice
-                          </Button>
-                        </>
-                      )}
                         
-                        {/* Cancel Order Button (for draft/pending/approved only) */}
-                        {['draft', 'pending', 'approved'].includes(order.status) && (
+                        {/* Cancel Order Button (for pending only) */}
+                        {order.status === "pending" && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1232,20 +1111,20 @@ export function ModernSalesOrdersList() {
                                   size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (order.status === 'draft') {
-                                      setDeleteOrderId(order.id);
-                                    }
-                                  }}
-                                  disabled={order.status !== 'draft'}
-                                  className={order.status !== 'draft' ? "opacity-50 cursor-not-allowed" : ""}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {order.status !== 'draft' ? "Cannot delete approved orders" : "Delete order"}
-                            </TooltipContent>
+                                  if (order.status === 'pending') {
+                                    setDeleteOrderId(order.id);
+                                  }
+                                }}
+                                disabled={order.status !== 'pending'}
+                                className={order.status !== 'pending' ? "opacity-50 cursor-not-allowed" : ""}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {order.status !== 'pending' ? "Cannot delete invoiced orders" : "Delete order"}
+                          </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       </div>
@@ -1295,29 +1174,6 @@ export function ModernSalesOrdersList() {
               className="bg-destructive hover:bg-destructive/90"
             >
               Cancel Order
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Bulk Review Confirmation Dialog */}
-      <AlertDialog open={showBulkReviewDialog} onOpenChange={setShowBulkReviewDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Review Selected Orders</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to mark {selectedPendingCount} order(s) as reviewed? 
-              Reviewed orders can be converted to invoices.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isBatchReviewing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleBatchReview}
-              disabled={isBatchReviewing}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isBatchReviewing ? "Reviewing..." : "Review Orders"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
