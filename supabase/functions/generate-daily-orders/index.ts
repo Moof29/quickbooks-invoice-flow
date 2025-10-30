@@ -87,14 +87,38 @@ async function processDateOrders(
   
   console.log(`Processing ${validTemplates.length} templates`);
   
-  // Create orders one at a time to generate invoice numbers
+  // PRE-GENERATE ALL INVOICE NUMBERS UPFRONT to avoid race conditions
+  console.log('Pre-generating invoice numbers...');
+  const invoiceNumbers: string[] = [];
+  for (let i = 0; i < validTemplates.length; i++) {
+    const { data: invoiceNumber, error: numberError } = await supabaseClient.rpc(
+      'get_next_invoice_number',
+      { p_organization_id: organizationId }
+    );
+    
+    if (numberError || !invoiceNumber) {
+      console.error('Failed to generate invoice number:', numberError);
+      return {
+        date: targetDate,
+        orders: [],
+        errors: [{ date: targetDate, error: 'Failed to generate invoice numbers' }]
+      };
+    }
+    invoiceNumbers.push(invoiceNumber);
+  }
+  
+  console.log(`✅ Generated ${invoiceNumbers.length} unique invoice numbers`);
+  
+  // Create orders one at a time
   const createdOrders = [];
   const errors = [];
   const orderDate = new Date().toISOString().split('T')[0];
   
-  for (const template of validTemplates) {
+  for (let i = 0; i < validTemplates.length; i++) {
+    const template = validTemplates[i];
+    const invoiceNumber = invoiceNumbers[i];
+    
     try {
-      // Prepare line items
       const lineItems = await getTemplateLineItems(
         template.id,
         targetDate,
@@ -103,22 +127,6 @@ async function processDateOrders(
       );
       
       const isNoOrder = lineItems.length === 0;
-      
-      // Generate invoice number
-      const { data: invoiceNumber, error: numberError } = await supabaseClient.rpc(
-        'get_next_invoice_number',
-        { p_organization_id: organizationId }
-      );
-      
-      if (numberError || !invoiceNumber) {
-        console.error('Failed to generate invoice number:', numberError);
-        errors.push({
-          date: targetDate,
-          customer_id: template.customer_id,
-          error: 'Failed to generate invoice number'
-        });
-        continue;
-      }
       
       // Calculate totals
       const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
