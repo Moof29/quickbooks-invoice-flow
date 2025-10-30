@@ -10,10 +10,9 @@ import { Plus, FileText, Loader2, Search, X, CheckCircle, XCircle } from "lucide
 import { format, addDays, startOfDay } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
-import ModernPageHeader from "@/components/ModernPageHeader";
 import { MobileFAB } from "@/components/MobileFAB";
 import { useOrderLifecycle } from "@/hooks/useOrderLifecycle";
-import GenerateDailyOrdersButton from "@/components/GenerateDailyOrdersButton";
+import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
@@ -36,7 +35,8 @@ const getVisibleDeliveryDates = () => {
 };
 
 const SalesOrders = () => {
-  const { organizationId } = useAuthProfile();
+  const { organization } = useAuthProfile();
+  const organizationId = organization?.id;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('pending');
@@ -56,7 +56,7 @@ const SalesOrders = () => {
       const dateStrings = visibleDeliveryDates.map(d => format(d, 'yyyy-MM-dd'));
 
       let query = supabase
-        .from('sales_order')
+        .from('sales_order' as any)
         .select(`
           *,
           customer_profile!customer_id (
@@ -84,7 +84,7 @@ const SalesOrders = () => {
       return data || [];
     },
     enabled: !!organizationId && visibleDeliveryDates.length > 0,
-  });
+  }) as any;
 
   // Filter orders based on search query
   const filteredOrders = useMemo(() => {
@@ -146,10 +146,10 @@ const SalesOrders = () => {
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8">
-      <ModernPageHeader
-        title="Orders"
-        description="Orders for upcoming deliveries - temporary staging before invoice creation"
-      />
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+        <p className="text-muted-foreground">Orders for upcoming deliveries - temporary staging before invoice creation</p>
+      </div>
 
       <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
         <div className="flex gap-2">

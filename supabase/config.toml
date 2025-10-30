@@ -39,3 +39,6 @@ verify_jwt = false
 
 [functions.create-invoice-from-order]
 verify_jwt = false
+
+[functions.convert-order-to-invoice]
+verify_jwt = true

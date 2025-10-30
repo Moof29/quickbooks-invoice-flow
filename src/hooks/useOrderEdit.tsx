@@ -18,7 +18,7 @@ export const useOrderEdit = (orderId: string | null) => {
 
       // CRITICAL: Only update quantity - database triggers handle amount calculation
       const { error: updateError } = await supabase
-        .from('sales_order_line_item')
+        .from('sales_order_line_item' as any)
         .update({ quantity }) // ✅ Only updating quantity
         .eq('id', lineItemId);
 
@@ -57,7 +57,7 @@ export const useOrderEdit = (orderId: string | null) => {
   const deleteLineItemMutation = useMutation({
     mutationFn: async (lineItemId: string) => {
       const { error } = await supabase
-        .from('sales_order_line_item')
+        .from('sales_order_line_item' as any)
         .delete()
         .eq('id', lineItemId);
 
@@ -98,7 +98,7 @@ export const useOrderEdit = (orderId: string | null) => {
       if (!orderId) throw new Error('Order ID is required');
 
       const { error } = await supabase
-        .from('sales_order_line_item')
+        .from('sales_order_line_item' as any)
         .insert({
           sales_order_id: orderId,
           item_id: itemId,

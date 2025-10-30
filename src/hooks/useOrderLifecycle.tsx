@@ -64,7 +64,7 @@ export const useOrderLifecycle = () => {
   const updateOrderStatusMutation = useMutation({
     mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
       const { error } = await supabase
-        .from('sales_order')
+        .from('sales_order' as any)
         .update({ status })
         .eq('id', orderId);
 
