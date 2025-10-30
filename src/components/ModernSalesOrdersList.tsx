@@ -932,7 +932,7 @@ export function ModernSalesOrdersList() {
                   <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-accent/50">
                     <Checkbox
                       checked={filteredOrders
-                        .filter((o) => o.status === 'draft')
+                        .filter((o) => o.status === 'pending')
                         .every((o) => selectedOrders.has(o.id))}
                       onCheckedChange={() => handleSelectAll()}
                     />
@@ -984,7 +984,7 @@ export function ModernSalesOrdersList() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1">
-                      {order.status === 'draft' && (
+                      {order.status === 'pending' && (
                         <Checkbox
                           checked={selectedOrders.has(order.id)}
                           onCheckedChange={(checked) => {
@@ -1133,7 +1133,7 @@ export function ModernSalesOrdersList() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
-                        {order.status === 'draft' && (
+                        {order.status === 'pending' && (
                           <Checkbox
                             checked={selectedOrders.has(order.id)}
                             onCheckedChange={(checked) => {
