@@ -106,7 +106,7 @@ async function processDateOrders(
       const isNoOrder = lineItems.length === 0;
       
       // Create sales order using atomic function (handles order number generation)
-      const { data: newOrder, error: orderError } = await supabaseClient.rpc(
+      const { data: newOrderData, error: orderError } = await supabaseClient.rpc(
         'create_sales_order_atomic',
         {
           p_organization_id: organizationId,
@@ -121,7 +121,7 @@ async function processDateOrders(
         }
       );
       
-      if (orderError || !newOrder) {
+      if (orderError || !newOrderData || newOrderData.length === 0) {
         console.error('Failed to create order:', orderError);
         errors.push({
           date: targetDate,
@@ -131,6 +131,7 @@ async function processDateOrders(
         continue;
       }
       
+      const newOrder = newOrderData[0]; // RPC returns an array
       const orderId = newOrder.order_id;
       const orderNumber = newOrder.order_number;
       
