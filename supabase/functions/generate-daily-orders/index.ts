@@ -87,36 +87,13 @@ async function processDateOrders(
   
   console.log(`Processing ${validTemplates.length} templates`);
   
-  // PRE-GENERATE ALL INVOICE NUMBERS UPFRONT to avoid race conditions
-  console.log('Pre-generating invoice numbers...');
-  const invoiceNumbers: string[] = [];
-  for (let i = 0; i < validTemplates.length; i++) {
-    const { data: invoiceNumber, error: numberError } = await supabaseClient.rpc(
-      'get_next_invoice_number',
-      { p_organization_id: organizationId }
-    );
-    
-    if (numberError || !invoiceNumber) {
-      console.error('Failed to generate invoice number:', numberError);
-      return {
-        date: targetDate,
-        orders: [],
-        errors: [{ date: targetDate, error: 'Failed to generate invoice numbers' }]
-      };
-    }
-    invoiceNumbers.push(invoiceNumber);
-  }
-  
-  console.log(`✅ Generated ${invoiceNumbers.length} unique invoice numbers`);
-  
-  // Create orders one at a time
+  // Create orders one at a time using atomic function
   const createdOrders = [];
   const errors = [];
   const orderDate = new Date().toISOString().split('T')[0];
   
   for (let i = 0; i < validTemplates.length; i++) {
     const template = validTemplates[i];
-    const invoiceNumber = invoiceNumbers[i];
     
     try {
       const lineItems = await getTemplateLineItems(
@@ -128,27 +105,21 @@ async function processDateOrders(
       
       const isNoOrder = lineItems.length === 0;
       
-      // Calculate totals
-      const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
-      
-      // Create sales order
-      const { data: newOrder, error: orderError } = await supabaseClient
-        .from('sales_order')
-        .insert({
-          organization_id: organizationId,
-          customer_id: template.customer_id,
-          order_number: invoiceNumber,
-          order_date: orderDate,
-          delivery_date: targetDate,
-          status: 'pending',
-          subtotal: subtotal,
-          total: subtotal,
-          memo: `Auto-generated from template: ${template.name}`,
-          created_from_template: true,
-          template_id: template.id
-        })
-        .select('id, order_number, customer_id')
-        .single();
+      // Create sales order using atomic function (handles order number generation)
+      const { data: newOrder, error: orderError } = await supabaseClient.rpc(
+        'create_sales_order_atomic',
+        {
+          p_organization_id: organizationId,
+          p_customer_id: template.customer_id,
+          p_order_date: orderDate,
+          p_delivery_date: targetDate,
+          p_status: 'pending',
+          p_is_no_order_today: isNoOrder,
+          p_memo: `Auto-generated from template: ${template.name}`,
+          p_created_from_template: true,
+          p_template_id: template.id
+        }
+      );
       
       if (orderError || !newOrder) {
         console.error('Failed to create order:', orderError);
@@ -160,6 +131,9 @@ async function processDateOrders(
         continue;
       }
       
+      const orderId = newOrder.order_id;
+      const orderNumber = newOrder.order_number;
+      
       // Create line items if there are any
       if (lineItems.length > 0) {
         const { error: lineItemsError } = await supabaseClient
@@ -167,7 +141,7 @@ async function processDateOrders(
           .insert(
             lineItems.map(item => ({
               ...item,
-              sales_order_id: newOrder.id,
+              sales_order_id: orderId,
               organization_id: organizationId
             }))
           );
@@ -175,7 +149,7 @@ async function processDateOrders(
         if (lineItemsError) {
           console.error('Failed to create line items:', lineItemsError);
           // Delete the order since line items failed
-          await supabaseClient.from('sales_order').delete().eq('id', newOrder.id);
+          await supabaseClient.from('sales_order').delete().eq('id', orderId);
           errors.push({
             date: targetDate,
             customer_id: template.customer_id,
@@ -185,10 +159,11 @@ async function processDateOrders(
         }
       }
       
+      console.log(`✅ Created order ${orderNumber} for customer ${template.customer_id}`);
       const customer = customerMap.get(template.customer_id);
       createdOrders.push({
-        order_id: newOrder.id,
-        order_number: newOrder.order_number,
+        order_id: orderId,
+        order_number: orderNumber,
         customer_id: newOrder.customer_id,
         customer_name: customer?.company_name || 'Unknown',
         delivery_date: targetDate,

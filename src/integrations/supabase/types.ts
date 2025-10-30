@@ -5786,21 +5786,39 @@ export type Database = {
         }
         Returns: string
       }
-      create_sales_order_atomic: {
-        Args: {
-          p_customer_id: string
-          p_delivery_date: string
-          p_is_no_order_today: boolean
-          p_memo: string
-          p_order_date: string
-          p_organization_id: string
-          p_status: string
-        }
-        Returns: {
-          order_id: string
-          order_number: string
-        }[]
-      }
+      create_sales_order_atomic:
+        | {
+            Args: {
+              p_created_from_template?: boolean
+              p_customer_id: string
+              p_delivery_date: string
+              p_is_no_order_today: boolean
+              p_memo: string
+              p_order_date: string
+              p_organization_id: string
+              p_status: string
+              p_template_id?: string
+            }
+            Returns: {
+              order_id: string
+              order_number: string
+            }[]
+          }
+        | {
+            Args: {
+              p_customer_id: string
+              p_delivery_date: string
+              p_is_no_order_today: boolean
+              p_memo: string
+              p_order_date: string
+              p_organization_id: string
+              p_status: string
+            }
+            Returns: {
+              order_id: string
+              order_number: string
+            }[]
+          }
       enqueue_batch_job: {
         Args: {
           p_job_type: string
