@@ -3721,6 +3721,103 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_order: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_from_template: boolean | null
+          customer_id: string
+          delivery_date: string
+          discount_total: number | null
+          id: string
+          invoice_id: string | null
+          invoiced: boolean | null
+          is_no_order_today: boolean | null
+          memo: string | null
+          order_date: string
+          order_number: string
+          organization_id: string
+          shipping_total: number | null
+          status: string | null
+          subtotal: number | null
+          tax_total: number | null
+          template_id: string | null
+          total: number | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_from_template?: boolean | null
+          customer_id: string
+          delivery_date: string
+          discount_total?: number | null
+          id?: string
+          invoice_id?: string | null
+          invoiced?: boolean | null
+          is_no_order_today?: boolean | null
+          memo?: string | null
+          order_date?: string
+          order_number: string
+          organization_id: string
+          shipping_total?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_total?: number | null
+          template_id?: string | null
+          total?: number | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_from_template?: boolean | null
+          customer_id?: string
+          delivery_date?: string
+          discount_total?: number | null
+          id?: string
+          invoice_id?: string | null
+          invoiced?: boolean | null
+          is_no_order_today?: boolean | null
+          memo?: string | null
+          order_date?: string
+          order_number?: string
+          organization_id?: string
+          shipping_total?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_total?: number | null
+          template_id?: string | null
+          total?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_customer_id_fkey1"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_organization_id_fkey1"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_order_archived: {
         Row: {
           approved_at: string | null
@@ -4071,6 +4168,65 @@ export type Database = {
           },
         ]
       }
+      sales_order_invoice_link: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_id: string
+          organization_id: string
+          sales_order_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id: string
+          organization_id: string
+          sales_order_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string
+          organization_id?: string
+          sales_order_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_invoice_link_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_invoice_link_invoice_id_fkey1"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_invoice_link_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_invoice_link_sales_order_id_fkey1"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_order_invoice_link_archived: {
         Row: {
           created_at: string | null
@@ -4122,6 +4278,82 @@ export type Database = {
             columns: ["sales_order_id"]
             isOneToOne: false
             referencedRelation: "sales_order_archived"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_order_line_item: {
+        Row: {
+          amount: number | null
+          created_at: string
+          discount_amount: number | null
+          discount_rate: number | null
+          id: string
+          item_id: string
+          organization_id: string
+          quantity: number
+          quantity_fulfilled: number | null
+          quantity_invoiced: number | null
+          sales_order_id: string
+          tax_amount: number | null
+          tax_rate: number | null
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          discount_amount?: number | null
+          discount_rate?: number | null
+          id?: string
+          item_id: string
+          organization_id: string
+          quantity?: number
+          quantity_fulfilled?: number | null
+          quantity_invoiced?: number | null
+          sales_order_id: string
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          discount_amount?: number | null
+          discount_rate?: number | null
+          id?: string
+          item_id?: string
+          organization_id?: string
+          quantity?: number
+          quantity_fulfilled?: number | null
+          quantity_invoiced?: number | null
+          sales_order_id?: string
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_line_item_item_id_fkey1"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "item_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_line_item_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_line_item_sales_order_id_fkey1"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_order"
             referencedColumns: ["id"]
           },
         ]
