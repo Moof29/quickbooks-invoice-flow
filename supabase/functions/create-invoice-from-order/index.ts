@@ -308,6 +308,8 @@ Deno.serve(async (req) => {
         status: 'invoiced',
         invoiced: true,
         invoice_id: invoice.id,
+        approved_at: new Date().toISOString(),
+        approved_by: createdBy,
         updated_at: new Date().toISOString(),
       })
       .eq('id', order_id);
