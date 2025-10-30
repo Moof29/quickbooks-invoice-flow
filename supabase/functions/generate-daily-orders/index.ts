@@ -136,7 +136,8 @@ async function processDateOrders(
           subtotal: subtotal,
           total: subtotal,
           memo: `Auto-generated from template: ${template.name}`,
-          source_system: 'ERP'
+          created_from_template: true,
+          template_id: template.id
         })
         .select('id, order_number, customer_id')
         .single();
