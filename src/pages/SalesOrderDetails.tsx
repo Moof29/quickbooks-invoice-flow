@@ -396,8 +396,8 @@ export default function SalesOrderDetails() {
   // Delete order mutation
   const deleteOrderMutation = useMutation({
     mutationFn: async () => {
-      if (['approved', 'sent', 'paid'].includes(order?.status || '')) {
-        throw new Error("Cannot delete approved orders");
+      if (['invoiced', 'cancelled'].includes(order?.status || '')) {
+        throw new Error("Cannot delete invoiced or cancelled orders");
       }
 
       const { error } = await supabase
@@ -495,9 +495,8 @@ export default function SalesOrderDetails() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      draft: { variant: "secondary" as const, label: "Draft", icon: Clock, className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300" },
       pending: { variant: "secondary" as const, label: "Pending", icon: Clock, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-      approved: { variant: "default" as const, label: "Approved", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+      reviewed: { variant: "default" as const, label: "Reviewed", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
       invoiced: { variant: "outline" as const, label: "Invoiced", icon: Lock, className: "text-muted-foreground" },
       cancelled: { variant: "destructive" as const, label: "Cancelled", icon: XCircle, className: "" },
     };
@@ -551,7 +550,7 @@ export default function SalesOrderDetails() {
               {order.customer_profile.company_name}
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <p className="text-sm text-muted-foreground">{order.invoice_number}</p>
+              <p className="text-sm text-muted-foreground">{order.order_number}</p>
               {getStatusBadge(order.status)}
               {order.is_no_order && (
                 <Badge variant="outline" className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700">
@@ -581,7 +580,7 @@ export default function SalesOrderDetails() {
           )}
 
           {/* Delete Order Button */}
-          {!['approved', 'sent', 'paid'].includes(order.status) ? (
+          {!['invoiced', 'cancelled'].includes(order.status) ? (
             <Button
               variant="destructive"
               onClick={() => setShowDeleteDialog(true)}
@@ -593,18 +592,18 @@ export default function SalesOrderDetails() {
         </div>
       </div>
 
-      {/* Approved Warning Banner */}
-      {['approved', 'sent', 'paid'].includes(order.status) && (
+      {/* Invoiced Warning Banner */}
+      {['invoiced', 'cancelled'].includes(order.status) && (
         <Alert>
           <Lock className="h-4 w-4" />
           <AlertDescription>
-            This order is approved. Handle corrections in the Invoice module.
+            This order is {order.status}. Handle corrections in the Invoice module.
           </AlertDescription>
         </Alert>
       )}
 
       {/* Duplicate Order Warning Banner */}
-      {duplicateWarning && !['approved', 'sent', 'paid'].includes(order.status) && (
+      {duplicateWarning && !['invoiced', 'cancelled'].includes(order.status) && (
         <Alert className="border-yellow-300 bg-yellow-50 text-yellow-800">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -670,7 +669,7 @@ export default function SalesOrderDetails() {
                 Click on quantity to edit. Changes are saved automatically.
               </CardDescription>
             </div>
-            {!['approved', 'sent', 'paid'].includes(order.status) && (
+            {!['invoiced', 'cancelled'].includes(order.status) && (
               <Button size="sm" onClick={() => setAddingItem(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
@@ -689,7 +688,7 @@ export default function SalesOrderDetails() {
                 <TableHead>Item</TableHead>
                 <TableHead className="w-[120px] text-right">Unit Price</TableHead>
                 <TableHead className="w-[120px] text-right">Amount</TableHead>
-                {!['approved', 'sent', 'paid'].includes(order.status) && <TableHead className="w-[80px]"></TableHead>}
+                {!['invoiced', 'cancelled'].includes(order.status) && <TableHead className="w-[80px]"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>

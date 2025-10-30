@@ -200,17 +200,17 @@ export function ModernSalesOrdersList() {
   const totalCount = ordersData?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Delete mutation (only for non-approved orders)
+  // Delete mutation (only for non-invoiced orders)
   const deleteMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      // Double-check order is not approved/sent/paid
+      // Double-check order is not invoiced/cancelled
       const { data: order } = await supabase
         .from("sales_order")
         .select("status")
         .eq("id", orderId)
         .single();
       
-      if (order && ['approved', 'invoiced', 'cancelled'].includes(order.status)) {
+      if (order && ['invoiced', 'cancelled'].includes(order.status)) {
         throw new Error("Cannot delete invoiced or cancelled orders");
       }
 
@@ -278,7 +278,7 @@ export function ModernSalesOrdersList() {
     mutationFn: async (orderId: string) => {
       const { error } = await supabase
         .from("sales_order")
-        .update({ status: "approved", approved_at: new Date().toISOString() })
+        .update({ status: "reviewed", approved_at: new Date().toISOString() })
         .eq("id", orderId);
       if (error) throw error;
     },
@@ -312,7 +312,7 @@ export function ModernSalesOrdersList() {
       for (const chunk of chunks) {
         const { error } = await supabase
           .from("sales_order")
-          .update({ status: "approved", approved_at: new Date().toISOString() })
+          .update({ status: "reviewed", approved_at: new Date().toISOString() })
           .in("id", chunk);
         if (error) throw error;
         totalUpdated += chunk.length;
@@ -434,7 +434,7 @@ export function ModernSalesOrdersList() {
       );
     }
     
-    const statusOrder = { 'draft': 1, 'pending': 2, 'approved': 3, 'invoiced': 4, 'cancelled': 5 };
+    const statusOrder = { 'pending': 1, 'reviewed': 2, 'invoiced': 3, 'cancelled': 4 };
     
     // Sort logic depends on filter selection
     if (deliveryDateFilter === 'all') {
@@ -545,17 +545,16 @@ export function ModernSalesOrdersList() {
     setExpandedGroups(newExpanded);
   };
 
-  const approvedCount = filteredOrders?.filter(o => o.status === "approved").length || 0;
+  const reviewedCount = filteredOrders?.filter(o => o.status === "reviewed").length || 0;
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      draft: { variant: "secondary" as const, label: "Draft", icon: Clock, className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300" },
       pending: { variant: "secondary" as const, label: "Pending", icon: Clock, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-      approved: { variant: "default" as const, label: "Approved", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+      reviewed: { variant: "default" as const, label: "Reviewed", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
       invoiced: { variant: "outline" as const, label: "Invoiced", icon: FileText, className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" },
       cancelled: { variant: "destructive" as const, label: "Cancelled", icon: XCircle, className: "" },
     };
-    const config = variants[status as keyof typeof variants] || variants.draft;
+    const config = variants[status as keyof typeof variants] || variants.pending;
     const Icon = config.icon;
     return (
       <Badge variant={config.variant} className={`gap-1 ${config.className}`}>
@@ -593,7 +592,7 @@ export function ModernSalesOrdersList() {
   };
 
   const handleSelectAll = () => {
-    const selectableOrders = filteredOrders?.filter((o) => o.status === 'draft') || [];
+    const selectableOrders = filteredOrders?.filter((o) => o.status === 'pending') || [];
     const newSelected = new Set(selectedOrders);
     const allSelected = selectableOrders.every((o) => newSelected.has(o.id));
 
@@ -610,12 +609,12 @@ export function ModernSalesOrdersList() {
   const handleSelectAllPages = async () => {
     if (!organizationId) return;
     
-    // Fetch ALL draft order IDs matching current filters
+    // Fetch ALL pending order IDs matching current filters
     let query: any = supabase
-      .from("invoice_record")
+      .from("sales_order")
       .select("id, status")
       .eq("organization_id", organizationId)
-      .in("status", ["draft", "pending", "approved"]); // Not invoiced/paid/cancelled
+      .in("status", ["pending", "reviewed"]); // Not invoiced/cancelled
 
     // Apply same filters as main query
     if (selectedDates.length > 0) {
@@ -641,22 +640,22 @@ export function ModernSalesOrdersList() {
     }
 
     const allSelectableIds = data?.map(o => o.id) || [];
-    const draftCount = data?.filter(o => o.status === "draft").length || 0;
+    const pendingCount = data?.filter(o => o.status === "pending").length || 0;
     
     setSelectedOrders(new Set(allSelectableIds));
     setSelectAllPages(true);
-    setAllPagesPendingCount(draftCount);
+    setAllPagesPendingCount(pendingCount);
   };
 
   const handleSelectAllPending = () => {
-    const draftOrders = filteredOrders?.filter((o) => o.status === "draft") || [];
+    const pendingOrders = filteredOrders?.filter((o) => o.status === "pending") || [];
     const newSelected = new Set(selectedOrders);
-    const allSelected = draftOrders.every((o) => newSelected.has(o.id));
+    const allSelected = pendingOrders.every((o) => newSelected.has(o.id));
 
     if (allSelected) {
-      draftOrders.forEach((o) => newSelected.delete(o.id));
+      pendingOrders.forEach((o) => newSelected.delete(o.id));
     } else {
-      draftOrders.forEach((o) => newSelected.add(o.id));
+      pendingOrders.forEach((o) => newSelected.add(o.id));
     }
     setSelectedOrders(newSelected);
   };
@@ -664,7 +663,7 @@ export function ModernSalesOrdersList() {
   const selectedPendingCount = selectAllPages 
     ? allPagesPendingCount 
     : Array.from(selectedOrders).filter(id => 
-        filteredOrders?.find(o => o.id === id && o.status === "draft")
+        filteredOrders?.find(o => o.id === id && o.status === "pending")
       ).length;
 
   console.log(`🎯 Rendering component with ${filteredOrders?.length || 0} orders`);
@@ -896,7 +895,7 @@ export function ModernSalesOrdersList() {
                   </CardTitle>
                    <p className="text-sm text-muted-foreground mt-1">
                     {filteredOrders.length} order(s)
-                    {approvedCount > 0 && ` • ${approvedCount} ready to invoice`}
+                    {reviewedCount > 0 && ` • ${reviewedCount} ready to invoice`}
                   </p>
                 </div>
               </div>
