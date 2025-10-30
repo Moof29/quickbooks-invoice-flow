@@ -123,31 +123,30 @@ async function processDateOrders(
       // Calculate totals
       const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
       
-      // Create invoice record (unified order/invoice)
-      const { data: newInvoice, error: invoiceError } = await supabaseClient
-        .from('invoice_record')
+      // Create sales order
+      const { data: newOrder, error: orderError } = await supabaseClient
+        .from('sales_order')
         .insert({
           organization_id: organizationId,
           customer_id: template.customer_id,
-          invoice_number: invoiceNumber,
+          order_number: invoiceNumber,
           order_date: orderDate,
           delivery_date: targetDate,
           status: 'pending',
-          is_no_order: isNoOrder,
           subtotal: subtotal,
           total: subtotal,
           memo: `Auto-generated from template: ${template.name}`,
-          source_system: 'template'
+          source_system: 'ERP'
         })
-        .select('id, invoice_number, customer_id')
+        .select('id, order_number, customer_id')
         .single();
       
-      if (invoiceError || !newInvoice) {
-        console.error('Failed to create invoice:', invoiceError);
+      if (orderError || !newOrder) {
+        console.error('Failed to create order:', orderError);
         errors.push({
           date: targetDate,
           customer_id: template.customer_id,
-          error: invoiceError?.message || 'Failed to create invoice'
+          error: orderError?.message || 'Failed to create order'
         });
         continue;
       }
@@ -155,19 +154,19 @@ async function processDateOrders(
       // Create line items if there are any
       if (lineItems.length > 0) {
         const { error: lineItemsError } = await supabaseClient
-          .from('invoice_line_item')
+          .from('sales_order_line_item')
           .insert(
             lineItems.map(item => ({
               ...item,
-              invoice_id: newInvoice.id,
+              sales_order_id: newOrder.id,
               organization_id: organizationId
             }))
           );
         
         if (lineItemsError) {
           console.error('Failed to create line items:', lineItemsError);
-          // Delete the invoice since line items failed
-          await supabaseClient.from('invoice_record').delete().eq('id', newInvoice.id);
+          // Delete the order since line items failed
+          await supabaseClient.from('sales_order').delete().eq('id', newOrder.id);
           errors.push({
             date: targetDate,
             customer_id: template.customer_id,
@@ -179,14 +178,14 @@ async function processDateOrders(
       
       const customer = customerMap.get(template.customer_id);
       createdOrders.push({
-        order_id: newInvoice.id,
-        order_number: newInvoice.invoice_number,
-        customer_id: newInvoice.customer_id,
+        order_id: newOrder.id,
+        order_number: newOrder.order_number,
+        customer_id: newOrder.customer_id,
         customer_name: customer?.company_name || 'Unknown',
         delivery_date: targetDate,
       });
       
-      console.log(`✅ Created order ${newInvoice.invoice_number} for customer ${template.customer_id}`);
+      console.log(`✅ Created order ${newOrder.order_number} for customer ${template.customer_id}`);
       
     } catch (error) {
       console.error('Error creating order for template:', template.id, error);
