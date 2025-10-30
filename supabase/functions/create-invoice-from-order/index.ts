@@ -301,13 +301,15 @@ Deno.serve(async (req) => {
       // Don't rollback, just log - the link is not critical
     }
 
-    // Update sales order status to 'invoiced' and set invoiced flag
+    // Update sales order status to 'invoiced' and set invoiced flag + audit trail
     const { error: updateError } = await supabaseClient
       .from('sales_order')
       .update({
         status: 'invoiced',
         invoiced: true,
         invoice_id: invoice.id,
+        approved_at: new Date().toISOString(),  // Audit trail: when invoiced
+        approved_by: createdBy,                   // Audit trail: who invoiced
         updated_at: new Date().toISOString(),
       })
       .eq('id', order_id);

@@ -53,11 +53,11 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
   const updateOrderMutation = useMutation({
     mutationFn: async (updates: Partial<SalesOrderDetails>) => {
       if (!salesOrderId) throw new Error('No sales order ID');
-      
+
       console.log('Updating sales order:', updates);
-      
+
       const { error } = await supabase
-        .from('invoice_record')
+        .from('sales_order')
         .update(updates)
         .eq('id', salesOrderId);
 
@@ -67,8 +67,8 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['invoice', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
       toast({
         title: 'Success',
         description: 'Sales order updated successfully',
@@ -96,7 +96,7 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       
       // Update only the quantity - database triggers handle amount and totals automatically
       const { error: updateError } = await supabase
-        .from('invoice_line_item')
+        .from('sales_order_line_item')
         .update({ quantity })
         .eq('id', lineItemId);
 
@@ -106,15 +106,15 @@ export function useSalesOrderEdit(salesOrderId: string | null) {
       }
 
       console.log('=== Quantity update completed successfully ===');
-      
+
       // Return simple success - database triggers have handled all calculations
       return { success: true, quantity };
     },
     onSuccess: (data) => {
       console.log('Mutation onSuccess:', data);
-      queryClient.invalidateQueries({ queryKey: ['invoice-line-items', salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ['invoice', salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       toast({
         title: 'Success',
         description: `Quantity updated to ${data.quantity}`,

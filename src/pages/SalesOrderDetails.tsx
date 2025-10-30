@@ -64,14 +64,14 @@ import { SalesOrderApprovalButton } from "@/components/SalesOrderApprovalButton"
 
 interface SalesOrder {
   id: string;
-  invoice_number: string;
+  order_number: string;
   order_date: string;
   delivery_date: string;
   status: string;
   customer_id: string;
   subtotal: number;
   total: number;
-  is_no_order: boolean;
+  is_no_order_today: boolean;
   memo: string | null;
   customer_profile: {
     company_name: string;
@@ -111,20 +111,20 @@ export default function SalesOrderDetails() {
 
   // Fetch order
   const { data: order, isLoading: orderLoading } = useQuery({
-    queryKey: ["invoice", salesOrderId],
+    queryKey: ["sales-order", salesOrderId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .select(`
           id,
-          invoice_number,
+          order_number,
           order_date,
           delivery_date,
           status,
           customer_id,
           subtotal,
           total,
-          is_no_order,
+          is_no_order_today,
           memo,
           customer_profile!inner(company_name)
         `)
@@ -139,10 +139,10 @@ export default function SalesOrderDetails() {
 
   // Fetch line items
   const { data: lineItems = [], isLoading: itemsLoading } = useQuery({
-    queryKey: ["invoice-line-items", salesOrderId],
+    queryKey: ["sales-order-line-items", salesOrderId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("invoice_line_item")
+        .from("sales_order_line_item")
         .select(`
           id,
           item_id,
@@ -151,7 +151,7 @@ export default function SalesOrderDetails() {
           amount,
           item_record!inner(name)
         `)
-        .eq("invoice_id", salesOrderId)
+        .eq("sales_order_id", salesOrderId)
         .order("created_at");
 
       if (error) throw error;
@@ -250,15 +250,15 @@ export default function SalesOrderDetails() {
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ lineItemId, quantity }: { lineItemId: string; quantity: number }) => {
       const { error } = await supabase
-        .from("invoice_line_item")
+        .from("sales_order_line_item")
         .update({ quantity })
         .eq("id", lineItemId);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoice-line-items", salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ["invoice", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order-line-items", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       toast({ title: "Quantity updated successfully" });
     },
     onError: (error: any) => {
@@ -274,15 +274,15 @@ export default function SalesOrderDetails() {
   const deleteLineItemMutation = useMutation({
     mutationFn: async (lineItemId: string) => {
       const { error } = await supabase
-        .from("invoice_line_item")
+        .from("sales_order_line_item")
         .delete()
         .eq("id", lineItemId);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoice-line-items", salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ["invoice", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order-line-items", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       toast({ title: "Line item deleted" });
       setDeleteLineItemId(null);
     },
@@ -307,8 +307,8 @@ export default function SalesOrderDetails() {
       }
 
       // Use 0 as default price - user can edit inline after adding
-      const { error } = await supabase.from("invoice_line_item").insert({
-        invoice_id: salesOrderId,
+      const { error } = await supabase.from("sales_order_line_item").insert({
+        sales_order_id: salesOrderId,
         item_id: item.id,
         quantity,
         unit_price: 0,
@@ -320,8 +320,8 @@ export default function SalesOrderDetails() {
       return { item_id: item.id, item_name: item.name };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["invoice-line-items", salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ["invoice", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order-line-items", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       toast({ title: "Item added successfully" });
       setAddingItem(false);
       setNewItem({ item_id: "", quantity: "1" });
@@ -398,12 +398,12 @@ export default function SalesOrderDetails() {
   // Delete order mutation
   const deleteOrderMutation = useMutation({
     mutationFn: async () => {
-      if (['approved', 'sent', 'paid'].includes(order?.status || '')) {
-        throw new Error("Cannot delete approved orders");
+      if (['invoiced'].includes(order?.status || '')) {
+        throw new Error("Cannot delete invoiced orders");
       }
 
       const { error } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .delete()
         .eq("id", salesOrderId);
 
@@ -427,10 +427,10 @@ export default function SalesOrderDetails() {
     mutationFn: async () => {
       // Update status to cancelled
       const { error: updateError } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .update({ status: "cancelled" })
         .eq("id", salesOrderId);
-      
+
       if (updateError) throw updateError;
 
       // Create "No Order Today" invoice
@@ -445,8 +445,8 @@ export default function SalesOrderDetails() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoice", salesOrderId] });
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({
         title: "Order canceled",
         description: "A 'No Order Today' invoice has been created",
@@ -497,10 +497,8 @@ export default function SalesOrderDetails() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      draft: { variant: "secondary" as const, label: "Draft", icon: Clock, className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300" },
       pending: { variant: "secondary" as const, label: "Pending", icon: Clock, className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-      approved: { variant: "default" as const, label: "Approved", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
-      invoiced: { variant: "outline" as const, label: "Invoiced", icon: Lock, className: "text-muted-foreground" },
+      invoiced: { variant: "default" as const, label: "Invoiced", icon: CheckCircle2, className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
       cancelled: { variant: "destructive" as const, label: "Cancelled", icon: XCircle, className: "" },
     };
     const config = variants[status as keyof typeof variants];
@@ -553,9 +551,9 @@ export default function SalesOrderDetails() {
               {order.customer_profile.company_name}
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <p className="text-sm text-muted-foreground">{order.invoice_number}</p>
+              <p className="text-sm text-muted-foreground">{order.order_number}</p>
               {getStatusBadge(order.status)}
-              {order.is_no_order && (
+              {order.is_no_order_today && (
                 <Badge variant="outline" className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700">
                   <AlertCircle className="h-3 w-3" />
                   No Order Today
@@ -583,7 +581,7 @@ export default function SalesOrderDetails() {
           )}
 
           {/* Delete Order Button */}
-          {!['approved', 'sent', 'paid'].includes(order.status) ? (
+          {order.status === 'pending' ? (
             <Button
               variant="destructive"
               onClick={() => setShowDeleteDialog(true)}
@@ -595,18 +593,18 @@ export default function SalesOrderDetails() {
         </div>
       </div>
 
-      {/* Approved Warning Banner */}
-      {['approved', 'sent', 'paid'].includes(order.status) && (
+      {/* Invoiced Warning Banner */}
+      {order.status === 'invoiced' && (
         <Alert>
           <Lock className="h-4 w-4" />
           <AlertDescription>
-            This order is approved. Handle corrections in the Invoice module.
+            This order has been invoiced. Handle corrections in the Invoice module.
           </AlertDescription>
         </Alert>
       )}
 
       {/* Duplicate Order Warning Banner */}
-      {duplicateWarning && !['approved', 'sent', 'paid'].includes(order.status) && (
+      {duplicateWarning && order.status === 'pending' && (
         <Alert className="border-yellow-300 bg-yellow-50 text-yellow-800">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -672,7 +670,7 @@ export default function SalesOrderDetails() {
                 Click on quantity to edit. Changes are saved automatically.
               </CardDescription>
             </div>
-            {!['approved', 'sent', 'paid'].includes(order.status) && (
+            {order.status === 'pending' && (
               <Button size="sm" onClick={() => setAddingItem(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
@@ -691,7 +689,7 @@ export default function SalesOrderDetails() {
                 <TableHead>Item</TableHead>
                 <TableHead className="w-[120px] text-right">Unit Price</TableHead>
                 <TableHead className="w-[120px] text-right">Amount</TableHead>
-                {!['approved', 'sent', 'paid'].includes(order.status) && <TableHead className="w-[80px]"></TableHead>}
+                {order.status === 'pending' && <TableHead className="w-[80px]"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -705,7 +703,7 @@ export default function SalesOrderDetails() {
                       onBlur={() => handleQuantityBlur(item.id, item.quantity)}
                       onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
                       className="w-16 h-9 text-center border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      disabled={['approved', 'sent', 'paid'].includes(order.status)}
+                      disabled={order.status !== 'pending'}
                       tabIndex={index + 1}
                     />
                   </TableCell>
@@ -723,7 +721,7 @@ export default function SalesOrderDetails() {
                   <TableCell className="text-right">
                     <span className="font-mono font-semibold">${item.amount.toFixed(2)}</span>
                   </TableCell>
-                  {!['approved', 'sent', 'paid'].includes(order.status) && (
+                  {order.status === 'pending' && (
                     <TableCell className="text-center">
                       <Button
                         variant="ghost"

@@ -128,17 +128,17 @@ export function ModernSalesOrdersList() {
 
   // Fetch orders with pagination
   const { data: ordersData, isLoading } = useQuery({
-    queryKey: ["invoices", organizationId, deliveryDateFilter, statusFilter, selectedDates, currentPage],
+    queryKey: ["sales-orders", organizationId, deliveryDateFilter, statusFilter, selectedDates, currentPage],
     queryFn: async () => {
       console.log('🔍 Fetching sales orders...');
-      
+
       // Calculate offset for pagination
       const from = (currentPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      
+
       // Build base query - explicit any to avoid TS deep instantiation
       let query: any = supabase
-        .from("invoice_record")
+        .from("sales_order")
         .select('*', { count: 'exact' })
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false })
@@ -179,9 +179,9 @@ export function ModernSalesOrdersList() {
             .single();
           
           const { count: itemCount } = await supabase
-            .from('invoice_line_item')
+            .from('sales_order_line_item')
             .select('*', { count: 'exact', head: true })
-            .eq('invoice_id', order.id);
+            .eq('sales_order_id', order.id);
 
           return {
             ...order,
@@ -201,25 +201,25 @@ export function ModernSalesOrdersList() {
   const totalCount = ordersData?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Delete mutation (only for non-approved orders)
+  // Delete mutation (only for pending orders)
   const deleteMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      // Double-check order is not approved/sent/paid
+      // Double-check order is pending
       const { data: order } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .select("status")
         .eq("id", orderId)
         .single();
-      
-      if (order && ['approved', 'sent', 'paid'].includes(order.status)) {
-        throw new Error("Cannot delete approved, sent, or paid orders");
+
+      if (order && order.status !== 'pending') {
+        throw new Error("Cannot delete invoiced or cancelled orders");
       }
 
-      const { error } = await supabase.from("invoice_record").delete().eq("id", orderId);
+      const { error } = await supabase.from("sales_order").delete().eq("id", orderId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({ title: "Order deleted successfully" });
       setDeleteOrderId(null);
     },
@@ -237,10 +237,10 @@ export function ModernSalesOrdersList() {
     mutationFn: async (orderId: string) => {
       // First update order status to canceled
       const { error: updateError } = await supabase
-        .from("invoice_record")
+        .from("sales_order")
         .update({ status: "cancelled" })
         .eq("id", orderId);
-      
+
       if (updateError) throw updateError;
 
       // Then create invoice via edge function
@@ -255,7 +255,7 @@ export function ModernSalesOrdersList() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({
         title: "Order canceled",
         description: "A 'No Order Today' invoice has been created",
