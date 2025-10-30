@@ -1,147 +1,122 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Plus, Trash2, CheckCircle2, Search, X } from "lucide-react";
-import { CustomerTemplates } from "@/components/CustomerTemplates";
-import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
-import { GenerateTemplateTestDataButton } from "@/components/GenerateTemplateTestDataButton";
-import { BatchJobStatusBar } from "@/components/BatchJobStatusBar";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
-import { Invoice, InvoiceStatus, InvoiceStatusLabels, InvoiceStatusColors } from "@/types/invoice";
-import { format } from "date-fns";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, FileText, Loader2, Search, X, CheckCircle, XCircle } from "lucide-react";
+import { format, addDays, startOfDay } from "date-fns";
+import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import ModernPageHeader from "@/components/ModernPageHeader";
+import { MobileFAB } from "@/components/MobileFAB";
+import { useOrderLifecycle } from "@/hooks/useOrderLifecycle";
+import GenerateDailyOrdersButton from "@/components/GenerateDailyOrdersButton";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
-export default function SalesOrders() {
-  const navigate = useNavigate();
-  const { organization, user } = useAuthProfile();
-  const queryClient = useQueryClient();
+type OrderStatus = 'pending' | 'invoiced' | 'cancelled' | 'all';
+
+// Helper to get visible delivery dates based on current day
+const getVisibleDeliveryDates = () => {
+  const today = startOfDay(new Date());
+  const dayOfWeek = today.getDay();
   
-  const [selectedStatus, setSelectedStatus] = useState<'draft' | 'pending' | 'approved' | 'invoiced' | 'cancelled' | 'all' | 'templates'>('draft');
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Show next 3-4 days of deliveries
+  const daysToShow = dayOfWeek === 5 ? 4 : 3; // Friday shows more days (Sat, Sun, Mon)
+  
+  const dates = [];
+  for (let i = 0; i <= daysToShow; i++) {
+    dates.push(addDays(today, i));
+  }
+  
+  return dates;
+};
+
+const SalesOrders = () => {
+  const { organizationId } = useAuthProfile();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('pending');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  
+  const { convertOrder, isConverting } = useOrderLifecycle();
+  const visibleDeliveryDates = getVisibleDeliveryDates();
 
-  // Fetch invoices (unified orders/invoices)
-  const { data: invoices, isLoading } = useQuery({
-    queryKey: ['invoices', organization?.id, selectedStatus],
+  // Fetch sales orders for upcoming deliveries
+  const { data: orders, isLoading, error } = useQuery({
+    queryKey: ['sales-orders', organizationId, selectedStatus, visibleDeliveryDates],
     queryFn: async () => {
-      if (!organization?.id || selectedStatus === 'templates' || selectedStatus === 'all') {
-        if (selectedStatus === 'templates') return [];
-        if (!organization?.id) return [];
-      }
-      
+      if (!organizationId) return [];
+
+      const dateStrings = visibleDeliveryDates.map(d => format(d, 'yyyy-MM-dd'));
+
       let query = supabase
-        .from('invoice_record')
+        .from('sales_order')
         .select(`
           *,
-          customer_profile:customer_id(display_name, company_name, email)
+          customer_profile!customer_id (
+            id,
+            display_name,
+            company_name
+          )
         `)
-        .eq('organization_id', organization.id)
+        .eq('organization_id', organizationId)
+        .in('delivery_date', dateStrings)
+        .order('delivery_date', { ascending: true })
         .order('created_at', { ascending: false });
 
-      if (!['all', 'templates'].includes(selectedStatus)) {
+      if (selectedStatus !== 'all') {
         query = query.eq('status', selectedStatus);
       }
 
       const { data, error } = await query;
-      if (error) throw error;
-      return data as any[];
+
+      if (error) {
+        console.error('Error fetching sales orders:', error);
+        throw error;
+      }
+
+      return data || [];
     },
-    enabled: !!organization?.id && selectedStatus !== 'templates',
+    enabled: !!organizationId && visibleDeliveryDates.length > 0,
   });
 
-  // Filter invoices based on search query
-  const filteredInvoices = useMemo(() => {
-    if (!invoices) return [];
-    if (!searchQuery.trim()) return invoices;
+  // Filter orders based on search query
+  const filteredOrders = useMemo(() => {
+    if (!orders) return [];
+    if (!searchQuery.trim()) return orders;
     
     const query = searchQuery.toLowerCase();
-    return invoices.filter(invoice => {
-      const customerName = invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || '';
-      const invoiceNumber = invoice.invoice_number || '';
+    return orders.filter(order => {
+      const customerName = order.customer_profile?.company_name || order.customer_profile?.display_name || '';
+      const orderNumber = order.order_number || '';
       
       return customerName.toLowerCase().includes(query) || 
-             invoiceNumber.toLowerCase().includes(query);
+             orderNumber.toLowerCase().includes(query);
     });
-  }, [invoices, searchQuery]);
-
-  // Bulk status update mutation using RPC
-  const bulkUpdateMutation = useMutation({
-    mutationFn: async ({ invoiceIds, newStatus }: { invoiceIds: string[], newStatus: string }) => {
-      // Use the bulk update RPC function for better performance
-      const { data, error } = await supabase.rpc('bulk_update_invoice_status', {
-        p_invoice_ids: invoiceIds,
-        p_new_status: newStatus,
-        p_updated_by: user?.id
-      });
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data: any) => {
-      const updatedCount = data?.updated_count || 0;
-      const failedCount = data?.failed_count || 0;
-      
-      toast.success(`Updated ${updatedCount} invoice(s) successfully`);
-      
-      if (failedCount > 0) {
-        toast.error(`Failed to update ${failedCount} invoice(s)`);
-      }
-      
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      setSelectedIds([]);
-    },
-    onError: (error: any) => {
-      toast.error('Failed to update invoices: ' + error.message);
-    }
-  });
-
-  const handleBulkApprove = () => {
-    if (selectedIds.length === 0) {
-      toast.error('Please select orders to approve');
-      return;
-    }
-    bulkUpdateMutation.mutate({ invoiceIds: selectedIds, newStatus: 'approved' });
-  };
+  }, [orders, searchQuery]);
 
   const handleClearAllOrders = async () => {
     setIsClearing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('clear-invoices');
+      const { data, error } = await supabase.functions.invoke('clear-sales-orders');
       
       if (error) throw error;
       
-      toast.success(
-        `Clearing started: ${data.deleted.invoices} invoices, ${data.deleted.line_items} line items. Refreshing...`
-      );
+      toast.success('All orders cleared successfully');
       
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       
       setIsClearDialogOpen(false);
       
-      // Wait 2 seconds before refreshing to allow background process
       setTimeout(() => {
         window.location.reload();
-      }, 2000);
+      }, 1000);
     } catch (error: any) {
       toast.error(`Failed to clear orders: ${error.message}`);
       console.error('Clear orders error:', error);
@@ -150,240 +125,198 @@ export default function SalesOrders() {
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string; className?: string }> = {
+      pending: { variant: "secondary", label: "Pending Review", className: "bg-blue-100 text-blue-800" },
+      invoiced: { variant: "default", label: "Invoiced", className: "bg-green-100 text-green-800" },
+      cancelled: { variant: "destructive", label: "Cancelled", className: "bg-gray-100 text-gray-800" },
+    };
+    
+    const config = variants[status] || { variant: "outline", label: status };
+    return <Badge variant={config.variant} className={config.className}>{config.label}</Badge>;
+  };
+
+  if (!organizationId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-muted-foreground">Please log in to view orders</p>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <BatchJobStatusBar />
-      <div className="space-y-4 md:space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Orders</h1>
-            <p className="text-sm md:text-base text-muted-foreground mt-1">
-              Create and manage sales orders
-            </p>
-          </div>
-          
-          {/* Desktop Actions */}
-          <div className="hidden md:flex gap-2">
-            <GenerateTemplateTestDataButton />
-            <GenerateDailyOrdersButton />
-            <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="lg">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear All
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Clear All Orders?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete all orders and invoices. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isClearing}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={handleClearAllOrders}
-                    disabled={isClearing}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {isClearing ? "Clearing..." : "Clear All"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Button onClick={() => navigate('/orders/new')} size="lg">
-              <Plus className="h-4 w-4 mr-2" />
-              New Order
-            </Button>
-          </div>
-          
-          {/* Mobile Actions */}
-          <div className="flex md:hidden gap-2">
-            <GenerateDailyOrdersButton />
-          </div>
-        </div>
+    <div className="flex-1 space-y-4 p-4 md:p-8">
+      <ModernPageHeader
+        title="Orders"
+        description="Orders for upcoming deliveries - temporary staging before invoice creation"
+      />
 
-        {/* Search Bar */}
-        {selectedStatus !== 'templates' && (
-          <Card className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by customer name or order number..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-10 h-11 text-base"
-              />
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+      <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+        <div className="flex gap-2">
+          <GenerateDailyOrdersButton />
+          <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                Clear All Orders
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear All Orders?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete all pending orders. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isClearing}>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleClearAllOrders}
+                  disabled={isClearing}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
+                  {isClearing ? "Clearing..." : "Clear All"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+        <Button onClick={() => navigate('/orders/new')} size="sm" className="hidden md:flex">
+          <Plus className="h-4 w-4 mr-2" />
+          New Order
+        </Button>
+      </div>
+
+      {/* Search Bar */}
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by customer name or order number..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10"
+            />
             {searchQuery && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Found {filteredInvoices.length} result{filteredInvoices.length !== 1 ? 's' : ''}
-              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             )}
-          </Card>
-        )}
+          </div>
+          {searchQuery && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Found {filteredOrders.length} result{filteredOrders.length !== 1 ? 's' : ''}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
-        <Tabs value={selectedStatus} onValueChange={(v) => setSelectedStatus(v as any)} className="w-full">
-          <TabsList className="grid w-full grid-cols-7 lg:max-w-4xl">
-            <TabsTrigger value="draft">Draft</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="approved">Approved</TabsTrigger>
-            <TabsTrigger value="invoiced">Invoiced</TabsTrigger>
-            <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="templates">Templates</TabsTrigger>
-          </TabsList>
+      {/* Status Tabs */}
+      <Tabs value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as OrderStatus)} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="invoiced">Invoiced</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+          <TabsTrigger value="all">All Orders</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value={selectedStatus} className="mt-4 md:mt-6 space-y-4">
-            {selectedStatus !== 'templates' && (
-              <>
-                {/* Bulk Actions Bar */}
-                {selectedIds.length > 0 && (
-                  <Card className="p-4 bg-primary/5 border-primary/20">
+        <TabsContent value={selectedStatus} className="space-y-4 mt-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Error loading orders. Please try again.</p>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium mb-2">
+                  {searchQuery ? 'No matching orders found' : 'No orders for upcoming deliveries'}
+                </p>
+                <p className="text-muted-foreground mb-4">
+                  {searchQuery ? 'Try adjusting your search' : 'Orders appear here 1-3 days before delivery date'}
+                </p>
+                {!searchQuery && (
+                  <Button onClick={() => navigate('/orders/new')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Order
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {filteredOrders.map((order) => (
+                <Card 
+                  key={order.id} 
+                  className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => navigate(`/orders/${order.id}`)}
+                >
+                  <CardContent className="p-6">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{selectedIds.length} selected</span>
-                      <div className="flex gap-2">
-                        {selectedStatus === 'draft' && (
-                          <Button 
-                            onClick={handleBulkApprove} 
-                            size="sm"
-                            disabled={bulkUpdateMutation.isPending}
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Approve ({selectedIds.length})
-                          </Button>
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-semibold">
+                            {order.customer_profile?.company_name || order.customer_profile?.display_name || 'Unknown Customer'}
+                          </h3>
+                          {getStatusBadge(order.status)}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>Order #{order.order_number}</span>
+                          <span>•</span>
+                          <span>Delivery: {format(new Date(order.delivery_date), 'EEE, MMM dd, yyyy')}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-2xl font-bold">
+                            ${order.total?.toFixed(2) || '0.00'}
+                          </p>
+                        </div>
+                        {order.status === 'pending' && (
+                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => convertOrder({ orderId: order.id, action: 'invoice' })}
+                              disabled={isConverting}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Invoice
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => convertOrder({ orderId: order.id, action: 'cancel' })}
+                              disabled={isConverting}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Cancel
+                            </Button>
+                          </div>
                         )}
-                        <Button 
-                          onClick={() => setSelectedIds([])} 
-                          variant="outline" 
-                          size="sm"
-                        >
-                          Clear
-                        </Button>
                       </div>
                     </div>
-                  </Card>
-                )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
-                {/* Invoice List */}
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center space-y-2">
-                      <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                      <p className="text-sm text-muted-foreground">Loading...</p>
-                    </div>
-                  </div>
-                ) : filteredInvoices && filteredInvoices.length > 0 ? (
-                  <div className="space-y-2">
-                    {filteredInvoices.map((invoice) => (
-                      <Card
-                        key={invoice.id}
-                        className="p-4 hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={(e) => {
-                          if ((e.target as HTMLElement).closest('[data-checkbox]')) return;
-                          navigate(`/invoices/${invoice.id}`);
-                        }}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div data-checkbox onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={selectedIds.includes(invoice.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedIds([...selectedIds, invoice.id]);
-                                } else {
-                                  setSelectedIds(selectedIds.filter(id => id !== invoice.id));
-                                }
-                              }}
-                            />
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-lg">
-                                {invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'Unknown Customer'}
-                              </span>
-                              <Badge className={InvoiceStatusColors[invoice.status]}>
-                                {InvoiceStatusLabels[invoice.status]}
-                              </Badge>
-                              {invoice.is_no_order && (
-                                <Badge variant="outline" className="bg-gray-100">NO ORDER</Badge>
-                              )}
-                            </div>
-                            <div className="text-sm mt-1 space-x-2">
-                              <span className="font-medium">
-                                Delivery: {invoice.delivery_date ? format(new Date(invoice.delivery_date), 'EEE, MMM dd, yyyy') : 'N/A'}
-                              </span>
-                              <span className="text-muted-foreground">• {invoice.invoice_number}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="text-right">
-                            <div className="font-semibold">${invoice.total?.toFixed(2) || '0.00'}</div>
-                            {invoice.status === 'partial' && (
-                              <div className="text-xs text-muted-foreground">
-                                Paid: ${invoice.amount_paid?.toFixed(2) || '0.00'}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <Card className="p-12">
-                    <div className="text-center space-y-2">
-                      <p className="text-muted-foreground">
-                        {searchQuery 
-                          ? `No orders found matching "${searchQuery}"`
-                          : `No ${['all', 'templates'].includes(selectedStatus) ? '' : (InvoiceStatusLabels as any)[selectedStatus]?.toLowerCase() || ''} orders found`
-                        }
-                      </p>
-                      {searchQuery ? (
-                        <Button onClick={() => setSearchQuery("")} variant="outline">
-                          <X className="h-4 w-4 mr-2" />
-                          Clear Search
-                        </Button>
-                      ) : (
-                        <Button onClick={() => navigate('/orders/new')} variant="outline">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create Order
-                        </Button>
-                      )}
-                    </div>
-                  </Card>
-                )}
-              </>
-            )}
-            
-            {selectedStatus === 'templates' && (
-              <CustomerTemplates />
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
-      
       {/* Mobile FAB */}
-      <Button
-        onClick={() => navigate('/orders/new')}
-        size="lg"
-        className="md:hidden fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full shadow-lg hover:scale-110 transition-transform"
-        aria-label="New Order"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
-    </>
+      <MobileFAB onClick={() => navigate('/orders/new')} />
+    </div>
   );
-}
+};
+
+export default SalesOrders;
