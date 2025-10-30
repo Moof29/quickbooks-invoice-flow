@@ -132,7 +132,7 @@ async function processDateOrders(
           invoice_number: invoiceNumber,
           order_date: orderDate,
           delivery_date: targetDate,
-          status: 'draft',
+          status: 'pending',
           is_no_order: isNoOrder,
           subtotal: subtotal,
           total: subtotal,

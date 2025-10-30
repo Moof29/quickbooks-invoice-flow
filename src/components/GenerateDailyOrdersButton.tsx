@@ -205,7 +205,7 @@ export function GenerateDailyOrdersButton() {
       } else {
         toast({
           title: "Success!",
-          description: `Generated ${orders_created} draft order(s) for ${selectedDates.length} date(s).`,
+          description: `Generated ${orders_created} pending order(s) for ${selectedDates.length} date(s).`,
         });
       }
       
