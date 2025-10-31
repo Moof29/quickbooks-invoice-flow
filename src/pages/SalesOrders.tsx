@@ -221,7 +221,7 @@ const SalesOrders = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-3">
               <span className="kpi-label">Pending Orders</span>
-              <div className="icon-container info">
+              <div className="icon-container warning">
                 <Clock className="h-5 w-5" />
               </div>
             </div>
@@ -245,7 +245,7 @@ const SalesOrders = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-3">
               <span className="kpi-label">Cancelled</span>
-              <div className="icon-container warning">
+              <div className="bg-red-100 text-red-700 rounded-lg p-2 w-10 h-10 flex items-center justify-center">
                 <Ban className="h-5 w-5" />
               </div>
             </div>
