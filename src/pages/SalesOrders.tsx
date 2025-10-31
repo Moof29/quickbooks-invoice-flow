@@ -191,9 +191,9 @@ const SalesOrders = () => {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string; className?: string }> = {
-      pending: { variant: "secondary", label: "Pending Review", className: "bg-yellow-100 text-yellow-800" },
-      invoiced: { variant: "default", label: "Invoiced", className: "bg-green-100 text-green-800" },
-      cancelled: { variant: "destructive", label: "Cancelled", className: "bg-red-100 text-red-800" },
+      pending: { variant: "secondary", label: "Pending Review", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-400 dark:border-yellow-800" },
+      invoiced: { variant: "default", label: "Invoiced", className: "bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-400 dark:border-green-800" },
+      cancelled: { variant: "destructive", label: "Cancelled", className: "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800" },
     };
     
     const config = variants[status] || { variant: "outline", label: status };
@@ -245,7 +245,7 @@ const SalesOrders = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-3">
               <span className="kpi-label">Cancelled</span>
-              <div className="bg-red-100 text-red-700 rounded-lg p-2 w-10 h-10 flex items-center justify-center">
+              <div className="bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800 rounded-lg p-2 w-10 h-10 flex items-center justify-center border">
                 <Ban className="h-5 w-5" />
               </div>
             </div>
@@ -334,9 +334,9 @@ const SalesOrders = () => {
       {/* Status Tabs */}
       <Tabs value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as OrderStatus)} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="pending" className="bg-yellow-50 text-yellow-700 data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-800">Pending</TabsTrigger>
-          <TabsTrigger value="invoiced" className="bg-green-50 text-green-700 data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Invoiced</TabsTrigger>
-          <TabsTrigger value="cancelled" className="bg-red-50 text-red-700 data-[state=active]:bg-red-100 data-[state=active]:text-red-800">Cancelled</TabsTrigger>
+          <TabsTrigger value="pending" className="bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400 data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-800 dark:data-[state=active]:bg-yellow-950/50 dark:data-[state=active]:text-yellow-300">Pending</TabsTrigger>
+          <TabsTrigger value="invoiced" className="bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400 data-[state=active]:bg-green-100 data-[state=active]:text-green-800 dark:data-[state=active]:bg-green-950/50 dark:data-[state=active]:text-green-300">Invoiced</TabsTrigger>
+          <TabsTrigger value="cancelled" className="bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400 data-[state=active]:bg-red-100 data-[state=active]:text-red-800 dark:data-[state=active]:bg-red-950/50 dark:data-[state=active]:text-red-300">Cancelled</TabsTrigger>
           <TabsTrigger value="all">All Orders</TabsTrigger>
         </TabsList>
 
