@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -10,10 +11,12 @@ interface ConvertOrderParams {
 export const useOrderLifecycle = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [convertingInvoiceId, setConvertingInvoiceId] = React.useState<string | null>(null);
 
   const convertOrderMutation = useMutation({
     mutationFn: async ({ invoiceId, action }: ConvertOrderParams) => {
       console.log(`Converting invoice ${invoiceId} with action: ${action}`);
+      setConvertingInvoiceId(invoiceId);
       
       const { data, error } = await supabase.functions.invoke('convert-order-to-invoice', {
         body: {
@@ -55,6 +58,7 @@ export const useOrderLifecycle = () => {
         queryClient.setQueryData(['sales-orders'], context.previousOrders);
       }
       
+      setConvertingInvoiceId(null);
       console.error('Order conversion error:', error);
       toast({
         title: 'Error',
@@ -67,6 +71,8 @@ export const useOrderLifecycle = () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
 
+      setConvertingInvoiceId(null);
+      
       if (variables.action === 'invoice') {
         toast({
           title: 'Invoice Created',
@@ -112,6 +118,7 @@ export const useOrderLifecycle = () => {
   return {
     convertOrder: convertOrderMutation.mutate,
     isConverting: convertOrderMutation.isPending,
+    convertingInvoiceId,
     updateOrderStatus: updateOrderStatusMutation.mutate,
     isUpdatingStatus: updateOrderStatusMutation.isPending,
   };
