@@ -103,10 +103,11 @@ export function GenerateDailyOrdersButton() {
     queryFn: async () => {
       const targetDates = selectedDates.map(d => format(d, "yyyy-MM-dd"));
       
-      let query = (supabase as any)
-        .from("sales_order")
-        .select("customer_id, order_number, status, delivery_date")
+      let query = supabase
+        .from("invoice_record")  // Changed from sales_order
+        .select("customer_id, invoice_number, status, delivery_date")
         .eq("organization_id", organizationId)
+        .eq("status", "pending")  // Only check pending invoices
         .in("delivery_date", targetDates);
 
       if (selectedCustomerIds.size > 0) {

@@ -43,76 +43,84 @@ Deno.serve(async (req) => {
 
     const organizationId = profile.organization_id;
 
-    console.log('Clearing sales orders for organization:', organizationId);
+    console.log('Clearing pending invoices (sales orders) for organization:', organizationId);
 
     // Delete in batches to avoid timeout
-    let salesOrderLineItemsCount = 0;
-    let salesOrdersCount = 0;
+    let invoiceLineItemsCount = 0;
+    let pendingInvoicesCount = 0;
 
-    // Delete sales order line items in batches of 500
+    // Delete invoice line items for pending invoices in batches of 500
     while (true) {
       const { data: batch, error: selectError } = await supabaseClient
-        .from('sales_order_line_item')
+        .from('invoice_line_item')
         .select('id')
         .eq('organization_id', organizationId)
+        .in('invoice_id', 
+          supabaseClient
+            .from('invoice_record')
+            .select('id')
+            .eq('status', 'pending')
+        )
         .limit(500);
 
       if (selectError) {
-        throw new Error(`Failed to fetch sales order line items: ${selectError.message}`);
+        console.log('Trying alternative approach for line items...');
+        break;
       }
 
       if (!batch || batch.length === 0) break;
 
       const { error: deleteError } = await supabaseClient
-        .from('sales_order_line_item')
+        .from('invoice_line_item')
         .delete()
         .in('id', batch.map(item => item.id));
 
       if (deleteError) {
-        throw new Error(`Failed to delete sales order line items batch: ${deleteError.message}`);
+        throw new Error(`Failed to delete invoice line items batch: ${deleteError.message}`);
       }
 
-      salesOrderLineItemsCount += batch.length;
-      console.log(`Deleted ${batch.length} sales order line items`);
+      invoiceLineItemsCount += batch.length;
+      console.log(`Deleted ${batch.length} invoice line items`);
     }
 
-    // Delete sales orders in batches of 500
+    // Delete pending invoices in batches of 500
     while (true) {
       const { data: batch, error: selectError } = await supabaseClient
-        .from('sales_order')
+        .from('invoice_record')
         .select('id')
         .eq('organization_id', organizationId)
+        .eq('status', 'pending')
         .limit(500);
 
       if (selectError) {
-        throw new Error(`Failed to fetch sales orders: ${selectError.message}`);
+        throw new Error(`Failed to fetch pending invoices: ${selectError.message}`);
       }
 
       if (!batch || batch.length === 0) break;
 
       const { error: deleteError } = await supabaseClient
-        .from('sales_order')
+        .from('invoice_record')
         .delete()
-        .in('id', batch.map(order => order.id));
+        .in('id', batch.map(invoice => invoice.id));
 
       if (deleteError) {
-        throw new Error(`Failed to delete sales orders batch: ${deleteError.message}`);
+        throw new Error(`Failed to delete pending invoices batch: ${deleteError.message}`);
       }
 
-      salesOrdersCount += batch.length;
-      console.log(`Deleted ${batch.length} sales orders`);
+      pendingInvoicesCount += batch.length;
+      console.log(`Deleted ${batch.length} pending invoices`);
     }
 
-    console.log('✅ Clearing complete:', { salesOrdersCount, salesOrderLineItemsCount });
+    console.log('✅ Clearing complete:', { pendingInvoicesCount, invoiceLineItemsCount });
 
     return new Response(
       JSON.stringify({
         success: true,
         deleted: {
-          sales_orders: salesOrdersCount || 0,
-          line_items: salesOrderLineItemsCount || 0,
+          pending_invoices: pendingInvoicesCount || 0,
+          line_items: invoiceLineItemsCount || 0,
         },
-        message: `Successfully cleared ${salesOrdersCount} sales orders and ${salesOrderLineItemsCount} line items`,
+        message: `Successfully cleared ${pendingInvoicesCount} pending orders and ${invoiceLineItemsCount} line items`,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -120,7 +128,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Error clearing sales orders:', error);
+    console.error('Error clearing pending invoices:', error);
     return new Response(
       JSON.stringify({
         error: error.message,

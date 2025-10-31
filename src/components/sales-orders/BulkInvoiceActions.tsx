@@ -46,15 +46,15 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
         const chunk = selectedOrders.slice(i, i + chunkSize);
         
         const { data: orders, error } = await supabase
-          .from('sales_order')
-          .select('id, order_number, status')
+          .from('invoice_record')  // Changed from sales_order
+          .select('id, invoice_number, status')
           .in('id', chunk);
 
         if (error) throw error;
 
-        const valid = orders?.filter(o => o.status === 'approved') || [];
+        const valid = orders?.filter(o => o.status === 'pending') || [];  // Changed: pending is ready to invoice
         const alreadyInvoiced = orders?.filter(o => o.status === 'invoiced' || o.status === 'cancelled') || [];
-        const notReviewed = orders?.filter(o => o.status === 'pending') || [];
+        const notReviewed: any[] = [];  // No longer needed - all pending orders are ready
 
         allValid = [...allValid, ...valid];
         allAlreadyInvoiced = [...allAlreadyInvoiced, ...alreadyInvoiced];
@@ -100,7 +100,7 @@ export function BulkInvoiceActions({ selectedOrders, onComplete }: BulkInvoiceAc
     setIsCreating(true);
     try {
       const requestBody = {
-        sales_order_ids: orderIds,
+        invoice_ids: orderIds,  // Changed from sales_order_ids
         invoice_date: new Date().toISOString().split('T')[0],
         due_days: 30,
       };
