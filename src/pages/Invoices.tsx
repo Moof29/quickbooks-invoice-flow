@@ -162,19 +162,28 @@ const Invoices = () => {
     }
   };
 
-  const getStatusVariant = (status: string, amountDue: number): "default" | "secondary" | "destructive" | "outline" => {
-    if (amountDue === 0) return 'default';
+  const getStatusVariant = (status: string, amountDue: number): { variant: "default" | "secondary" | "destructive" | "outline"; className: string } => {
+    // Paid invoices (amount_due = 0)
+    if (amountDue === 0) {
+      return { variant: 'default', className: 'bg-green-100 text-green-800' };
+    }
+    
+    // Status-based colors
     switch (status?.toLowerCase()) {
       case 'paid':
-        return 'default';
+        return { variant: 'default', className: 'bg-green-100 text-green-800' };
       case 'sent':
-        return 'secondary';
+      case 'invoiced':
+      case 'confirmed':
+        return { variant: 'secondary', className: 'bg-yellow-100 text-yellow-800' };
       case 'overdue':
-        return 'destructive';
-      case 'draft':
-        return 'outline';
+        return { variant: 'destructive', className: 'bg-red-100 text-red-800' };
+      case 'cancelled':
+        return { variant: 'destructive', className: 'bg-red-100 text-red-800' };
+      case 'delivered':
+        return { variant: 'default', className: 'bg-green-100 text-green-800' };
       default:
-        return 'outline';
+        return { variant: 'outline', className: '' };
     }
   };
 
@@ -597,7 +606,10 @@ const Invoices = () => {
                           ${invoice.total.toFixed(2)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getStatusVariant(invoice.status, invoice.amount_due || 0)}>
+                          <Badge 
+                            variant={getStatusVariant(invoice.status, invoice.amount_due || 0).variant}
+                            className={getStatusVariant(invoice.status, invoice.amount_due || 0).className}
+                          >
                             {invoice.amount_due === 0 ? 'Paid' : invoice.status}
                           </Badge>
                         </TableCell>
@@ -656,8 +668,8 @@ const Invoices = () => {
                             {invoice.invoice_number}
                           </h3>
                           <Badge 
-                            variant={getStatusVariant(invoice.status, invoice.amount_due || 0)}
-                            className="shrink-0"
+                            variant={getStatusVariant(invoice.status, invoice.amount_due || 0).variant}
+                            className={`${getStatusVariant(invoice.status, invoice.amount_due || 0).className} shrink-0`}
                           >
                             {invoice.amount_due === 0 ? 'Paid' : invoice.status}
                           </Badge>
