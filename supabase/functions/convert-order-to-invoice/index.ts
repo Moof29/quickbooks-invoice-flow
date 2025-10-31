@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
           subtotal: order.subtotal,
           tax_total: order.tax_total,
           total: order.total,
-          status: 'open',
+          status: 'confirmed',
           memo: order.memo,
           customer_po_number: order.customer_po_number,
           source_system: 'ERP',
