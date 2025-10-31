@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface ConvertOrderParams {
-  orderId: string;
+  invoiceId: string;  // Changed from orderId
   action: 'invoice' | 'cancel';
 }
 
@@ -12,19 +12,19 @@ export const useOrderLifecycle = () => {
   const queryClient = useQueryClient();
 
   const convertOrderMutation = useMutation({
-    mutationFn: async ({ orderId, action }: ConvertOrderParams) => {
-      console.log(`Converting order ${orderId} with action: ${action}`);
+    mutationFn: async ({ invoiceId, action }: ConvertOrderParams) => {
+      console.log(`Converting invoice ${invoiceId} with action: ${action}`);
       
       const { data, error } = await supabase.functions.invoke('convert-order-to-invoice', {
         body: {
-          order_id: orderId,
+          invoice_id: invoiceId,  // Changed from order_id
           action,
         },
       });
 
       if (error) {
-        console.error('Error converting order:', error);
-        throw new Error(error.message || 'Failed to convert order');
+        console.error('Error converting invoice:', error);
+        throw new Error(error.message || 'Failed to convert invoice');
       }
 
       if (data?.error) {
@@ -37,7 +37,7 @@ export const useOrderLifecycle = () => {
       // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', variables.orderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-record', variables.invoiceId] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
 
       if (variables.action === 'invoice') {

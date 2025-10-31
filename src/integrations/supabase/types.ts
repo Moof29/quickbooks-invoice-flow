@@ -5714,6 +5714,10 @@ export type Database = {
         Returns: undefined
       }
       cancel_bulk_invoice_job: { Args: { p_job_id: string }; Returns: boolean }
+      cancel_invoice_order: {
+        Args: { p_cancelled_by: string; p_invoice_id: string }
+        Returns: undefined
+      }
       check_duplicate_orders: {
         Args: {
           p_customer_id: string
@@ -5766,6 +5770,21 @@ export type Database = {
           p_organization_id: string
           p_sales_order_ids: string[]
           p_user_context?: Json
+        }
+        Returns: string
+      }
+      create_invoice_atomic: {
+        Args: {
+          p_created_from_template?: boolean
+          p_customer_id: string
+          p_delivery_date: string
+          p_invoice_number: string
+          p_is_no_order?: boolean
+          p_memo?: string
+          p_order_date?: string
+          p_organization_id: string
+          p_status?: string
+          p_template_id?: string
         }
         Returns: string
       }

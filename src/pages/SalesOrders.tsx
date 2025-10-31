@@ -47,7 +47,7 @@ const SalesOrders = () => {
   const { convertOrder, isConverting } = useOrderLifecycle();
   const visibleDeliveryDates = getVisibleDeliveryDates();
 
-  // Real-time subscription for order updates
+  // Real-time subscription for order updates (pending invoices)
   useEffect(() => {
     if (!organizationId) return;
 
@@ -56,13 +56,13 @@ const SalesOrders = () => {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
-          table: 'sales_order',
-          filter: `organization_id=eq.${organizationId}`
+          table: 'invoice_record',  // Changed from sales_order
+          filter: `organization_id=eq.${organizationId},status=eq.pending`  // Only pending invoices
         },
         (payload) => {
-          console.log('Order updated in real-time:', payload);
+          console.log('Pending invoice updated in real-time:', payload);
           // Invalidate queries to refresh the data
           queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
           queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
@@ -75,16 +75,17 @@ const SalesOrders = () => {
     };
   }, [organizationId, queryClient]);
 
-  // Fetch all orders for stats (not filtered by delivery date)
+  // Fetch all orders for stats (from invoice_record)
   const { data: allOrders } = useQuery({
     queryKey: ['sales-orders-stats', organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
 
       const { data, error } = await supabase
-        .from('sales_order' as any)
+        .from('invoice_record')  // Changed from sales_order
         .select('id, status, total')
-        .eq('organization_id', organizationId);
+        .eq('organization_id', organizationId)
+        .eq('status', 'pending');  // Only pending invoices (sales orders)
 
       if (error) throw error;
       return data || [];
@@ -105,7 +106,7 @@ const SalesOrders = () => {
     }, { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 });
   }, [allOrders]);
 
-  // Fetch sales orders for upcoming deliveries
+  // Fetch sales orders for upcoming deliveries (from invoice_record with status = 'pending')
   const { data: orders, isLoading, error } = useQuery({
     queryKey: ['sales-orders', organizationId, selectedStatus, visibleDeliveryDates],
     queryFn: async () => {
@@ -114,28 +115,26 @@ const SalesOrders = () => {
       const dateStrings = visibleDeliveryDates.map(d => format(d, 'yyyy-MM-dd'));
 
       let query = supabase
-        .from('sales_order' as any)
+        .from('invoice_record')  // Changed from sales_order
         .select(`
           *,
           customer_profile!customer_id (
             id,
             display_name,
             company_name
-          )
+          ),
+          invoice_line_item(*)
         `)
         .eq('organization_id', organizationId)
+        .eq('status', 'pending')  // Only pending (staging) invoices
         .in('delivery_date', dateStrings)
         .order('delivery_date', { ascending: true })
         .order('created_at', { ascending: false });
 
-      if (selectedStatus !== 'all') {
-        query = query.eq('status', selectedStatus);
-      }
-
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching sales orders:', error);
+        console.error('Error fetching pending invoices:', error);
         throw error;
       }
 
@@ -152,10 +151,10 @@ const SalesOrders = () => {
     const query = searchQuery.toLowerCase();
     return orders.filter(order => {
       const customerName = order.customer_profile?.company_name || order.customer_profile?.display_name || '';
-      const orderNumber = order.order_number || '';
+      const invoiceNumber = order.invoice_number || '';  // Changed from order_number
       
       return customerName.toLowerCase().includes(query) || 
-             orderNumber.toLowerCase().includes(query);
+             invoiceNumber.toLowerCase().includes(query);
     });
   }, [orders, searchQuery]);
 
@@ -379,7 +378,7 @@ const SalesOrders = () => {
                           {getStatusBadge(order.status)}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Order #{order.order_number}</span>
+                          <span>Order #{order.invoice_number}</span>
                           <span>•</span>
                           <span>Delivery: {format(new Date(order.delivery_date), 'EEE, MMM dd, yyyy')}</span>
                         </div>
@@ -395,7 +394,7 @@ const SalesOrders = () => {
                             <Button
                               size="sm"
                               variant="default"
-                              onClick={() => convertOrder({ orderId: order.id, action: 'invoice' })}
+                              onClick={() => convertOrder({ invoiceId: order.id, action: 'invoice' })}
                               disabled={isConverting}
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
@@ -404,7 +403,7 @@ const SalesOrders = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => convertOrder({ orderId: order.id, action: 'cancel' })}
+                              onClick={() => convertOrder({ invoiceId: order.id, action: 'cancel' })}
                               disabled={isConverting}
                             >
                               <XCircle className="h-4 w-4 mr-1" />

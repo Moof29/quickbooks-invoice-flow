@@ -105,52 +105,65 @@ async function processDateOrders(
       
       const isNoOrder = lineItems.length === 0;
       
-      // Create sales order using atomic function (handles order number generation)
-      const { data: newOrderData, error: orderError } = await supabaseClient.rpc(
-        'create_sales_order_atomic',
+      // Generate invoice number immediately
+      const { data: invoiceNumber, error: invoiceNumberError } = await supabaseClient
+        .rpc('get_next_invoice_number', { p_organization_id: organizationId });
+
+      if (invoiceNumberError || !invoiceNumber) {
+        console.error('Failed to generate invoice number:', invoiceNumberError);
+        errors.push({
+          date: targetDate,
+          customer_id: template.customer_id,
+          error: 'Failed to generate invoice number'
+        });
+        continue;
+      }
+
+      // Create invoice with pending status (this IS the sales order)
+      const { data: newInvoiceId, error: invoiceError } = await supabaseClient.rpc(
+        'create_invoice_atomic',
         {
           p_organization_id: organizationId,
           p_customer_id: template.customer_id,
+          p_invoice_number: invoiceNumber,
+          p_status: 'pending',  // ← Starts as pending (staging phase)
           p_order_date: orderDate,
           p_delivery_date: targetDate,
-          p_status: 'pending',
-          p_is_no_order_today: isNoOrder,
           p_memo: `Auto-generated from template: ${template.name}`,
+          p_is_no_order: isNoOrder,
           p_created_from_template: true,
           p_template_id: template.id
         }
       );
       
-      if (orderError || !newOrderData || newOrderData.length === 0) {
-        console.error('Failed to create order:', orderError);
+      if (invoiceError || !newInvoiceId) {
+        console.error('Failed to create invoice:', invoiceError);
         errors.push({
           date: targetDate,
           customer_id: template.customer_id,
-          error: orderError?.message || 'Failed to create order'
+          error: invoiceError?.message || 'Failed to create invoice'
         });
         continue;
       }
       
-      const newOrder = newOrderData[0]; // RPC returns an array
-      const orderId = newOrder.order_id;
-      const orderNumber = newOrder.order_number;
+      const invoiceId = newInvoiceId;
       
       // Create line items if there are any
       if (lineItems.length > 0) {
         const { error: lineItemsError } = await supabaseClient
-          .from('sales_order_line_item')
+          .from('invoice_line_item')  // Changed from sales_order_line_item
           .insert(
             lineItems.map(item => ({
               ...item,
-              sales_order_id: orderId,
+              invoice_id: invoiceId,  // Changed from sales_order_id
               organization_id: organizationId
             }))
           );
         
         if (lineItemsError) {
           console.error('Failed to create line items:', lineItemsError);
-          // Delete the order since line items failed
-          await supabaseClient.from('sales_order').delete().eq('id', orderId);
+          // Rollback: delete the invoice
+          await supabaseClient.from('invoice_record').delete().eq('id', invoiceId);
           errors.push({
             date: targetDate,
             customer_id: template.customer_id,
@@ -160,17 +173,15 @@ async function processDateOrders(
         }
       }
       
-      console.log(`✅ Created order ${orderNumber} for customer ${template.customer_id}`);
+      console.log(`✅ Created pending invoice ${invoiceNumber} for customer ${template.customer_id}`);
       const customer = customerMap.get(template.customer_id);
       createdOrders.push({
-        order_id: orderId,
-        order_number: orderNumber,
-        customer_id: newOrder.customer_id,
+        invoice_id: invoiceId,  // Changed from order_id
+        invoice_number: invoiceNumber,  // Changed from order_number
+        customer_id: template.customer_id,
         customer_name: customer?.company_name || 'Unknown',
         delivery_date: targetDate,
       });
-      
-      console.log(`✅ Created order ${newOrder.order_number} for customer ${template.customer_id}`);
       
     } catch (error) {
       console.error('Error creating order for template:', template.id, error);

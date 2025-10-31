@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface ConvertOrderRequest {
-  order_id: string;
+  invoice_id: string;
   action: 'invoice' | 'cancel';
 }
 
@@ -33,221 +33,102 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { order_id, action } = await req.json() as ConvertOrderRequest;
+    // Parse request body
+    const { invoice_id, action } = await req.json() as ConvertOrderRequest;
 
-    if (!order_id || !action) {
+    if (!invoice_id || !action) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: order_id and action' }),
+        JSON.stringify({ error: 'Missing required fields: invoice_id and action' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Converting order ${order_id} with action: ${action}`);
+    console.log(`Converting invoice ${invoice_id} with action: ${action}`);
 
-    // Fetch the order with line items and customer info
-    const { data: order, error: orderError } = await supabase
-      .from('sales_order')
+    // Fetch the invoice from invoice_record
+    const { data: invoice, error: invoiceError } = await supabase
+      .from('invoice_record')
       .select(`
         *,
         customer:customer_profile!customer_id(*)
       `)
-      .eq('id', order_id)
+      .eq('id', invoice_id)
       .single();
 
-    if (orderError || !order) {
-      console.error('Error fetching order:', orderError);
+    if (invoiceError || !invoice) {
+      console.error('Error fetching invoice:', invoiceError);
       return new Response(
-        JSON.stringify({ error: 'Order not found' }),
+        JSON.stringify({ error: 'Invoice not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Check if order is still pending
-    if (order.status !== 'pending') {
+    // Check if invoice is still pending
+    if (invoice.status !== 'pending') {
       return new Response(
-        JSON.stringify({ error: `Order is already ${order.status}` }),
+        JSON.stringify({ error: `Invoice is already ${invoice.status}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('Pending invoice found:', invoice.invoice_number);
+
+    // Handle invoice action - simple status update
     if (action === 'invoice') {
-      // Fetch line items (only non-zero quantities)
-      const { data: lineItems, error: lineItemsError } = await supabase
-        .from('sales_order_line_item')
-        .select('*, item:item_record!item_id(*)')
-        .eq('sales_order_id', order_id)
-        .gt('quantity', 0);
-
-      if (lineItemsError) {
-        console.error('Error fetching line items:', lineItemsError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to fetch order line items' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Generate invoice number
-      const { data: invoiceNumber, error: invoiceNumberError } = await supabase
-        .rpc('get_next_invoice_number', { p_organization_id: order.organization_id });
-
-      if (invoiceNumberError) {
-        console.error('Error generating invoice number:', invoiceNumberError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to generate invoice number' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Create invoice
-      const { data: invoice, error: invoiceError } = await supabase
+      // Simply update the status (no need to copy data to new record)
+      const { error: updateError } = await supabase
         .from('invoice_record')
-        .insert({
-          organization_id: order.organization_id,
-          customer_id: order.customer_id,
-          invoice_number: invoiceNumber,
-          delivery_date: order.delivery_date,
-          invoice_date: order.delivery_date,
-          due_date: order.delivery_date,
-          subtotal: order.subtotal,
-          tax_total: order.tax_total,
-          total: order.total,
-          status: 'confirmed',
-          memo: order.memo,
-          customer_po_number: order.customer_po_number,
-          source_system: 'ERP',
-        })
-        .select()
-        .single();
-
-      if (invoiceError || !invoice) {
-        console.error('Error creating invoice:', invoiceError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to create invoice' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log('Invoice created:', invoice.id);
-
-      // Create invoice line items
-      if (lineItems && lineItems.length > 0) {
-        const invoiceLineItems = lineItems.map((item) => ({
-          organization_id: order.organization_id,
-          invoice_id: invoice.id,
-          item_id: item.item_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          tax_rate: item.tax_rate,
-        }));
-
-        const { error: lineItemsInsertError } = await supabase
-          .from('invoice_line_item')
-          .insert(invoiceLineItems);
-
-        if (lineItemsInsertError) {
-          console.error('Error creating invoice line items:', lineItemsInsertError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to create invoice line items' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      }
-
-      // Update order status to 'invoiced' and link to invoice
-      const { error: updateOrderError } = await supabase
-        .from('sales_order')
         .update({
           status: 'invoiced',
-          invoice_id: invoice.id,
-          approved_by: user.id,
+          invoice_date: invoice.delivery_date,
+          due_date: invoice.delivery_date,  // Or calculate due date
           approved_at: new Date().toISOString(),
+          approved_by: user.id,
         })
-        .eq('id', order_id);
+        .eq('id', invoice_id)
+        .eq('status', 'pending');  // Safety check
 
-      if (updateOrderError) {
-        console.error('Error updating order status:', updateOrderError);
+      if (updateError) {
+        console.error('Error converting to invoice:', updateError);
         return new Response(
-          JSON.stringify({ error: 'Failed to update order status' }),
+          JSON.stringify({ error: 'Failed to convert to invoice' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log('Order converted to invoice successfully');
+      console.log('Invoice conversion complete');
 
       return new Response(
         JSON.stringify({
           success: true,
-          invoice_id: invoice.id,
+          invoice_id: invoice_id,
           invoice_number: invoice.invoice_number,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
+    // Handle cancel action - call RPC
     } else if (action === 'cancel') {
-      // Create "No Order" invoice for record keeping
-      const { data: invoiceNumber, error: invoiceNumberError } = await supabase
-        .rpc('get_next_invoice_number', { p_organization_id: order.organization_id });
+      // Use the cancel RPC function
+      const { error: cancelError } = await supabase.rpc('cancel_invoice_order', {
+        p_invoice_id: invoice_id,
+        p_cancelled_by: user.id
+      });
 
-      if (invoiceNumberError) {
-        console.error('Error generating invoice number:', invoiceNumberError);
+      if (cancelError) {
+        console.error('Error cancelling invoice:', cancelError);
         return new Response(
-          JSON.stringify({ error: 'Failed to generate invoice number' }),
+          JSON.stringify({ error: 'Failed to cancel invoice' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoice_record')
-        .insert({
-          organization_id: order.organization_id,
-          customer_id: order.customer_id,
-          invoice_number: invoiceNumber,
-          delivery_date: order.delivery_date,
-          invoice_date: order.delivery_date,
-          due_date: order.delivery_date,
-          subtotal: 0,
-          tax_total: 0,
-          total: 0,
-          status: 'cancelled',
-          memo: order.memo ? `${order.memo}\n\n[NO ORDER - Customer declined delivery]` : '[NO ORDER - Customer declined delivery]',
-          source_system: 'ERP',
-        })
-        .select()
-        .single();
-
-      if (invoiceError || !invoice) {
-        console.error('Error creating no-order invoice:', invoiceError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to create no-order invoice' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Update order status to 'cancelled' and link to invoice
-      const { error: updateOrderError } = await supabase
-        .from('sales_order')
-        .update({
-          status: 'cancelled',
-          invoice_id: invoice.id,
-          approved_by: user.id,
-          approved_at: new Date().toISOString(),
-        })
-        .eq('id', order_id);
-
-      if (updateOrderError) {
-        console.error('Error updating order status:', updateOrderError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to update order status' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log('Order cancelled and no-order invoice created');
+      console.log('Invoice cancelled and no-order invoice created');
 
       return new Response(
         JSON.stringify({
           success: true,
-          invoice_id: invoice.id,
+          invoice_id: invoice_id,
           invoice_number: invoice.invoice_number,
           cancelled: true,
         }),
@@ -268,4 +149,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-

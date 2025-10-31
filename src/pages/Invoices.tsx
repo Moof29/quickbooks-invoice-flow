@@ -100,7 +100,7 @@ const Invoices = () => {
     loadInvoices();
   }, []);
 
-  // Real-time subscription for invoice changes
+  // Real-time subscription for invoice changes (exclude pending)
   useEffect(() => {
     const channel = supabase
       .channel('invoice-changes')
@@ -109,7 +109,8 @@ const Invoices = () => {
         {
           event: '*', // Listen to INSERT, UPDATE, DELETE
           schema: 'public',
-          table: 'invoice_record'
+          table: 'invoice_record',
+          filter: 'status=neq.pending'  // ← Exclude pending staging records
         },
         (payload) => {
           console.log('Invoice change detected:', payload);
@@ -144,6 +145,7 @@ const Invoices = () => {
             email
           )
         `)
+        .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue'])  // ← Exclude 'pending'
         .order('created_at', { ascending: false });
 
       if (error) throw error;
