@@ -49,22 +49,49 @@ Deno.serve(async (req) => {
     let invoiceLineItemsCount = 0;
     let pendingInvoicesCount = 0;
 
+    // First, get all pending invoice IDs
+    const { data: allPendingInvoices, error: fetchError } = await supabaseClient
+      .from('invoice_record')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('status', 'pending');
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch pending invoices: ${fetchError.message}`);
+    }
+
+    if (!allPendingInvoices || allPendingInvoices.length === 0) {
+      console.log('No pending invoices to clear');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          deleted: {
+            pending_invoices: 0,
+            line_items: 0,
+          },
+          message: 'No pending orders to clear',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    const pendingInvoiceIds = allPendingInvoices.map(inv => inv.id);
+    console.log(`Found ${pendingInvoiceIds.length} pending invoices to clear`);
+
     // Delete invoice line items for pending invoices in batches of 500
     while (true) {
       const { data: batch, error: selectError } = await supabaseClient
         .from('invoice_line_item')
         .select('id')
         .eq('organization_id', organizationId)
-        .in('invoice_id', 
-          supabaseClient
-            .from('invoice_record')
-            .select('id')
-            .eq('status', 'pending')
-        )
+        .in('invoice_id', pendingInvoiceIds)
         .limit(500);
 
       if (selectError) {
-        console.log('Trying alternative approach for line items...');
+        console.error('Error fetching line items:', selectError);
         break;
       }
 
@@ -84,31 +111,20 @@ Deno.serve(async (req) => {
     }
 
     // Delete pending invoices in batches of 500
-    while (true) {
-      const { data: batch, error: selectError } = await supabaseClient
-        .from('invoice_record')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .eq('status', 'pending')
-        .limit(500);
-
-      if (selectError) {
-        throw new Error(`Failed to fetch pending invoices: ${selectError.message}`);
-      }
-
-      if (!batch || batch.length === 0) break;
-
+    for (let i = 0; i < pendingInvoiceIds.length; i += 500) {
+      const batchIds = pendingInvoiceIds.slice(i, i + 500);
+      
       const { error: deleteError } = await supabaseClient
         .from('invoice_record')
         .delete()
-        .in('id', batch.map(invoice => invoice.id));
+        .in('id', batchIds);
 
       if (deleteError) {
         throw new Error(`Failed to delete pending invoices batch: ${deleteError.message}`);
       }
 
-      pendingInvoicesCount += batch.length;
-      console.log(`Deleted ${batch.length} pending invoices`);
+      pendingInvoicesCount += batchIds.length;
+      console.log(`Deleted ${batchIds.length} pending invoices`);
     }
 
     console.log('✅ Clearing complete:', { pendingInvoicesCount, invoiceLineItemsCount });
