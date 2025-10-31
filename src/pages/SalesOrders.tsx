@@ -403,6 +403,7 @@ const SalesOrders = () => {
                               variant="default"
                               onClick={() => convertOrder({ invoiceId: order.id, action: 'invoice' })}
                               disabled={isConverting}
+                              className="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800"
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
                               Invoice
@@ -412,6 +413,7 @@ const SalesOrders = () => {
                               variant="outline"
                               onClick={() => convertOrder({ invoiceId: order.id, action: 'cancel' })}
                               disabled={isConverting}
+                              className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
                             >
                               <XCircle className="h-4 w-4 mr-1" />
                               Cancel
