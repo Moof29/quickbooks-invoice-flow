@@ -452,8 +452,17 @@ const SalesOrders = () => {
                                 disabled={isConverting}
                                 className="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800"
                               >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Invoice
+                                {isConverting ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                    Converting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Invoice
+                                  </>
+                                )}
                               </Button>
                               <Button
                                 size="sm"

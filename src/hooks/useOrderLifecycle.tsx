@@ -17,7 +17,7 @@ export const useOrderLifecycle = () => {
       
       const { data, error } = await supabase.functions.invoke('convert-order-to-invoice', {
         body: {
-          invoice_id: invoiceId,  // Changed from order_id
+          invoice_id: invoiceId,
           action,
         },
       });
@@ -33,12 +33,39 @@ export const useOrderLifecycle = () => {
 
       return data;
     },
+    onMutate: async ({ invoiceId, action }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['sales-orders'] });
+      
+      // Snapshot previous value
+      const previousOrders = queryClient.getQueryData(['sales-orders']);
+      
+      // Optimistically update - remove order from list immediately
+      queryClient.setQueryData(['sales-orders'], (old: any) => {
+        if (!old) return old;
+        return old.filter((order: any) => order.id !== invoiceId);
+      });
+      
+      // Return context with snapshot for rollback
+      return { previousOrders };
+    },
+    onError: (error: Error, variables, context: any) => {
+      // Rollback on error
+      if (context?.previousOrders) {
+        queryClient.setQueryData(['sales-orders'], context.previousOrders);
+      }
+      
+      console.error('Order conversion error:', error);
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
     onSuccess: (data, variables) => {
-      // Invalidate all relevant queries
+      // Refresh from server in background
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['invoice-record', variables.invoiceId] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
 
       if (variables.action === 'invoice') {
         toast({
@@ -51,14 +78,6 @@ export const useOrderLifecycle = () => {
           description: 'No-order invoice created for record keeping',
         });
       }
-    },
-    onError: (error: Error) => {
-      console.error('Order conversion error:', error);
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
     },
   });
 

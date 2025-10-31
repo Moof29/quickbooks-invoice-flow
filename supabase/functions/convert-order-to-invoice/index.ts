@@ -48,10 +48,7 @@ Deno.serve(async (req) => {
     // Fetch the invoice from invoice_record
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoice_record')
-      .select(`
-        *,
-        customer:customer_profile!customer_id(*)
-      `)
+      .select('*')
       .eq('id', invoice_id)
       .single();
 
