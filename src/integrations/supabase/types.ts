@@ -5851,6 +5851,20 @@ export type Database = {
         Args: { p_error_message: string; p_job_id: string }
         Returns: undefined
       }
+      generate_daily_orders_batch: {
+        Args: {
+          p_customer_ids?: string[]
+          p_organization_id: string
+          p_target_dates: string[]
+        }
+        Returns: {
+          dates_processed: number
+          errors: Json
+          orders: Json
+          orders_created: number
+          success: boolean
+        }[]
+      }
       generate_sales_order_number: { Args: { org_id: string }; Returns: string }
       generate_sales_orders_from_templates: {
         Args: {
