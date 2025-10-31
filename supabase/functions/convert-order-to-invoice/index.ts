@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       // Fetch line items (only non-zero quantities)
       const { data: lineItems, error: lineItemsError } = await supabase
         .from('sales_order_line_item')
-        .select('*, item:item!item_id(*)')
+        .select('*, item:item_record!item_id(*)')
         .eq('sales_order_id', order_id)
         .gt('quantity', 0);
 
