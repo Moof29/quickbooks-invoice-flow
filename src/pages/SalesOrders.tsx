@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
@@ -46,6 +46,34 @@ const SalesOrders = () => {
   
   const { convertOrder, isConverting } = useOrderLifecycle();
   const visibleDeliveryDates = getVisibleDeliveryDates();
+
+  // Real-time subscription for order updates
+  useEffect(() => {
+    if (!organizationId) return;
+
+    const channel = supabase
+      .channel('sales-order-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sales_order',
+          filter: `organization_id=eq.${organizationId}`
+        },
+        (payload) => {
+          console.log('Order updated in real-time:', payload);
+          // Invalidate queries to refresh the data
+          queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+          queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [organizationId, queryClient]);
 
   // Fetch all orders for stats (not filtered by delivery date)
   const { data: allOrders } = useQuery({

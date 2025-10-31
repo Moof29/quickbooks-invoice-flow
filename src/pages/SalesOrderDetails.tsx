@@ -214,6 +214,46 @@ export default function SalesOrderDetails() {
     }
   }, [lineItems]);
 
+  // Real-time subscription for order and line item updates
+  useEffect(() => {
+    if (!salesOrderId || !organizationId) return;
+
+    const channel = supabase
+      .channel('sales-order-details-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sales_order',
+          filter: `id=eq.${salesOrderId}`
+        },
+        (payload) => {
+          console.log('Order updated in real-time:', payload);
+          queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sales_order_line_item',
+          filter: `sales_order_id=eq.${salesOrderId}`
+        },
+        (payload) => {
+          console.log('Line item changed in real-time:', payload);
+          queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', salesOrderId] });
+          queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [salesOrderId, organizationId, queryClient]);
+
   // Check for duplicate orders when delivery_date or customer_id changes
   useEffect(() => {
     const checkDuplicates = async () => {
