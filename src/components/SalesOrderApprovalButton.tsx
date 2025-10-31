@@ -39,16 +39,14 @@ export function SalesOrderApprovalButton({
         throw new Error('User not authenticated');
       }
 
-      const { error } = await supabase
-        .from("sales_order")
-        .update({ 
-          status: "approved", 
-          approved_at: new Date().toISOString(),
-          approved_by: profile.id
-        })
-        .eq("id", salesOrderId);
+      // Call the convert-order-to-invoice edge function to convert pending -> invoiced
+      const { data, error } = await supabase.functions.invoke(
+        "convert-order-to-invoice",
+        { body: { invoiceId: salesOrderId, action: 'approve' } }
+      );
 
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to approve order');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });

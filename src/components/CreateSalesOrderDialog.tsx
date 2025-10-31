@@ -164,10 +164,11 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
 
       const yesterday = addDays(new Date(), -1);
       const { data: orderData, error: orderError } = await (supabase
-        .from('sales_order') as any)
+        .from('invoice_record') as any)
         .select('id')
         .eq('customer_id', customerId)
-        .eq('order_date', format(yesterday, 'yyyy-MM-dd'))
+        .eq('invoice_date', format(yesterday, 'yyyy-MM-dd'))
+        .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -175,13 +176,13 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
       if (orderError || !orderData) return null;
 
       const { data: lineItems, error: lineItemsError } = await supabase
-        .from('sales_order_line_item')
+        .from('invoice_line_item')
         .select('item_id, quantity, unit_price, description')
-        .eq('sales_order_id', orderData.id);
+        .eq('invoice_id', orderData.id);
 
       if (lineItemsError) return null;
 
-      return { id: orderData.id, sales_order_line_item: lineItems };
+      return { id: orderData.id, invoice_line_item: lineItems };
     },
     enabled: !!form.watch('customer_id'),
   });
@@ -216,14 +217,14 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
       // Calculate subtotal for initial amount_due
       const subtotal = validLineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
 
-      // Create draft sales order
-      const { data: salesOrder, error: orderError } = await supabase
-        .from('sales_order')
+      // Create pending invoice (sales order replacement)
+      const { data: invoice, error: orderError } = await supabase
+        .from('invoice_record')
         .insert({
           organization_id: profile.organization_id,
-          order_number: invoiceNumber,
+          invoice_number: invoiceNumber,
           customer_id: data.customer_id,
-          order_date: data.order_date,
+          invoice_date: data.order_date,
           delivery_date: data.delivery_date,
           memo: data.memo || null,
           status: 'pending', // New orders start as pending
@@ -236,7 +237,7 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
       // Create line items
       const lineItemsToInsert = validLineItems.map(item => ({
         organization_id: profile.organization_id,
-        sales_order_id: salesOrder.id,
+        invoice_id: invoice.id,
         item_id: item.item_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
@@ -244,15 +245,15 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
       }));
 
       const { error: lineItemsError } = await supabase
-        .from('sales_order_line_item')
+        .from('invoice_line_item')
         .insert(lineItemsToInsert);
 
       if (lineItemsError) throw lineItemsError;
 
-      return salesOrder;
+      return invoice;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast.success('Order created successfully');
       onOpenChange(false);
       form.reset();
@@ -289,8 +290,8 @@ export function CreateSalesOrderDialog({ open, onOpenChange }: CreateSalesOrderD
   };
 
   const copyFromYesterday = () => {
-    if (yesterdayOrder?.sales_order_line_item) {
-      const yesterdayItems = yesterdayOrder.sales_order_line_item.map((item: any) => ({
+    if (yesterdayOrder?.invoice_line_item) {
+      const yesterdayItems = yesterdayOrder.invoice_line_item.map((item: any) => ({
         item_id: item.item_id,
         quantity: item.quantity,
         unit_price: item.unit_price,

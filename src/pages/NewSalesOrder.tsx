@@ -90,14 +90,14 @@ export default function NewSalesOrder() {
         throw new Error('User not authenticated');
       }
 
-      // Create sales order
+      // Create pending invoice (sales order replacement)
       const { data: order, error: orderError } = await supabase
-        .from('sales_order')
+        .from('invoice_record')
         .insert({
           organization_id: organizationId,
           customer_id: customerId,
-          order_number: invoiceNumber,
-          order_date: orderDate,
+          invoice_number: invoiceNumber,
+          invoice_date: orderDate,
           delivery_date: deliveryDate,
           status: 'pending', // New orders start as pending
           subtotal,
@@ -112,11 +112,11 @@ export default function NewSalesOrder() {
       // Create line items if any
       if (lineItems.length > 0) {
         const { error: lineItemsError } = await supabase
-          .from('sales_order_line_item')
+          .from('invoice_line_item')
           .insert(
             lineItems.map(item => ({
               organization_id: organizationId,
-              sales_order_id: order.id,
+              invoice_id: order.id,
               item_id: item.item_id,
               quantity: item.quantity,
               unit_price: item.unit_price,
@@ -130,7 +130,7 @@ export default function NewSalesOrder() {
     },
     onSuccess: (order) => {
       toast.success('Order created successfully');
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
       navigate(`/orders/${order.id}`);
     },
     onError: (error: Error) => {

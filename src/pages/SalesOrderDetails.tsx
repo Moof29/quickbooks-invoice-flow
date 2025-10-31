@@ -64,8 +64,8 @@ import { useToast } from "@/hooks/use-toast";
 
 interface SalesOrder {
   id: string;
-  order_number: string;
-  order_date: string;
+  invoice_number: string;
+  invoice_date: string;
   delivery_date: string;
   status: string;
   customer_id: string;
@@ -113,11 +113,11 @@ export default function SalesOrderDetails() {
     queryKey: ["sales-order", salesOrderId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("sales_order")
+        .from("invoice_record")
         .select(`
           id,
-          order_number,
-          order_date,
+          invoice_number,
+          invoice_date,
           delivery_date,
           status,
           customer_id,
@@ -140,7 +140,7 @@ export default function SalesOrderDetails() {
     queryKey: ["sales-order-line-items", salesOrderId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("sales_order_line_item")
+        .from("invoice_line_item")
         .select(`
           id,
           item_id,
@@ -149,7 +149,7 @@ export default function SalesOrderDetails() {
           amount,
           item_record!inner(name)
         `)
-        .eq("sales_order_id", salesOrderId)
+        .eq("invoice_id", salesOrderId)
         .order("created_at");
 
       if (error) throw error;
@@ -225,7 +225,7 @@ export default function SalesOrderDetails() {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'sales_order',
+          table: 'invoice_record',
           filter: `id=eq.${salesOrderId}`
         },
         (payload) => {
@@ -238,8 +238,8 @@ export default function SalesOrderDetails() {
         {
           event: '*',
           schema: 'public',
-          table: 'sales_order_line_item',
-          filter: `sales_order_id=eq.${salesOrderId}`
+          table: 'invoice_line_item',
+          filter: `invoice_id=eq.${salesOrderId}`
         },
         (payload) => {
           console.log('Line item changed in real-time:', payload);
@@ -288,7 +288,7 @@ export default function SalesOrderDetails() {
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ lineItemId, quantity }: { lineItemId: string; quantity: number }) => {
       const { error } = await supabase
-        .from("sales_order_line_item")
+        .from("invoice_line_item")
         .update({ quantity })
         .eq("id", lineItemId);
 
@@ -312,7 +312,7 @@ export default function SalesOrderDetails() {
   const deleteLineItemMutation = useMutation({
     mutationFn: async (lineItemId: string) => {
       const { error } = await supabase
-        .from("sales_order_line_item")
+        .from("invoice_line_item")
         .delete()
         .eq("id", lineItemId);
 
@@ -345,8 +345,8 @@ export default function SalesOrderDetails() {
       }
 
       // Use 0 as default price - user can edit inline after adding
-      const { error } = await supabase.from("sales_order_line_item").insert({
-        sales_order_id: salesOrderId,
+      const { error } = await supabase.from("invoice_line_item").insert({
+        invoice_id: salesOrderId,
         item_id: item.id,
         quantity,
         unit_price: 0,
@@ -441,7 +441,7 @@ export default function SalesOrderDetails() {
       }
 
       const { error } = await supabase
-        .from("sales_order")
+        .from("invoice_record")
         .delete()
         .eq("id", salesOrderId);
 
@@ -463,22 +463,14 @@ export default function SalesOrderDetails() {
   // Cancel order mutation
   const cancelOrderMutation = useMutation({
     mutationFn: async () => {
-      // Update status to cancelled
-      const { error: updateError } = await supabase
-        .from("sales_order")
-        .update({ status: "cancelled" })
-        .eq("id", salesOrderId);
-      
-      if (updateError) throw updateError;
-
-      // Create "No Order Today" invoice
-      const { data, error: invoiceError } = await supabase.functions.invoke(
-        "create-invoice-from-order",
-        { body: { order_id: salesOrderId } }
+      // Call the convert edge function with cancel action
+      const { data, error } = await supabase.functions.invoke(
+        "convert-order-to-invoice",
+        { body: { invoiceId: salesOrderId, action: 'cancel' } }
       );
 
-      if (invoiceError) throw invoiceError;
-      if (!data?.success) throw new Error(data?.error || "Failed to create invoice");
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Failed to cancel order");
 
       return data;
     },
@@ -623,7 +615,7 @@ export default function SalesOrderDetails() {
               {order.customer_profile.company_name}
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <p className="text-sm text-muted-foreground">{order.order_number}</p>
+              <p className="text-sm text-muted-foreground">{order.invoice_number}</p>
               {getStatusBadge(order.status)}
               {order.is_no_order && (
                 <Badge variant="outline" className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700">

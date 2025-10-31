@@ -18,7 +18,7 @@ export const useOrderEdit = (orderId: string | null) => {
 
       // CRITICAL: Only update quantity - database triggers handle amount calculation
       const { error: updateError } = await supabase
-        .from('sales_order_line_item' as any)
+        .from('invoice_line_item' as any)
         .update({ quantity }) // ✅ Only updating quantity
         .eq('id', lineItemId);
 
@@ -32,9 +32,9 @@ export const useOrderEdit = (orderId: string | null) => {
     },
     onSuccess: () => {
       // Invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-line-items', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
 
       toast({
         title: 'Success',
@@ -57,16 +57,16 @@ export const useOrderEdit = (orderId: string | null) => {
   const deleteLineItemMutation = useMutation({
     mutationFn: async (lineItemId: string) => {
       const { error } = await supabase
-        .from('sales_order_line_item' as any)
+        .from('invoice_line_item' as any)
         .delete()
         .eq('id', lineItemId);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-line-items', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
 
       toast({
         title: 'Success',
@@ -98,9 +98,9 @@ export const useOrderEdit = (orderId: string | null) => {
       if (!orderId) throw new Error('Order ID is required');
 
       const { error } = await supabase
-        .from('sales_order_line_item' as any)
+        .from('invoice_line_item' as any)
         .insert({
-          sales_order_id: orderId,
+          invoice_id: orderId,
           item_id: itemId,
           quantity,
           unit_price: unitPrice,
@@ -110,9 +110,9 @@ export const useOrderEdit = (orderId: string | null) => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-order-line-items', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-line-items', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
 
       toast({
         title: 'Success',

@@ -76,7 +76,7 @@ interface SalesOrder {
   customer_profile: {
     company_name: string;
   };
-  sales_order_line_item: { count: number }[];
+  invoice_line_item: { count: number }[];
 }
 
 export function ModernSalesOrdersList() {
@@ -136,7 +136,7 @@ export function ModernSalesOrdersList() {
       
       // Build base query - explicit any to avoid TS deep instantiation
       let query: any = supabase
-        .from("sales_order")
+        .from("invoice_record")
         .select('*', { count: 'exact' })
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false })
@@ -177,14 +177,14 @@ export function ModernSalesOrdersList() {
             .single();
           
           const { count: itemCount } = await supabase
-            .from('sales_order_line_item')
+            .from('invoice_line_item')
             .select('*', { count: 'exact', head: true })
-            .eq('sales_order_id', order.id);
+            .eq('invoice_id', order.id);
 
           return {
             ...order,
             customer_profile: { company_name: customer?.company_name || 'Unknown' },
-            sales_order_line_item: [{ count: itemCount || 0 }]
+            invoice_line_item: [{ count: itemCount || 0 }]
           };
         })
       );
@@ -204,7 +204,7 @@ export function ModernSalesOrdersList() {
     mutationFn: async (orderId: string) => {
       // Double-check order is not invoiced/cancelled
       const { data: order } = await supabase
-        .from("sales_order")
+        .from("invoice_record")
         .select("status")
         .eq("id", orderId)
         .single();
@@ -213,7 +213,7 @@ export function ModernSalesOrdersList() {
         throw new Error("Cannot delete invoiced or cancelled orders");
       }
 
-      const { error } = await supabase.from("sales_order").delete().eq("id", orderId);
+      const { error } = await supabase.from("invoice_record").delete().eq("id", orderId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -230,25 +230,17 @@ export function ModernSalesOrdersList() {
     },
   });
 
-  // Cancel order mutation (creates "No Order Today" invoice)
+  // Cancel order mutation (cancels pending invoice)
   const cancelOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      // First update order status to canceled
-      const { error: updateError } = await supabase
-        .from("sales_order")
-        .update({ status: "cancelled" })
-        .eq("id", orderId);
-      
-      if (updateError) throw updateError;
-
-      // Then create invoice via edge function
-      const { data, error: invoiceError } = await supabase.functions.invoke(
-        "create-invoice-from-order",
-        { body: { order_id: orderId } }
+      // Call the cancel edge function which handles status update and NO ORDER line item
+      const { data, error } = await supabase.functions.invoke(
+        "convert-order-to-invoice",
+        { body: { invoiceId: orderId, action: 'cancel' } }
       );
 
-      if (invoiceError) throw invoiceError;
-      if (!data?.success) throw new Error(data?.error || "Failed to create invoice");
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Failed to cancel order");
 
       return data;
     },
@@ -290,8 +282,8 @@ export function ModernSalesOrdersList() {
       for (const chunk of chunks) {
         // Check which orders are invoiced/cancelled
         const { data: ordersToCheck, error: checkError } = await supabase
-          .from("sales_order")
-          .select("id, status, order_number")
+          .from("invoice_record")
+          .select("id, status, invoice_number")
           .in("id", chunk);
         
         if (checkError) throw checkError;
@@ -302,7 +294,7 @@ export function ModernSalesOrdersList() {
         // Delete non-invoiced orders
         if (deletableOrders.length > 0) {
           const { error: deleteError } = await supabase
-            .from("sales_order")
+            .from("invoice_record")
             .delete()
             .in("id", deletableOrders.map((o: any) => o.id));
           
@@ -311,7 +303,7 @@ export function ModernSalesOrdersList() {
         }
         
         totalInvoiced += invoicedOrders.length;
-        allInvoicedOrderNumbers.push(...invoicedOrders.map((o: any) => o.order_number));
+        allInvoicedOrderNumbers.push(...invoicedOrders.map((o: any) => o.invoice_number));
       }
       
       return {
@@ -912,7 +904,7 @@ export function ModernSalesOrdersList() {
                           {getStatusBadge(order.status)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {order.order_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.sales_order_line_item?.[0]?.count || 0} items • $
+                          {order.order_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.invoice_line_item?.[0]?.count || 0} items • $
                           {order.total.toFixed(2)}
                         </div>
                       </div>
@@ -1040,7 +1032,7 @@ export function ModernSalesOrdersList() {
                             {getStatusBadge(order.status)}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {order.order_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.sales_order_line_item?.[0]?.count || 0} items • $
+                            {order.order_number} • Created: {format(parseISO(order.order_date), "MMM dd")} • <span className="font-semibold text-foreground">Delivery: {format(parseISO(order.delivery_date), "MMM dd")}</span> • {order.invoice_line_item?.[0]?.count || 0} items • $
                             {order.total.toFixed(2)}
                           </div>
                         </div>
