@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 
       // Generate invoice number
       const { data: invoiceNumber, error: invoiceNumberError } = await supabase
-        .rpc('get_next_invoice_number', { org_id: order.organization_id });
+        .rpc('get_next_invoice_number', { p_organization_id: order.organization_id });
 
       if (invoiceNumberError) {
         console.error('Error generating invoice number:', invoiceNumberError);
@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
     } else if (action === 'cancel') {
       // Create "No Order" invoice for record keeping
       const { data: invoiceNumber, error: invoiceNumberError } = await supabase
-        .rpc('get_next_invoice_number', { org_id: order.organization_id });
+        .rpc('get_next_invoice_number', { p_organization_id: order.organization_id });
 
       if (invoiceNumberError) {
         console.error('Error generating invoice number:', invoiceNumberError);
