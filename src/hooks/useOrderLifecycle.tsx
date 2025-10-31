@@ -36,6 +36,7 @@ export const useOrderLifecycle = () => {
     onSuccess: (data, variables) => {
       // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
       queryClient.invalidateQueries({ queryKey: ['sales-order', variables.orderId] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
 
@@ -72,6 +73,7 @@ export const useOrderLifecycle = () => {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
       queryClient.invalidateQueries({ queryKey: ['sales-order', variables.orderId] });
       
       toast({
