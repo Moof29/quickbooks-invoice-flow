@@ -131,14 +131,13 @@ Deno.serve(async (req) => {
 
       // Create invoice line items
       if (lineItems && lineItems.length > 0) {
-        const invoiceLineItems = lineItems.map((item, index) => ({
+        const invoiceLineItems = lineItems.map((item) => ({
           organization_id: order.organization_id,
           invoice_id: invoice.id,
           item_id: item.item_id,
           quantity: item.quantity,
           unit_price: item.unit_price,
           tax_rate: item.tax_rate,
-          line_number: index + 1,
         }));
 
         const { error: lineItemsInsertError } = await supabase
