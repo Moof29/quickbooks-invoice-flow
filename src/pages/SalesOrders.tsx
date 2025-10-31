@@ -191,7 +191,7 @@ const SalesOrders = () => {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string; className?: string }> = {
-      pending: { variant: "secondary", label: "Pending Review", className: "bg-blue-100 text-blue-800" },
+      pending: { variant: "secondary", label: "Pending Review", className: "bg-yellow-100 text-yellow-800" },
       invoiced: { variant: "default", label: "Invoiced", className: "bg-green-100 text-green-800" },
       cancelled: { variant: "destructive", label: "Cancelled", className: "bg-red-100 text-red-800" },
     };
@@ -334,7 +334,7 @@ const SalesOrders = () => {
       {/* Status Tabs */}
       <Tabs value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as OrderStatus)} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="pending" className="bg-yellow-50 text-yellow-700 data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-800">Pending</TabsTrigger>
           <TabsTrigger value="invoiced" className="bg-green-50 text-green-700 data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Invoiced</TabsTrigger>
           <TabsTrigger value="cancelled" className="bg-red-50 text-red-700 data-[state=active]:bg-red-100 data-[state=active]:text-red-800">Cancelled</TabsTrigger>
           <TabsTrigger value="all">All Orders</TabsTrigger>
