@@ -47,7 +47,7 @@ const SalesOrders = () => {
   const { convertOrder, isConverting } = useOrderLifecycle();
   const visibleDeliveryDates = getVisibleDeliveryDates();
 
-  // Real-time subscription for order updates (pending invoices)
+  // Real-time subscription for order updates (all statuses)
   useEffect(() => {
     if (!organizationId) return;
 
@@ -58,11 +58,11 @@ const SalesOrders = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'invoice_record',  // Changed from sales_order
-          filter: `organization_id=eq.${organizationId},status=eq.pending`  // Only pending invoices
+          table: 'invoice_record',
+          filter: `organization_id=eq.${organizationId}`  // Listen to all status changes
         },
         (payload) => {
-          console.log('Pending invoice updated in real-time:', payload);
+          console.log('Order updated in real-time:', payload);
           // Invalidate queries to refresh the data
           queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
           queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
@@ -82,10 +82,10 @@ const SalesOrders = () => {
       if (!organizationId) return [];
 
       const { data, error } = await supabase
-        .from('invoice_record')  // Changed from sales_order
+        .from('invoice_record')
         .select('id, status, total')
         .eq('organization_id', organizationId)
-        .eq('status', 'pending');  // Only pending invoices (sales orders)
+        .in('status', ['pending', 'invoiced', 'cancelled']);  // All order statuses
 
       if (error) throw error;
       return data || [];
@@ -106,7 +106,7 @@ const SalesOrders = () => {
     }, { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 });
   }, [allOrders]);
 
-  // Fetch sales orders for upcoming deliveries (from invoice_record with status = 'pending')
+  // Fetch sales orders for upcoming deliveries (from invoice_record)
   const { data: orders, isLoading, error } = useQuery({
     queryKey: ['sales-orders', organizationId, selectedStatus, visibleDeliveryDates],
     queryFn: async () => {
@@ -115,7 +115,7 @@ const SalesOrders = () => {
       const dateStrings = visibleDeliveryDates.map(d => format(d, 'yyyy-MM-dd'));
 
       let query = supabase
-        .from('invoice_record')  // Changed from sales_order
+        .from('invoice_record')
         .select(`
           *,
           customer_profile!customer_id (
@@ -126,15 +126,22 @@ const SalesOrders = () => {
           invoice_line_item(*)
         `)
         .eq('organization_id', organizationId)
-        .eq('status', 'pending')  // Only pending (staging) invoices
         .in('delivery_date', dateStrings)
         .order('delivery_date', { ascending: true })
         .order('created_at', { ascending: false });
 
+      // Apply status filter based on selected tab
+      if (selectedStatus !== 'all') {
+        query = query.eq('status', selectedStatus);
+      } else {
+        // For "All Orders" tab, show all statuses
+        query = query.in('status', ['pending', 'invoiced', 'cancelled']);
+      }
+
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching pending invoices:', error);
+        console.error('Error fetching orders:', error);
         throw error;
       }
 
