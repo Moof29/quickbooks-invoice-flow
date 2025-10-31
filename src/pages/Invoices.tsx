@@ -100,6 +100,29 @@ const Invoices = () => {
     loadInvoices();
   }, []);
 
+  // Real-time subscription for invoice changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('invoice-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'invoice_record'
+        },
+        (payload) => {
+          console.log('Invoice change detected:', payload);
+          loadInvoices();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const loadInvoices = async () => {
     try {
       setLoading(true);
