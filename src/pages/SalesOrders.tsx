@@ -193,7 +193,7 @@ const SalesOrders = () => {
     const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string; className?: string }> = {
       pending: { variant: "secondary", label: "Pending Review", className: "bg-blue-100 text-blue-800" },
       invoiced: { variant: "default", label: "Invoiced", className: "bg-green-100 text-green-800" },
-      cancelled: { variant: "destructive", label: "Cancelled", className: "bg-gray-100 text-gray-800" },
+      cancelled: { variant: "destructive", label: "Cancelled", className: "bg-red-100 text-red-800" },
     };
     
     const config = variants[status] || { variant: "outline", label: status };
@@ -336,7 +336,7 @@ const SalesOrders = () => {
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="invoiced">Invoiced</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+          <TabsTrigger value="cancelled" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-800">Cancelled</TabsTrigger>
           <TabsTrigger value="all">All Orders</TabsTrigger>
         </TabsList>
 
