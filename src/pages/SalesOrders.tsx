@@ -407,37 +407,37 @@ const SalesOrders = () => {
           ) : (
             <div className="grid gap-4">
               {filteredOrders.map((order) => (
-                <div key={order.id} className="space-y-2">
-                  {/* Duplicate Warning Alert */}
-                  {duplicateWarnings[order.id] && (
-                    <Alert className="border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-400">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        ⚠️ This customer has another order for this date: <strong>{duplicateWarnings[order.id].order_number}</strong> (Status: {duplicateWarnings[order.id].status}, Total: ${duplicateWarnings[order.id].total?.toFixed(2) || '0.00'})
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  
-                  <Card 
-                    className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/orders/${order.id}`)}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-semibold">
-                              {order.customer_profile?.company_name || order.customer_profile?.display_name || 'Unknown Customer'}
-                            </h3>
-                            {getStatusBadge(order.status)}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>Order #{order.invoice_number}</span>
-                            <span>•</span>
-                            <span>Delivery: {format(new Date(order.delivery_date), 'EEE, MMM dd, yyyy')}</span>
-                          </div>
+                <Card 
+                  key={order.id} 
+                  className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => navigate(`/orders/${order.id}`)}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-semibold">
+                            {order.customer_profile?.company_name || order.customer_profile?.display_name || 'Unknown Customer'}
+                          </h3>
+                          {getStatusBadge(order.status)}
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>Order #{order.invoice_number}</span>
+                          <span>•</span>
+                          <span>Delivery: {format(new Date(order.delivery_date), 'EEE, MMM dd, yyyy')}</span>
+                        </div>
+                        
+                        {/* Duplicate Warning Alert */}
+                        {duplicateWarnings[order.id] && (
+                          <Alert className="border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-400 mt-3">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              ⚠️ This customer has another order for this date: <strong>{duplicateWarnings[order.id].order_number}</strong> (Status: {duplicateWarnings[order.id].status}, Total: ${duplicateWarnings[order.id].total?.toFixed(2) || '0.00'})
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4">
                           <div className="text-right">
                             <p className="text-2xl font-bold">
                               ${order.total?.toFixed(2) || '0.00'}
@@ -471,7 +471,6 @@ const SalesOrders = () => {
                       </div>
                     </CardContent>
                   </Card>
-                </div>
               ))}
             </div>
           )}
