@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, FileText, Loader2, Search, X, CheckCircle, XCircle, Clock, DollarSign, Ban } from "lucide-react";
+import { Plus, FileText, Loader2, Search, X, CheckCircle, XCircle, Clock, DollarSign, Ban, AlertCircle } from "lucide-react";
 import { format, addDays, startOfDay } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { MobileFAB } from "@/components/MobileFAB";
 import { useOrderLifecycle } from "@/hooks/useOrderLifecycle";
 import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
 type OrderStatus = 'pending' | 'invoiced' | 'cancelled' | 'all';
@@ -43,6 +44,7 @@ const SalesOrders = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [duplicateWarnings, setDuplicateWarnings] = useState<Record<string, any>>({});
   
   const { convertOrder, isConverting } = useOrderLifecycle();
   const visibleDeliveryDates = getVisibleDeliveryDates();
@@ -149,6 +151,41 @@ const SalesOrders = () => {
     },
     enabled: !!organizationId && visibleDeliveryDates.length > 0,
   }) as any;
+
+  // Check for duplicate orders for each order in the list
+  useEffect(() => {
+    const checkDuplicates = async () => {
+      if (!orders || !organizationId) return;
+
+      const warnings: Record<string, any> = {};
+
+      // Only check for pending orders
+      const pendingOrders = orders.filter((order: any) => order.status === 'pending');
+
+      for (const order of pendingOrders) {
+        try {
+          const { data: duplicateCheck } = await supabase.rpc('check_duplicate_orders', {
+            p_customer_id: order.customer_id,
+            p_delivery_date: order.delivery_date,
+            p_organization_id: organizationId,
+            p_exclude_order_id: order.id,
+          });
+
+          const result = duplicateCheck as any;
+
+          if (result?.has_duplicate && result?.existing_order) {
+            warnings[order.id] = result.existing_order;
+          }
+        } catch (error) {
+          console.error('Error checking duplicates for order:', order.id, error);
+        }
+      }
+
+      setDuplicateWarnings(warnings);
+    };
+
+    checkDuplicates();
+  }, [orders, organizationId]);
 
   // Filter orders based on search query
   const filteredOrders = useMemo(() => {
@@ -370,60 +407,71 @@ const SalesOrders = () => {
           ) : (
             <div className="grid gap-4">
               {filteredOrders.map((order) => (
-                <Card 
-                  key={order.id} 
-                  className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/orders/${order.id}`)}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-lg font-semibold">
-                            {order.customer_profile?.company_name || order.customer_profile?.display_name || 'Unknown Customer'}
-                          </h3>
-                          {getStatusBadge(order.status)}
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Order #{order.invoice_number}</span>
-                          <span>•</span>
-                          <span>Delivery: {format(new Date(order.delivery_date), 'EEE, MMM dd, yyyy')}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="text-2xl font-bold">
-                            ${order.total?.toFixed(2) || '0.00'}
-                          </p>
-                        </div>
-                        {order.status === 'pending' && (
-                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => convertOrder({ invoiceId: order.id, action: 'invoice' })}
-                              disabled={isConverting}
-                              className="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Invoice
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => convertOrder({ invoiceId: order.id, action: 'cancel' })}
-                              disabled={isConverting}
-                              className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Cancel
-                            </Button>
+                <div key={order.id} className="space-y-2">
+                  {/* Duplicate Warning Alert */}
+                  {duplicateWarnings[order.id] && (
+                    <Alert className="border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-400">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        ⚠️ This customer has another order for this date: <strong>{duplicateWarnings[order.id].order_number}</strong> (Status: {duplicateWarnings[order.id].status}, Total: ${duplicateWarnings[order.id].total?.toFixed(2) || '0.00'})
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  <Card 
+                    className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => navigate(`/orders/${order.id}`)}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-lg font-semibold">
+                              {order.customer_profile?.company_name || order.customer_profile?.display_name || 'Unknown Customer'}
+                            </h3>
+                            {getStatusBadge(order.status)}
                           </div>
-                        )}
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span>Order #{order.invoice_number}</span>
+                            <span>•</span>
+                            <span>Delivery: {format(new Date(order.delivery_date), 'EEE, MMM dd, yyyy')}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-2xl font-bold">
+                              ${order.total?.toFixed(2) || '0.00'}
+                            </p>
+                          </div>
+                          {order.status === 'pending' && (
+                            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => convertOrder({ invoiceId: order.id, action: 'invoice' })}
+                                disabled={isConverting}
+                                className="bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Invoice
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => convertOrder({ invoiceId: order.id, action: 'cancel' })}
+                                disabled={isConverting}
+                                className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
               ))}
             </div>
           )}
