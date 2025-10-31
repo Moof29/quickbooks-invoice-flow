@@ -432,7 +432,7 @@ const SalesOrders = () => {
                           <Alert className="border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-400 mt-3">
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
-                              ⚠️ This customer has another order for this date: <strong>{duplicateWarnings[order.id].order_number}</strong> (Status: {duplicateWarnings[order.id].status}, Total: ${duplicateWarnings[order.id].total?.toFixed(2) || '0.00'})
+                              ⚠️ This customer has another order for this date: <strong>{duplicateWarnings[order.id].invoice_number || duplicateWarnings[order.id].order_number}</strong> (Status: {duplicateWarnings[order.id].status}, Total: ${duplicateWarnings[order.id].total?.toFixed(2) || '0.00'})
                             </AlertDescription>
                           </Alert>
                         )}

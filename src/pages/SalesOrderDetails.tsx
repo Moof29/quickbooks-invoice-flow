@@ -678,7 +678,7 @@ export default function SalesOrderDetails() {
         <Alert className="border-yellow-300 bg-yellow-50 text-yellow-800">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            ⚠️ This customer has another order for this date: <strong>{duplicateWarning.order_number}</strong> (Status: {duplicateWarning.status}, Total: ${duplicateWarning.total?.toFixed(2) || '0.00'})
+            ⚠️ This customer has another order for this date: <strong>{duplicateWarning.invoice_number || duplicateWarning.order_number}</strong> (Status: {duplicateWarning.status}, Total: ${duplicateWarning.total?.toFixed(2) || '0.00'})
           </AlertDescription>
         </Alert>
       )}
