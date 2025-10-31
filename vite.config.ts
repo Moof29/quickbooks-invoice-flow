@@ -87,9 +87,12 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       devOptions: {
-        enabled: false, // Disable PWA in development to avoid caching issues
-        type: 'module'
-      }
+        enabled: false,
+        type: 'module',
+        navigateFallback: undefined
+      },
+      // Disable service worker in development
+      injectRegister: process.env.NODE_ENV === 'production' ? 'auto' : null
     })
   ].filter(Boolean),
   resolve: {
