@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
           due_date: invoice.delivery_date,  // Or calculate due date
           approved_at: new Date().toISOString(),
           approved_by: user.id,
+          updated_by: user.id,  // Required for audit trigger
         })
         .eq('id', invoice_id)
         .eq('status', 'pending');  // Safety check
