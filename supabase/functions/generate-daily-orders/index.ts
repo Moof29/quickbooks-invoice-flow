@@ -87,110 +87,103 @@ async function processDateOrders(
   
   console.log(`Processing ${validTemplates.length} templates`);
   
-  // Create orders one at a time using atomic function
+  // Batch process templates in parallel (groups of 5)
   const createdOrders = [];
   const errors = [];
   const orderDate = new Date().toISOString().split('T')[0];
+  const BATCH_SIZE = 5;
   
-  for (let i = 0; i < validTemplates.length; i++) {
-    const template = validTemplates[i];
+  for (let i = 0; i < validTemplates.length; i += BATCH_SIZE) {
+    const batch = validTemplates.slice(i, i + BATCH_SIZE);
     
-    try {
-      const lineItems = await getTemplateLineItems(
-        template.id,
-        targetDate,
-        organizationId,
-        supabaseClient
-      );
-      
-      const isNoOrder = lineItems.length === 0;
-      
-      // Generate invoice number immediately
-      const { data: invoiceNumber, error: invoiceNumberError } = await supabaseClient
-        .rpc('get_next_invoice_number', { p_organization_id: organizationId });
-
-      if (invoiceNumberError || !invoiceNumber) {
-        console.error('Failed to generate invoice number:', invoiceNumberError);
-        errors.push({
-          date: targetDate,
-          customer_id: template.customer_id,
-          error: 'Failed to generate invoice number'
-        });
-        continue;
-      }
-
-      // Create invoice with pending status (this IS the sales order)
-      const { data: newInvoiceId, error: invoiceError } = await supabaseClient.rpc(
-        'create_invoice_atomic',
-        {
-          p_organization_id: organizationId,
-          p_customer_id: template.customer_id,
-          p_invoice_number: invoiceNumber,
-          p_status: 'pending',  // ← Starts as pending (staging phase)
-          p_order_date: orderDate,
-          p_delivery_date: targetDate,
-          p_memo: `Auto-generated from template: ${template.name}`,
-          p_is_no_order: isNoOrder,
-          p_created_from_template: true,
-          p_template_id: template.id
-        }
-      );
-      
-      if (invoiceError || !newInvoiceId) {
-        console.error('Failed to create invoice:', invoiceError);
-        errors.push({
-          date: targetDate,
-          customer_id: template.customer_id,
-          error: invoiceError?.message || 'Failed to create invoice'
-        });
-        continue;
-      }
-      
-      const invoiceId = newInvoiceId;
-      
-      // Create line items if there are any
-      if (lineItems.length > 0) {
-        const { error: lineItemsError } = await supabaseClient
-          .from('invoice_line_item')  // Changed from sales_order_line_item
-          .insert(
-            lineItems.map(item => ({
-              ...item,
-              invoice_id: invoiceId,  // Changed from sales_order_id
-              organization_id: organizationId
-            }))
-          );
+    // Process batch in parallel
+    const batchResults = await Promise.allSettled(
+      batch.map(async (template) => {
+        const lineItems = await getTemplateLineItems(
+          template.id,
+          targetDate,
+          organizationId,
+          supabaseClient
+        );
         
-        if (lineItemsError) {
-          console.error('Failed to create line items:', lineItemsError);
-          // Rollback: delete the invoice
-          await supabaseClient.from('invoice_record').delete().eq('id', invoiceId);
-          errors.push({
-            date: targetDate,
-            customer_id: template.customer_id,
-            error: 'Failed to create line items'
-          });
-          continue;
+        const isNoOrder = lineItems.length === 0;
+        
+        // Generate invoice number
+        const { data: invoiceNumber, error: invoiceNumberError } = await supabaseClient
+          .rpc('get_next_invoice_number', { p_organization_id: organizationId });
+
+        if (invoiceNumberError || !invoiceNumber) {
+          throw new Error('Failed to generate invoice number');
         }
+
+        // Create invoice with pending status
+        const { data: newInvoiceId, error: invoiceError } = await supabaseClient.rpc(
+          'create_invoice_atomic',
+          {
+            p_organization_id: organizationId,
+            p_customer_id: template.customer_id,
+            p_invoice_number: invoiceNumber,
+            p_status: 'pending',
+            p_order_date: orderDate,
+            p_delivery_date: targetDate,
+            p_memo: `Auto-generated from template: ${template.name}`,
+            p_is_no_order: isNoOrder,
+            p_created_from_template: true,
+            p_template_id: template.id
+          }
+        );
+        
+        if (invoiceError || !newInvoiceId) {
+          throw new Error(invoiceError?.message || 'Failed to create invoice');
+        }
+        
+        const invoiceId = newInvoiceId;
+        
+        // Create line items if there are any
+        if (lineItems.length > 0) {
+          const { error: lineItemsError } = await supabaseClient
+            .from('invoice_line_item')
+            .insert(
+              lineItems.map(item => ({
+                ...item,
+                invoice_id: invoiceId,
+                organization_id: organizationId
+              }))
+            );
+          
+          if (lineItemsError) {
+            // Rollback: delete the invoice
+            await supabaseClient.from('invoice_record').delete().eq('id', invoiceId);
+            throw new Error('Failed to create line items');
+          }
+        }
+        
+        console.log(`✅ Created pending invoice ${invoiceNumber} for customer ${template.customer_id}`);
+        const customer = customerMap.get(template.customer_id);
+        return {
+          invoice_id: invoiceId,
+          invoice_number: invoiceNumber,
+          customer_id: template.customer_id,
+          customer_name: customer?.company_name || 'Unknown',
+          delivery_date: targetDate,
+        };
+      })
+    );
+    
+    // Process batch results
+    batchResults.forEach((result, index) => {
+      const template = batch[index];
+      if (result.status === 'fulfilled') {
+        createdOrders.push(result.value);
+      } else {
+        console.error('Error creating order for template:', template.id, result.reason);
+        errors.push({
+          date: targetDate,
+          customer_id: template.customer_id,
+          error: result.reason.message
+        });
       }
-      
-      console.log(`✅ Created pending invoice ${invoiceNumber} for customer ${template.customer_id}`);
-      const customer = customerMap.get(template.customer_id);
-      createdOrders.push({
-        invoice_id: invoiceId,  // Changed from order_id
-        invoice_number: invoiceNumber,  // Changed from order_number
-        customer_id: template.customer_id,
-        customer_name: customer?.company_name || 'Unknown',
-        delivery_date: targetDate,
-      });
-      
-    } catch (error) {
-      console.error('Error creating order for template:', template.id, error);
-      errors.push({
-        date: targetDate,
-        customer_id: template.customer_id,
-        error: error.message
-      });
-    }
+    });
   }
   
   console.log(`✅ Successfully created ${createdOrders.length} orders for ${targetDate}`);
@@ -300,14 +293,37 @@ Deno.serve(async (req) => {
     console.log('Target dates:', targetDates);
     console.log('Customer IDs filter:', customerIdsFilter);
 
-    // Process all dates sequentially to avoid overwhelming the database
+    // Add limit check to prevent timeouts
+    if (targetDates.length > 14) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Too many dates selected. Please select 14 or fewer dates to avoid timeouts.' 
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Process dates in parallel (in groups of 3)
     const ordersCreated: any[] = [];
     const errors: any[] = [];
+    const DATE_BATCH_SIZE = 3;
 
-    for (const targetDate of targetDates) {
-      const result = await processDateOrders(targetDate, organizationId, customerIdsFilter, supabaseClient);
-      ordersCreated.push(...result.orders);
-      errors.push(...result.errors);
+    for (let i = 0; i < targetDates.length; i += DATE_BATCH_SIZE) {
+      const dateBatch = targetDates.slice(i, i + DATE_BATCH_SIZE);
+      
+      const results = await Promise.all(
+        dateBatch.map(targetDate => 
+          processDateOrders(targetDate, organizationId, customerIdsFilter, supabaseClient)
+        )
+      );
+      
+      results.forEach(result => {
+        ordersCreated.push(...result.orders);
+        errors.push(...result.errors);
+      });
     }
 
     console.log('=== Generation Complete ===');
