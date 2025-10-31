@@ -2102,7 +2102,7 @@ export type Database = {
             foreignKeyName: "invoice_record_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
