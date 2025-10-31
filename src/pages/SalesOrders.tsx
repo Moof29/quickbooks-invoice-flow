@@ -335,7 +335,7 @@ const SalesOrders = () => {
       <Tabs value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as OrderStatus)} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="invoiced">Invoiced</TabsTrigger>
+          <TabsTrigger value="invoiced" className="bg-green-50 text-green-700 data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Invoiced</TabsTrigger>
           <TabsTrigger value="cancelled" className="bg-red-50 text-red-700 data-[state=active]:bg-red-100 data-[state=active]:text-red-800">Cancelled</TabsTrigger>
           <TabsTrigger value="all">All Orders</TabsTrigger>
         </TabsList>
