@@ -87,7 +87,7 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       devOptions: {
-        enabled: mode === 'development',
+        enabled: false, // Disable PWA in development to avoid caching issues
         type: 'module'
       }
     })
