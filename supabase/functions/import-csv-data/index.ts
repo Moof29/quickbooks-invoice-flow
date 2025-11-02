@@ -5,15 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ImportProgress {
-  progressId: string;
-  totalRows: number;
-  processedRows: number;
-  successfulRows: number;
-  failedRows: number;
-  errors: Array<{ row: number; error: string }>;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -42,7 +33,7 @@ Deno.serve(async (req) => {
     if (!profile?.organization_id) throw new Error('No organization found');
 
     const { filePath, dataType, progressId } = await req.json();
-    console.log(`Starting import for ${dataType} from storage: ${filePath}`);
+    console.log(`Starting streaming import for ${dataType} from storage: ${filePath}`);
 
     // Validate dataType
     const validTypes = ['items', 'customers', 'invoices', 'invoice_line_items'];
@@ -59,45 +50,16 @@ Deno.serve(async (req) => {
       })
       .eq('id', progressId);
 
-    // Download file from storage
-    const { data: fileData, error: downloadError } = await supabaseClient
-      .storage
-      .from('csv-imports')
-      .download(filePath);
-
-    if (downloadError) throw new Error(`Failed to download file: ${downloadError.message}`);
-
-    // Read file content
-    const text = await fileData.text();
-    const rows = parseCSV(text);
-
-    console.log(`Parsed ${rows.length} rows from CSV`);
-
-    // Update total rows
-    await supabaseClient
-      .from('csv_import_progress')
-      .update({ total_rows: rows.length })
-      .eq('id', progressId);
-
-    const progress: ImportProgress = {
-      progressId,
-      totalRows: rows.length,
-      processedRows: 0,
-      successfulRows: 0,
-      failedRows: 0,
-      errors: [],
-    };
-
-    // Start background processing
+    // Start background streaming processing
     EdgeRuntime.waitUntil(
-      processImport(supabaseClient, profile.organization_id, rows, dataType, progress)
+      processImportStreaming(supabaseClient, profile.organization_id, filePath, dataType, progressId)
     );
 
     return new Response(
       JSON.stringify({
         success: true,
         progressId,
-        message: 'Import started in background',
+        message: 'Import started in background with streaming',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -110,22 +72,97 @@ Deno.serve(async (req) => {
   }
 });
 
-async function processImport(
+async function processImportStreaming(
   supabase: any,
   orgId: string,
-  rows: any[],
+  filePath: string,
   dataType: string,
-  progress: ImportProgress
+  progressId: string
 ) {
+  let processedRows = 0;
+  let successfulRows = 0;
+  let failedRows = 0;
+  const errors: Array<{ row: number; error: string }> = [];
+  let totalRows = 0;
+
   try {
-    if (dataType === 'items') {
-      await importItems(supabase, orgId, rows, progress);
-    } else if (dataType === 'customers') {
-      await importCustomers(supabase, orgId, rows, progress);
-    } else if (dataType === 'invoices') {
-      await importInvoices(supabase, orgId, rows, progress);
-    } else if (dataType === 'invoice_line_items') {
-      await importInvoiceLineItems(supabase, orgId, rows, progress);
+    console.log('Starting streaming download...');
+    
+    // Download file from storage
+    const { data: fileData, error: downloadError } = await supabase
+      .storage
+      .from('csv-imports')
+      .download(filePath);
+
+    if (downloadError) throw new Error(`Failed to download file: ${downloadError.message}`);
+
+    // Read file as stream and process in chunks
+    const text = await fileData.text();
+    console.log(`File downloaded, size: ${text.length} characters`);
+    
+    // Parse CSV headers
+    const lines = text.split('\n');
+    const headers = parseCSVLine(lines[0]);
+    totalRows = lines.length - 1; // Exclude header row
+    
+    console.log(`CSV has ${totalRows} data rows`);
+    
+    // Update total rows
+    await supabase
+      .from('csv_import_progress')
+      .update({ total_rows: totalRows })
+      .eq('id', progressId);
+
+    // Process in small batches to avoid memory issues
+    const BATCH_SIZE = 50;
+    const UPDATE_INTERVAL = 50;
+    let batchRows: any[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      
+      const values = parseCSVLine(lines[i]);
+      if (values.length !== headers.length) continue;
+
+      const row: any = {};
+      headers.forEach((header, index) => {
+        row[header] = values[index] || '';
+      });
+
+      batchRows.push(row);
+
+      // Process when batch is full or at end of file
+      if (batchRows.length >= BATCH_SIZE || i === lines.length - 1) {
+        const batchResult = await processBatch(
+          supabase,
+          orgId,
+          batchRows,
+          dataType,
+          processedRows
+        );
+
+        successfulRows += batchResult.successful;
+        failedRows += batchResult.failed;
+        processedRows += batchResult.processed;
+        errors.push(...batchResult.errors);
+
+        // Update progress
+        if (processedRows % UPDATE_INTERVAL === 0 || i === lines.length - 1) {
+          await supabase
+            .from('csv_import_progress')
+            .update({
+              processed_rows: processedRows,
+              successful_rows: successfulRows,
+              failed_rows: failedRows,
+              errors: errors.slice(-100), // Keep last 100 errors
+            })
+            .eq('id', progressId);
+          
+          console.log(`Progress: ${processedRows}/${totalRows} rows (${successfulRows} successful, ${failedRows} failed)`);
+        }
+
+        batchRows = []; // Clear batch
+      }
     }
 
     // Mark as completed
@@ -133,15 +170,15 @@ async function processImport(
       .from('csv_import_progress')
       .update({
         status: 'completed',
-        processed_rows: progress.processedRows,
-        successful_rows: progress.successfulRows,
-        failed_rows: progress.failedRows,
-        errors: progress.errors,
+        processed_rows: processedRows,
+        successful_rows: successfulRows,
+        failed_rows: failedRows,
+        errors: errors.slice(-100),
         completed_at: new Date().toISOString(),
       })
-      .eq('id', progress.progressId);
+      .eq('id', progressId);
 
-    console.log(`Import completed: ${progress.successfulRows} successful, ${progress.failedRows} failed`);
+    console.log(`Import completed: ${successfulRows} successful, ${failedRows} failed out of ${processedRows} processed`);
   } catch (error: any) {
     console.error('Import processing error:', error);
     await supabase
@@ -151,17 +188,45 @@ async function processImport(
         errors: [{ row: -1, error: error.message }],
         completed_at: new Date().toISOString(),
       })
-      .eq('id', progress.progressId);
+      .eq('id', progressId);
   }
 }
 
-async function importItems(supabase: any, orgId: string, rows: any[], progress: ImportProgress) {
-  const BATCH_SIZE = 100;
-  const UPDATE_INTERVAL = 50; // Update progress every 50 rows
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
 
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-    const items = batch
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      values.push(current.trim().replace(/^"|"$/g, ''));
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim().replace(/^"|"$/g, ''));
+
+  return values;
+}
+
+async function processBatch(
+  supabase: any,
+  orgId: string,
+  rows: any[],
+  dataType: string,
+  startIndex: number
+): Promise<{ successful: number; failed: number; processed: number; errors: Array<{ row: number; error: string }> }> {
+  let successful = 0;
+  let failed = 0;
+  let processed = 0;
+  const errors: Array<{ row: number; error: string }> = [];
+
+  if (dataType === 'items') {
+    const items = rows
       .filter(row => row.type !== 'Category')
       .map(row => ({
         organization_id: orgId,
@@ -176,68 +241,43 @@ async function importItems(supabase: any, orgId: string, rows: any[], progress: 
         source_system: 'QBO',
       }));
 
-    if (items.length === 0) {
-      progress.successfulRows += batch.filter(row => row.type === 'Category').length;
-      progress.processedRows += batch.length;
-      continue;
-    }
+    if (items.length > 0) {
+      const { error } = await supabase
+        .from('item_record')
+        .upsert(items, {
+          onConflict: 'organization_id,qbo_id',
+          ignoreDuplicates: false,
+        });
 
-    const { error } = await supabase
-      .from('item_record')
-      .upsert(items, {
-        onConflict: 'organization_id,qbo_id',
-        ignoreDuplicates: false,
-      });
+      if (error) {
+        // Retry individually on batch failure
+        for (let i = 0; i < items.length; i++) {
+          const { error: itemError } = await supabase
+            .from('item_record')
+            .upsert([items[i]], {
+              onConflict: 'organization_id,qbo_id',
+              ignoreDuplicates: false,
+            });
 
-    if (error) {
-      console.error(`Batch ${i}-${i + batch.length} failed, retrying individually:`, error.message);
-      for (let j = 0; j < items.length; j++) {
-        const { error: itemError } = await supabase
-          .from('item_record')
-          .upsert([items[j]], {
-            onConflict: 'organization_id,qbo_id',
-            ignoreDuplicates: false,
-          });
-
-        if (itemError) {
-          progress.failedRows++;
-          progress.errors.push({ row: i + j, error: `${batch[j].name}: ${itemError.message}` });
-        } else {
-          progress.successfulRows++;
+          if (itemError) {
+            failed++;
+            errors.push({ row: startIndex + i, error: itemError.message });
+          } else {
+            successful++;
+          }
+          processed++;
         }
-        progress.processedRows++;
+      } else {
+        successful += items.length;
+        processed += items.length;
       }
-    } else {
-      progress.successfulRows += items.length;
-      const skippedCategories = batch.length - items.length;
-      if (skippedCategories > 0) {
-        progress.successfulRows += skippedCategories;
-      }
-      progress.processedRows += batch.length;
     }
-
-    // Update progress periodically
-    if (progress.processedRows % UPDATE_INTERVAL === 0) {
-      await supabase
-        .from('csv_import_progress')
-        .update({
-          processed_rows: progress.processedRows,
-          successful_rows: progress.successfulRows,
-          failed_rows: progress.failedRows,
-          errors: progress.errors.slice(-100), // Keep last 100 errors
-        })
-        .eq('id', progress.progressId);
-    }
-  }
-}
-
-async function importCustomers(supabase: any, orgId: string, rows: any[], progress: ImportProgress) {
-  const BATCH_SIZE = 50;
-  const UPDATE_INTERVAL = 25;
-
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-    const customers = batch.map(row => {
+    
+    const skipped = rows.length - items.length;
+    successful += skipped;
+    processed += skipped;
+  } else if (dataType === 'customers') {
+    const customers = rows.map(row => {
       const displayName = row.display_name || row.company_name || 'Unnamed Customer';
       return {
         organization_id: orgId,
@@ -247,16 +287,9 @@ async function importCustomers(supabase: any, orgId: string, rows: any[], progre
         email: (row.email && row.email !== 'null') ? row.email : null,
         phone: null,
         billing_address_line1: (row.bill_addr_line1 && row.bill_addr_line1 !== 'null') ? row.bill_addr_line1 : null,
-        billing_address_line2: (row.bill_addr_line2 && row.bill_addr_line2 !== 'null') ? row.bill_addr_line2 : null,
         billing_city: (row.bill_addr_city && row.bill_addr_city !== 'null') ? row.bill_addr_city : null,
         billing_state: (row.bill_addr_state && row.bill_addr_state !== 'null') ? row.bill_addr_state : null,
         billing_postal_code: (row.bill_addr_postal_code && row.bill_addr_postal_code !== 'null') ? row.bill_addr_postal_code : null,
-        shipping_address_line1: (row.ship_addr_line1 && row.ship_addr_line1 !== 'null') ? row.ship_addr_line1 : null,
-        shipping_address_line2: (row.ship_addr_line2 && row.ship_addr_line2 !== 'null') ? row.ship_addr_line2 : null,
-        shipping_city: (row.ship_addr_city && row.ship_addr_city !== 'null') ? row.ship_addr_city : null,
-        shipping_state: (row.ship_addr_state && row.ship_addr_state !== 'null') ? row.ship_addr_state : null,
-        shipping_postal_code: (row.ship_addr_postal_code && row.ship_addr_postal_code !== 'null') ? row.ship_addr_postal_code : null,
-        notes: (row.notes && row.notes !== 'null') ? row.notes : null,
         is_active: row.active === 'true' || row.active === true,
         balance: row.balance ? parseFloat(row.balance) : 0,
         qbo_sync_status: 'synced',
@@ -270,50 +303,29 @@ async function importCustomers(supabase: any, orgId: string, rows: any[], progre
       .upsert(customers, { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false });
 
     if (error) {
-      console.error(`Batch ${i}-${i + batch.length} failed, retrying individually:`, error.message);
-      for (let j = 0; j < customers.length; j++) {
-        const { error: customerError } = await supabase
+      for (let i = 0; i < customers.length; i++) {
+        const { error: custError } = await supabase
           .from('customer_profile')
-          .upsert([customers[j]], {
+          .upsert([customers[i]], {
             onConflict: 'organization_id,qbo_id',
             ignoreDuplicates: false,
           });
 
-        if (customerError) {
-          progress.failedRows++;
-          progress.errors.push({ row: i + j, error: `${batch[j].display_name}: ${customerError.message}` });
+        if (custError) {
+          failed++;
+          errors.push({ row: startIndex + i, error: custError.message });
         } else {
-          progress.successfulRows++;
+          successful++;
         }
-        progress.processedRows++;
+        processed++;
       }
     } else {
-      progress.successfulRows += batch.length;
-      progress.processedRows += batch.length;
+      successful += customers.length;
+      processed += customers.length;
     }
-
-    if (progress.processedRows % UPDATE_INTERVAL === 0) {
-      await supabase
-        .from('csv_import_progress')
-        .update({
-          processed_rows: progress.processedRows,
-          successful_rows: progress.successfulRows,
-          failed_rows: progress.failedRows,
-          errors: progress.errors.slice(-100),
-        })
-        .eq('id', progress.progressId);
-    }
-  }
-}
-
-async function importInvoices(supabase: any, orgId: string, rows: any[], progress: ImportProgress) {
-  const BATCH_SIZE = 50;
-  const UPDATE_INTERVAL = 25;
-
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-
-    for (const row of batch) {
+  } else if (dataType === 'invoices') {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       try {
         const { data: customer } = await supabase
           .from('customer_profile')
@@ -323,9 +335,9 @@ async function importInvoices(supabase: any, orgId: string, rows: any[], progres
           .single();
 
         if (!customer) {
-          progress.failedRows++;
-          progress.errors.push({ row: i, error: `Customer not found: ${row.customer_ref_value}` });
-          progress.processedRows++;
+          failed++;
+          errors.push({ row: startIndex + i, error: `Customer not found: ${row.customer_ref_value}` });
+          processed++;
           continue;
         }
 
@@ -352,43 +364,22 @@ async function importInvoices(supabase: any, orgId: string, rows: any[], progres
           .upsert(invoice, { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false });
 
         if (error) {
-          progress.failedRows++;
-          progress.errors.push({ row: i, error: error.message });
+          failed++;
+          errors.push({ row: startIndex + i, error: error.message });
         } else {
-          progress.successfulRows++;
+          successful++;
         }
-        progress.processedRows++;
+        processed++;
       } catch (err: any) {
-        progress.failedRows++;
-        progress.errors.push({ row: i, error: err.message });
-        progress.processedRows++;
-      }
-
-      if (progress.processedRows % UPDATE_INTERVAL === 0) {
-        await supabase
-          .from('csv_import_progress')
-          .update({
-            processed_rows: progress.processedRows,
-            successful_rows: progress.successfulRows,
-            failed_rows: progress.failedRows,
-            errors: progress.errors.slice(-100),
-          })
-          .eq('id', progress.progressId);
+        failed++;
+        errors.push({ row: startIndex + i, error: err.message });
+        processed++;
       }
     }
-  }
-}
-
-async function importInvoiceLineItems(supabase: any, orgId: string, rows: any[], progress: ImportProgress) {
-  const BATCH_SIZE = 100;
-  const UPDATE_INTERVAL = 50;
-
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-    
-    for (const row of batch) {
+  } else if (dataType === 'invoice_line_items') {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       try {
-        // Find invoice by QBO ID
         const { data: invoice } = await supabase
           .from('invoice_record')
           .select('id')
@@ -397,16 +388,12 @@ async function importInvoiceLineItems(supabase: any, orgId: string, rows: any[],
           .single();
 
         if (!invoice) {
-          progress.failedRows++;
-          progress.errors.push({ 
-            row: i, 
-            error: `Invoice not found for QBO ID: ${row.invoice_id}` 
-          });
-          progress.processedRows++;
+          failed++;
+          errors.push({ row: startIndex + i, error: `Invoice not found: ${row.invoice_id}` });
+          processed++;
           continue;
         }
 
-        // Find item by QBO ID
         const { data: item } = await supabase
           .from('item_record')
           .select('id')
@@ -415,16 +402,12 @@ async function importInvoiceLineItems(supabase: any, orgId: string, rows: any[],
           .single();
 
         if (!item) {
-          progress.failedRows++;
-          progress.errors.push({ 
-            row: i, 
-            error: `Item not found for QBO ID: ${row.item_id}` 
-          });
-          progress.processedRows++;
+          failed++;
+          errors.push({ row: startIndex + i, error: `Item not found: ${row.item_id}` });
+          processed++;
           continue;
         }
 
-        // Create line item
         const lineItem = {
           organization_id: orgId,
           invoice_id: invoice.id,
@@ -441,67 +424,19 @@ async function importInvoiceLineItems(supabase: any, orgId: string, rows: any[],
           .insert(lineItem);
 
         if (error) {
-          progress.failedRows++;
-          progress.errors.push({ row: i, error: error.message });
+          failed++;
+          errors.push({ row: startIndex + i, error: error.message });
         } else {
-          progress.successfulRows++;
+          successful++;
         }
-        progress.processedRows++;
-
+        processed++;
       } catch (err: any) {
-        progress.failedRows++;
-        progress.errors.push({ row: i, error: err.message });
-        progress.processedRows++;
-      }
-
-      if (progress.processedRows % UPDATE_INTERVAL === 0) {
-        await supabase
-          .from('csv_import_progress')
-          .update({
-            processed_rows: progress.processedRows,
-            successful_rows: progress.successfulRows,
-            failed_rows: progress.failedRows,
-            errors: progress.errors.slice(-100),
-          })
-          .eq('id', progress.progressId);
+        failed++;
+        errors.push({ row: startIndex + i, error: err.message });
+        processed++;
       }
     }
   }
-}
 
-function parseCSV(text: string): any[] {
-  const lines = text.split('\n').filter(line => line.trim());
-  if (lines.length === 0) return [];
-
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  const rows: any[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let j = 0; j < lines[i].length; j++) {
-      const char = lines[i][j];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim());
-
-    if (values.length === headers.length) {
-      const row: any = {};
-      headers.forEach((header, index) => {
-        row[header] = values[index]?.replace(/^"|"$/g, '') || '';
-      });
-      rows.push(row);
-    }
-  }
-
-  return rows;
+  return { successful, failed, processed, errors };
 }
