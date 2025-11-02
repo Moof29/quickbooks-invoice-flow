@@ -1,9 +1,14 @@
 import { TeamManagement } from '@/components/TeamManagement';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ImportCSVDialog } from '@/components/ImportCSVDialog';
+import { Button } from '@/components/ui/button';
+import { Upload } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Settings() {
   const { organization, profile, roles } = useAuthProfile();
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-6 lg:p-8">
@@ -41,7 +46,27 @@ export default function Settings() {
         </Card>
       )}
 
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg">Import Existing QBO Data</CardTitle>
+          <CardDescription>
+            Import your existing items, customers, and invoices from QuickBooks Online CSV exports
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={() => setImportDialogOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Import CSV Files
+          </Button>
+        </CardContent>
+      </Card>
+
       <TeamManagement />
+      
+      <ImportCSVDialog 
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+      />
     </div>
   );
 }

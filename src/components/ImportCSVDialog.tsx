@@ -85,9 +85,9 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Import CSV Data</DialogTitle>
+          <DialogTitle>Import Existing QBO Data</DialogTitle>
           <DialogDescription>
-            Upload CSV files exported from QuickBooks to populate your database with real data.
+            Upload CSV files exported from QuickBooks Online to populate your database with real data.
           </DialogDescription>
         </DialogHeader>
 
