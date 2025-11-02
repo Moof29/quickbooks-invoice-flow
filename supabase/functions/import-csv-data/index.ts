@@ -380,16 +380,19 @@ async function processBatch(
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
+        // Try to find customer by display_name or qbo_id
+        const customerRef = row.display_name || row.customer_ref_value;
+        
         const { data: customer } = await supabase
           .from('customer_profile')
           .select('id')
           .eq('organization_id', orgId)
-          .eq('qbo_id', row.customer_ref_value?.toString())
+          .or(`display_name.eq.${customerRef},qbo_id.eq.${customerRef}`)
           .single();
 
         if (!customer) {
           failed++;
-          errors.push({ row: startIndex + i, error: `Customer not found: ${row.customer_ref_value}` });
+          errors.push({ row: startIndex + i, error: `Customer not found: ${customerRef}` });
           processed++;
           continue;
         }
