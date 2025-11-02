@@ -24,13 +24,15 @@ import {
   DollarSign,
   ShoppingBag,
   UserCircle,
-  Shield
+  Shield,
+  FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CustomerDialog } from '@/components/CustomerDialog';
 import { CustomerPortalUsersDialog } from '@/components/CustomerPortalUsersDialog';
+import { CustomerTemplateDialog } from '@/components/CustomerTemplateDialog';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
 import { MobileFAB } from '@/components/MobileFAB';
@@ -57,7 +59,9 @@ const Customers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [showPortalUsersDialog, setShowPortalUsersDialog] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [selectedCustomerForPortal, setSelectedCustomerForPortal] = useState<{ id: string; name: string } | null>(null);
+  const [selectedCustomerForTemplate, setSelectedCustomerForTemplate] = useState<{ id: string; name: string } | null>(null);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -400,6 +404,18 @@ const Customers = () => {
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedCustomerForTemplate({
+                              id: customer.id,
+                              name: customer.company_name || customer.display_name
+                            });
+                            setShowTemplateDialog(true);
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Manage Templates
+                        </DropdownMenuItem>
                         {customer.portal_enabled && (
                           <>
                             <DropdownMenuItem 
@@ -493,6 +509,18 @@ const Customers = () => {
                         <DropdownMenuItem>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedCustomerForTemplate({
+                              id: customer.id,
+                              name: customer.company_name || customer.display_name
+                            });
+                            setShowTemplateDialog(true);
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Manage Templates
                         </DropdownMenuItem>
                         {customer.portal_enabled && (
                           <>
@@ -606,6 +634,17 @@ const Customers = () => {
           customerName={selectedCustomerForPortal.name}
         />
       )}
+
+      <CustomerTemplateDialog
+        open={showTemplateDialog}
+        onOpenChange={setShowTemplateDialog}
+        template={null}
+        onSuccess={() => {
+          setShowTemplateDialog(false);
+          setSelectedCustomerForTemplate(null);
+          loadCustomers();
+        }}
+      />
     </div>
   );
 };
