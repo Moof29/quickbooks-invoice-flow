@@ -18,12 +18,47 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
 
   const parseCSV = (text: string): any[] => {
     const lines = text.split('\n');
-    const headers = lines[0].replace('﻿', '').split(',').map(h => h.trim());
+    const headerLine = lines[0].replace('﻿', '');
+    
+    // Parse CSV line handling quoted fields properly
+    const parseLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+        
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            // Escaped quote
+            current += '"';
+            i++; // Skip next quote
+          } else {
+            // Toggle quotes
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          // End of field
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      
+      // Add last field
+      result.push(current.trim());
+      return result;
+    };
+    
+    const headers = parseLine(headerLine);
     
     return lines.slice(1)
       .filter(line => line.trim())
       .map(line => {
-        const values = line.split(',').map(v => v.trim());
+        const values = parseLine(line);
         const obj: any = {};
         headers.forEach((header, i) => {
           obj[header] = values[i];
