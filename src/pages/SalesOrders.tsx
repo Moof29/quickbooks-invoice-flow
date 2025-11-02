@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, FileText, Loader2, Search, X, CheckCircle, XCircle, Clock, DollarSign, Ban, AlertCircle } from "lucide-react";
+import { Plus, FileText, Loader2, Search, X, CheckCircle, XCircle, Clock, DollarSign, Ban, AlertCircle, CalendarIcon } from "lucide-react";
 import { format, addDays, startOfDay } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
@@ -16,23 +16,16 @@ import { GenerateDailyOrdersButton } from "@/components/GenerateDailyOrdersButto
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 type OrderStatus = 'pending' | 'invoiced' | 'cancelled' | 'all';
 
-// Helper to get visible delivery dates based on current day
-const getVisibleDeliveryDates = () => {
+// Helper to get default delivery date (tomorrow)
+const getDefaultDeliveryDate = () => {
   const today = startOfDay(new Date());
-  const dayOfWeek = today.getDay();
-  
-  // Show next 3-4 days of deliveries
-  const daysToShow = dayOfWeek === 5 ? 4 : 3; // Friday shows more days (Sat, Sun, Mon)
-  
-  const dates = [];
-  for (let i = 0; i <= daysToShow; i++) {
-    dates.push(addDays(today, i));
-  }
-  
-  return dates;
+  return addDays(today, 1); // Tomorrow
 };
 
 const SalesOrders = () => {
@@ -45,9 +38,9 @@ const SalesOrders = () => {
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [duplicateWarnings, setDuplicateWarnings] = useState<Record<string, any>>({});
+  const [selectedDates, setSelectedDates] = useState<Date[]>([getDefaultDeliveryDate()]);
   
   const { convertOrder, isConverting, convertingInvoiceId } = useOrderLifecycle();
-  const visibleDeliveryDates = getVisibleDeliveryDates();
 
   // Real-time subscription for order updates (all statuses)
   useEffect(() => {
@@ -110,11 +103,11 @@ const SalesOrders = () => {
 
   // Fetch sales orders for upcoming deliveries (from invoice_record)
   const { data: orders, isLoading, error } = useQuery({
-    queryKey: ['sales-orders', organizationId, selectedStatus, visibleDeliveryDates],
+    queryKey: ['sales-orders', organizationId, selectedStatus, selectedDates],
     queryFn: async () => {
       if (!organizationId) return [];
 
-      const dateStrings = visibleDeliveryDates.map(d => format(d, 'yyyy-MM-dd'));
+      const dateStrings = selectedDates.map(d => format(d, 'yyyy-MM-dd'));
 
       let query = supabase
         .from('invoice_record')
@@ -149,7 +142,7 @@ const SalesOrders = () => {
 
       return data || [];
     },
-    enabled: !!organizationId && visibleDeliveryDates.length > 0,
+    enabled: !!organizationId && selectedDates.length > 0,
   }) as any;
 
   // Check for duplicate orders for each order in the list
@@ -306,6 +299,28 @@ const SalesOrders = () => {
       <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
         <div className="flex gap-2">
           <GenerateDailyOrdersButton />
+          
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                {selectedDates.length === 1 
+                  ? format(selectedDates[0], 'MMM d, yyyy')
+                  : `${selectedDates.length} dates selected`
+                }
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="multiple"
+                selected={selectedDates}
+                onSelect={(dates) => setSelectedDates(dates || [getDefaultDeliveryDate()])}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+
           <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="sm">
