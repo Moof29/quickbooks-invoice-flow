@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -75,9 +76,8 @@ interface Invoice {
 }
 
 const Invoices = () => {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
@@ -85,7 +85,7 @@ const Invoices = () => {
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
@@ -95,40 +95,63 @@ const Invoices = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
+  // Debounce search term
   useEffect(() => {
-    loadInvoices();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1); // Reset to first page on new search
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-  // Real-time subscription for invoice changes (exclude pending)
+  // Reset page when filters change
   useEffect(() => {
-    const channel = supabase
-      .channel('invoice-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'invoice_record',
-          filter: 'status=neq.pending'  // ← Exclude pending staging records
-        },
-        (payload) => {
-          console.log('Invoice change detected:', payload);
-          loadInvoices();
-        }
-      )
-      .subscribe();
+    setCurrentPage(1);
+  }, [filters.dateFrom, filters.dateTo, filters.status]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  // Fetch total count for pagination
+  const { data: totalCount = 0 } = useQuery<number>({
+    queryKey: ['invoices-count', debouncedSearch, filters],
+    queryFn: async () => {
+      let query = supabase
+        .from('invoice_record')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue']);
 
-  const loadInvoices = async () => {
-    try {
-      setLoading(true);
+      // Apply search filter
+      if (debouncedSearch) {
+        query = query.or(`invoice_number.ilike.%${debouncedSearch}%`);
+      }
 
-      const { data, error } = await supabase
+      // Apply status filter
+      if (filters.status.length > 0) {
+        query = query.in('status', filters.status);
+      }
+
+      // Apply date range filter
+      if (filters.dateFrom) {
+        query = query.gte('invoice_date', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        query = query.lte('invoice_date', filters.dateTo);
+      }
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
+    }
+  });
+
+  // Fetch paginated invoices
+  const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
+    queryKey: ['invoices', currentPage, debouncedSearch, sortField, sortOrder, filters],
+    queryFn: async () => {
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from('invoice_record')
         .select(`
           id, 
@@ -145,21 +168,83 @@ const Invoices = () => {
             email
           )
         `)
-        .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue'])  // ← Exclude 'pending'
-        .order('created_at', { ascending: false });
+        .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue'])
+        .range(from, to);
 
+      // Apply search filter
+      if (debouncedSearch) {
+        query = query.or(`invoice_number.ilike.%${debouncedSearch}%`);
+      }
+
+      // Apply status filter
+      if (filters.status.length > 0) {
+        query = query.in('status', filters.status);
+      }
+
+      // Apply date range filter
+      if (filters.dateFrom) {
+        query = query.gte('invoice_date', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        query = query.lte('invoice_date', filters.dateTo);
+      }
+
+      // Apply sorting
+      const ascending = sortOrder === 'asc';
+      switch (sortField) {
+        case 'invoice_number':
+          query = query.order('invoice_number', { ascending });
+          break;
+        case 'invoice_date':
+          query = query.order('invoice_date', { ascending });
+          break;
+        case 'due_date':
+          query = query.order('due_date', { ascending });
+          break;
+        case 'amount':
+          query = query.order('total', { ascending });
+          break;
+        case 'status':
+          query = query.order('status', { ascending });
+          break;
+        default:
+          query = query.order('created_at', { ascending });
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      setInvoices(data || []);
-    } catch (error) {
-      console.error('Error loading invoices:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load invoices",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return data || [];
     }
+  });
+
+  // Real-time subscription for invoice changes (exclude pending)
+  useEffect(() => {
+    const channel = supabase
+      .channel('invoice-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'invoice_record',
+          filter: 'status=neq.pending'
+        },
+        (payload) => {
+          console.log('Invoice change detected:', payload);
+          queryClient.invalidateQueries({ queryKey: ['invoices'] });
+          queryClient.invalidateQueries({ queryKey: ['invoices-count'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  const loadInvoices = () => {
+    queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    queryClient.invalidateQueries({ queryKey: ['invoices-count'] });
   };
 
   const getStatusVariant = (status: string, amountDue: number): { variant: "default" | "secondary" | "destructive" | "outline"; className: string } => {
@@ -187,77 +272,7 @@ const Invoices = () => {
     }
   };
 
-  const uniqueCustomers = Array.from(
-    new Set(
-      invoices.map(inv => 
-        inv.customer_profile?.company_name || inv.customer_profile?.display_name || 'Unknown'
-      )
-    )
-  ).sort();
-
-  const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = searchTerm === '' || 
-      invoice.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.customer_profile?.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.customer_profile?.display_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = filters.status.length === 0 || 
-      filters.status.includes(invoice.status?.toLowerCase() || '');
-    
-    const customerName = invoice.customer_profile?.company_name || invoice.customer_profile?.display_name || 'Unknown';
-    const matchesCustomer = filters.customer.length === 0 || filters.customer.includes(customerName);
-    
-    let matchesDateRange = true;
-    if (filters.dateFrom || filters.dateTo) {
-      const invoiceDate = parseISO(invoice.invoice_date + 'T00:00:00');
-      if (filters.dateFrom && invoiceDate < parseISO(filters.dateFrom + 'T00:00:00')) {
-        matchesDateRange = false;
-      }
-      if (filters.dateTo && invoiceDate > parseISO(filters.dateTo + 'T00:00:00')) {
-        matchesDateRange = false;
-      }
-    }
-    
-    return matchesSearch && matchesStatus && matchesCustomer && matchesDateRange;
-  }).sort((a, b) => {
-    let aValue: any;
-    let bValue: any;
-    
-    switch (sortField) {
-      case 'invoice_number':
-        aValue = a.invoice_number || '';
-        bValue = b.invoice_number || '';
-        break;
-      case 'customer':
-        aValue = a.customer_profile?.company_name || a.customer_profile?.display_name || '';
-        bValue = b.customer_profile?.company_name || b.customer_profile?.display_name || '';
-        break;
-      case 'invoice_date':
-        aValue = parseISO(a.invoice_date || '1970-01-01' + 'T00:00:00').getTime();
-        bValue = parseISO(b.invoice_date || '1970-01-01' + 'T00:00:00').getTime();
-        break;
-      case 'due_date':
-        aValue = parseISO(a.due_date || '1970-01-01' + 'T00:00:00').getTime();
-        bValue = parseISO(b.due_date || '1970-01-01' + 'T00:00:00').getTime();
-        break;
-      case 'amount':
-        aValue = a.total || 0;
-        bValue = b.total || 0;
-        break;
-      case 'status':
-        aValue = a.status || '';
-        bValue = b.status || '';
-        break;
-      default:
-        return 0;
-    }
-    
-    if (sortOrder === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
-  });
+  // No longer needed - filtering happens server-side
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -277,15 +292,6 @@ const Invoices = () => {
     }));
   };
 
-  const toggleCustomer = (customer: string) => {
-    setFilters(prev => ({
-      ...prev,
-      customer: prev.customer.includes(customer)
-        ? prev.customer.filter(c => c !== customer)
-        : [...prev.customer, customer]
-    }));
-  };
-
   const toggleInvoiceSelection = (invoiceId: string) => {
     setSelectedInvoices(prev =>
       prev.includes(invoiceId)
@@ -295,10 +301,10 @@ const Invoices = () => {
   };
 
   const toggleAllInvoices = () => {
-    if (selectedInvoices.length === paginatedInvoices.length) {
+    if (selectedInvoices.length === invoices.length) {
       setSelectedInvoices([]);
     } else {
-      setSelectedInvoices(paginatedInvoices.map(inv => inv.id));
+      setSelectedInvoices(invoices.map(inv => inv.id));
     }
   };
 
@@ -338,14 +344,11 @@ const Invoices = () => {
   };
 
   // Pagination
-  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedInvoices = filteredInvoices.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
-      {loading ? (
+      {isLoading && invoices.length === 0 ? (
         <div className="text-center py-16">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p>Loading invoices...</p>
@@ -399,7 +402,7 @@ const Invoices = () => {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Date Range */}
                 <div className="space-y-2">
                   <Label className="text-sm">Date Range</Label>
@@ -444,37 +447,10 @@ const Invoices = () => {
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Customer Filter */}
-                <div className="space-y-2">
-                  <Label className="text-sm">Customer</Label>
-                  <Select 
-                    value={filters.customer[0] || 'all'}
-                    onValueChange={(value) => {
-                      if (value === 'all') {
-                        setFilters({ ...filters, customer: [] });
-                      } else {
-                        toggleCustomer(value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Customers" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Customers</SelectItem>
-                      {uniqueCustomers.map(customer => (
-                        <SelectItem key={customer} value={customer}>
-                          {customer}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               {/* Reset Filters Button */}
-              {(searchTerm || filters.dateFrom || filters.dateTo || filters.status.length > 0 || filters.customer.length > 0) && (
+              {(searchTerm || filters.dateFrom || filters.dateTo || filters.status.length > 0) && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -496,7 +472,7 @@ const Invoices = () => {
               <div>
                 <CardTitle>All Invoices</CardTitle>
                 <CardDescription>
-                  {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''} found
+                  {totalCount} invoice{totalCount !== 1 ? 's' : ''} found
                 </CardDescription>
               </div>
               
@@ -512,7 +488,7 @@ const Invoices = () => {
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedInvoices.length === paginatedInvoices.length && paginatedInvoices.length > 0}
+                        checked={selectedInvoices.length === invoices.length && invoices.length > 0}
                         onCheckedChange={toggleAllInvoices}
                       />
                     </TableHead>
@@ -556,7 +532,7 @@ const Invoices = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedInvoices.length === 0 ? (
+                  {invoices.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8">
                         <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -564,7 +540,7 @@ const Invoices = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedInvoices.map((invoice) => (
+                    invoices.map((invoice) => (
                       <TableRow 
                         key={invoice.id} 
                         className="hover:bg-muted/50 cursor-pointer"
@@ -642,11 +618,11 @@ const Invoices = () => {
           <div className="sm:hidden space-y-3">
             <div className="flex items-center justify-between px-1">
               <p className="text-sm text-muted-foreground">
-                {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
+                {totalCount} invoice{totalCount !== 1 ? 's' : ''}
               </p>
             </div>
             
-            {paginatedInvoices.length === 0 ? (
+            {invoices.length === 0 ? (
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-8 text-center">
                   <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -654,7 +630,7 @@ const Invoices = () => {
                 </CardContent>
               </Card>
             ) : (
-              paginatedInvoices.map((invoice) => (
+              invoices.map((invoice) => (
                 <Card 
                   key={invoice.id} 
                   className="border-0 shadow-sm active:shadow-md transition-shadow cursor-pointer"
@@ -717,30 +693,24 @@ const Invoices = () => {
                 <div className="flex items-center gap-2 w-full md:w-auto justify-center">
                   <span className="text-sm text-muted-foreground">Rows:</span>
                   <Select 
-                    value={itemsPerPage === filteredInvoices.length ? "all" : String(itemsPerPage)} 
+                    value={String(itemsPerPage)} 
                     onValueChange={(value) => {
-                      if (value === "all") {
-                        setItemsPerPage(filteredInvoices.length);
-                        setCurrentPage(1);
-                      } else {
-                        setItemsPerPage(Number(value));
-                        setCurrentPage(1);
-                      }
+                      setItemsPerPage(Number(value));
+                      setCurrentPage(1);
                     }}
                   >
                     <SelectTrigger className="w-20">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
                       <SelectItem value="25">25</SelectItem>
                       <SelectItem value="50">50</SelectItem>
                       <SelectItem value="100">100</SelectItem>
-                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="200">200</SelectItem>
                     </SelectContent>
                   </Select>
                   <span className="text-sm text-muted-foreground">
-                    {startIndex + 1}-{Math.min(endIndex, filteredInvoices.length)} of {filteredInvoices.length}
+                    {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
                   </span>
                 </div>
 
