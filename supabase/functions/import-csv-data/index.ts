@@ -90,21 +90,28 @@ async function importItems(supabase: any, orgId: string, rows: any[], stats: Imp
       source_system: 'QBO',
     }));
 
+    // Upsert will UPDATE existing records (matching on organization_id,qbo_id) or INSERT new ones
     const { data, error } = await supabase
       .from('item_record')
-      .upsert(items, { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false });
+      .upsert(items, { 
+        onConflict: 'organization_id,qbo_id',
+        ignoreDuplicates: false  // This ensures duplicates are UPDATED, not ignored
+      });
 
     if (error) {
-      console.error(`Batch ${i}-${i + batch.length} failed, trying individually:`, error.message);
-      // Try each item individually
+      console.error(`Batch ${i}-${i + batch.length} failed, retrying individually:`, error.message);
+      // Try each item individually when batch fails
       for (let j = 0; j < items.length; j++) {
         const { error: itemError } = await supabase
           .from('item_record')
-          .upsert([items[j]], { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false });
+          .upsert([items[j]], { 
+            onConflict: 'organization_id,qbo_id',
+            ignoreDuplicates: false 
+          });
         
         if (itemError) {
           stats.failed++;
-          stats.errors.push({ row: i + j, error: itemError.message });
+          stats.errors.push({ row: i + j, error: `${batch[j].name}: ${itemError.message}` });
         } else {
           stats.successful++;
         }
