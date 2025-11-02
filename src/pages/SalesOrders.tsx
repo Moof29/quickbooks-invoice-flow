@@ -22,10 +22,31 @@ import { cn } from "@/lib/utils";
 
 type OrderStatus = 'pending' | 'invoiced' | 'cancelled' | 'all';
 
-// Helper to get default delivery date (tomorrow)
-const getDefaultDeliveryDate = () => {
+// Helper to get default delivery dates based on current day of week
+const getDefaultDeliveryDates = () => {
   const today = startOfDay(new Date());
-  return addDays(today, 1); // Tomorrow
+  const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, ..., 5=Friday, 6=Saturday
+  
+  const dates: Date[] = [];
+  
+  if (dayOfWeek === 5) {
+    // Friday: Show Saturday, Sunday, Monday
+    dates.push(addDays(today, 1)); // Saturday
+    dates.push(addDays(today, 2)); // Sunday
+    dates.push(addDays(today, 3)); // Monday
+  } else if (dayOfWeek === 6) {
+    // Saturday: Show Sunday, Monday
+    dates.push(addDays(today, 1)); // Sunday
+    dates.push(addDays(today, 2)); // Monday
+  } else if (dayOfWeek === 0) {
+    // Sunday: Show Monday
+    dates.push(addDays(today, 1)); // Monday
+  } else {
+    // Monday-Thursday: Show tomorrow
+    dates.push(addDays(today, 1)); // Tomorrow
+  }
+  
+  return dates;
 };
 
 const SalesOrders = () => {
@@ -38,7 +59,7 @@ const SalesOrders = () => {
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [duplicateWarnings, setDuplicateWarnings] = useState<Record<string, any>>({});
-  const [selectedDates, setSelectedDates] = useState<Date[]>([getDefaultDeliveryDate()]);
+  const [selectedDates, setSelectedDates] = useState<Date[]>(getDefaultDeliveryDates());
   
   const { convertOrder, isConverting, convertingInvoiceId } = useOrderLifecycle();
 
@@ -314,7 +335,7 @@ const SalesOrders = () => {
               <Calendar
                 mode="multiple"
                 selected={selectedDates}
-                onSelect={(dates) => setSelectedDates(dates || [getDefaultDeliveryDate()])}
+                onSelect={(dates) => setSelectedDates(dates || getDefaultDeliveryDates())}
                 initialFocus
                 className={cn("p-3 pointer-events-auto")}
               />
