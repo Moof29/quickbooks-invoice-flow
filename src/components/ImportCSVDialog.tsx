@@ -33,6 +33,32 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
   const { toast } = useToast();
   const { profile } = useAuthProfile();
 
+  // Check for active background imports when dialog opens
+  useEffect(() => {
+    if (!open || !profile?.organization_id) return;
+
+    const checkActiveImports = async () => {
+      const { data } = await supabase
+        .from('csv_import_progress')
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+        .in('status', ['processing', 'uploading'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        setCurrentImport(data as ImportProgress);
+        setImporting(true);
+        if (data.total_rows > 0) {
+          setProgress((data.processed_rows / data.total_rows) * 100);
+        }
+      }
+    };
+
+    checkActiveImports();
+  }, [open, profile?.organization_id]);
+
   // Poll for progress updates
   useEffect(() => {
     if (!currentImport || currentImport.status === 'completed' || currentImport.status === 'failed' || currentImport.status === 'cancelled') {
