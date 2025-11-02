@@ -107,6 +107,42 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
     }
   };
 
+  const handleCancelAll = async () => {
+    if (!profile?.organization_id) return;
+    
+    setIsCancelling(true);
+    try {
+      const { error } = await supabase
+        .from('csv_import_progress')
+        .update({ 
+          status: 'cancelled',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('organization_id', profile.organization_id)
+        .in('status', ['processing', 'uploading']);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "All Imports Cancelled",
+        description: "All active background imports have been stopped.",
+      });
+      
+      setCurrentImport(null);
+      setImporting(false);
+      setProgress(0);
+      setIsCancelling(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      setIsCancelling(false);
+    }
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, dataType: 'items' | 'customers' | 'invoices' | 'invoice_line_items') => {
     const file = event.target.files?.[0];
     if (!file || !profile?.organization_id) return;
@@ -294,6 +330,24 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Emergency stop all imports button */}
+          {importing && (
+            <Alert className="border-destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>Background imports are running</span>
+                <Button 
+                  onClick={handleCancelAll}
+                  variant="destructive"
+                  disabled={isCancelling}
+                  size="sm"
+                >
+                  {isCancelling ? 'Cancelling All...' : 'Cancel All Imports'}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {importing && currentImport && (
             <div className="space-y-4">
               <Alert>
