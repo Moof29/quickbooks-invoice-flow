@@ -479,7 +479,7 @@ async function processBatch(
           tax_total: 0,
           total: totalAmt,
           amount_paid: totalAmt - balance,
-          amount_due: balance,
+          // amount_due is a GENERATED column - database calculates it automatically
           status: balance === 0 ? 'paid' : 'invoiced',
           qbo_sync_status: 'synced',
           source_system: 'QBO',
