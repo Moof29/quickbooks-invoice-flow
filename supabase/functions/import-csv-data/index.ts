@@ -223,6 +223,18 @@ async function processImportStreaming(
 
     // Process any remaining rows in final batch
     if (batchRows.length > 0) {
+      // Check if cancelled before processing final batch
+      const { data: cancelCheck } = await supabase
+        .from('csv_import_progress')
+        .select('status')
+        .eq('id', progressId)
+        .single();
+      
+      if (cancelCheck?.status === 'cancelled') {
+        console.log('Import cancelled by user - stopping final batch processing');
+        return;
+      }
+
       const batchResult = await processBatch(
         supabase,
         orgId,
@@ -240,6 +252,18 @@ async function processImportStreaming(
     }
 
     totalRows = lineCount;
+
+    // Check one final time before marking complete (don't overwrite 'cancelled')
+    const { data: finalCheck } = await supabase
+      .from('csv_import_progress')
+      .select('status')
+      .eq('id', progressId)
+      .single();
+    
+    if (finalCheck?.status === 'cancelled') {
+      console.log('Import was cancelled - not marking as completed');
+      return;
+    }
 
     // Mark as completed
     await supabase
