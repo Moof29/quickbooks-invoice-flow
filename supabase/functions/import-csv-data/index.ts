@@ -385,17 +385,17 @@ async function processBatch(
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // QuickBooks invoice CSV uses "Customer" column for customer name/display_name
-        const customerName = row.Customer || row.customer || row['Customer:Display Name'] || row.display_name;
+        // QuickBooks invoice CSV uses "customer_ref_name" for customer display name
+        const customerName = row.customer_ref_name || row.Customer || row.customer;
         
         if (!customerName) {
           failed++;
-          errors.push({ row: startIndex + i, error: `No customer name found in row. Available columns: ${Object.keys(row).join(', ')}` });
+          errors.push({ row: startIndex + i, error: `No customer name found in row` });
           processed++;
           continue;
         }
         
-        // Find customer by display_name (which matches the Customer column from QB export)
+        // Find customer by display_name (which matches customer_ref_name from QB export)
         const { data: customer } = await supabase
           .from('customer_profile')
           .select('id')
