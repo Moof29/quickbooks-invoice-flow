@@ -95,9 +95,20 @@ async function importItems(supabase: any, orgId: string, rows: any[], stats: Imp
       .upsert(items, { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false });
 
     if (error) {
-      console.error(`Batch ${i}-${i + batch.length} failed:`, error);
-      stats.failed += batch.length;
-      stats.errors.push({ row: i, error: error.message });
+      console.error(`Batch ${i}-${i + batch.length} failed, trying individually:`, error.message);
+      // Try each item individually
+      for (let j = 0; j < items.length; j++) {
+        const { error: itemError } = await supabase
+          .from('item_record')
+          .upsert([items[j]], { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false });
+        
+        if (itemError) {
+          stats.failed++;
+          stats.errors.push({ row: i + j, error: itemError.message });
+        } else {
+          stats.successful++;
+        }
+      }
     } else {
       stats.successful += batch.length;
     }
