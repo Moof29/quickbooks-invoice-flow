@@ -377,22 +377,35 @@ async function processBatch(
       processed += customers.length;
     }
   } else if (dataType === 'invoices') {
+    // Log column names from first row to debug
+    if (startIndex === 0 && rows.length > 0) {
+      console.log('Invoice CSV columns:', Object.keys(rows[0]));
+    }
+    
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // Try to find customer by display_name or qbo_id
-        const customerRef = row.display_name || row.customer_ref_value;
+        // QuickBooks invoice CSV uses "Customer" column for customer name/display_name
+        const customerName = row.Customer || row.customer || row['Customer:Display Name'] || row.display_name;
         
+        if (!customerName) {
+          failed++;
+          errors.push({ row: startIndex + i, error: `No customer name found in row. Available columns: ${Object.keys(row).join(', ')}` });
+          processed++;
+          continue;
+        }
+        
+        // Find customer by display_name (which matches the Customer column from QB export)
         const { data: customer } = await supabase
           .from('customer_profile')
           .select('id')
           .eq('organization_id', orgId)
-          .or(`display_name.eq.${customerRef},qbo_id.eq.${customerRef}`)
+          .eq('display_name', customerName)
           .single();
 
         if (!customer) {
           failed++;
-          errors.push({ row: startIndex + i, error: `Customer not found: ${customerRef}` });
+          errors.push({ row: startIndex + i, error: `Customer not found: "${customerName}"` });
           processed++;
           continue;
         }
