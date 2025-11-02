@@ -169,6 +169,40 @@ const SalesOrders = () => {
     checkDuplicates();
   }, [orders, organizationId]);
 
+  // Fetch all orders for selected dates (all statuses) for stats
+  const { data: allOrdersForDates } = useQuery({
+    queryKey: ['sales-orders-all-statuses', organizationId, selectedDates],
+    queryFn: async () => {
+      if (!organizationId || selectedDates.length === 0) return [];
+
+      const dateStrings = selectedDates.map(d => format(d, 'yyyy-MM-dd'));
+
+      const { data, error } = await supabase
+        .from('invoice_record')
+        .select('id, status, total')
+        .eq('organization_id', organizationId)
+        .in('delivery_date', dateStrings)
+        .in('status', ['pending', 'invoiced', 'cancelled']);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!organizationId && selectedDates.length > 0,
+  }) as any;
+
+  // Calculate stats from all orders for selected dates (not filtered by tab)
+  const stats = useMemo(() => {
+    if (!allOrdersForDates) return { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 };
+    
+    return allOrdersForDates.reduce((acc: any, order: any) => {
+      if (order.status === 'pending') acc.pending++;
+      if (order.status === 'invoiced') acc.invoiced++;
+      if (order.status === 'cancelled') acc.cancelled++;
+      acc.totalValue += order.total || 0;
+      return acc;
+    }, { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 });
+  }, [allOrdersForDates]);
+
   // Filter orders based on search query
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
@@ -183,19 +217,6 @@ const SalesOrders = () => {
              invoiceNumber.toLowerCase().includes(query);
     });
   }, [orders, searchQuery]);
-
-  // Calculate stats from filtered orders (reflects current date/status/search selection)
-  const stats = useMemo(() => {
-    if (!filteredOrders) return { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 };
-    
-    return filteredOrders.reduce((acc: any, order: any) => {
-      if (order.status === 'pending') acc.pending++;
-      if (order.status === 'invoiced') acc.invoiced++;
-      if (order.status === 'cancelled') acc.cancelled++;
-      acc.totalValue += order.total || 0;
-      return acc;
-    }, { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 });
-  }, [filteredOrders]);
 
   const handleClearAllOrders = async () => {
     setIsClearing(true);
