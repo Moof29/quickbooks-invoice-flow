@@ -29,12 +29,13 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
   const [progress, setProgress] = useState(0);
   const [currentImport, setCurrentImport] = useState<ImportProgress | null>(null);
   const [currentDataType, setCurrentDataType] = useState<string>('');
+  const [isCancelling, setIsCancelling] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuthProfile();
 
   // Poll for progress updates
   useEffect(() => {
-    if (!currentImport || currentImport.status === 'completed' || currentImport.status === 'failed') {
+    if (!currentImport || currentImport.status === 'completed' || currentImport.status === 'failed' || currentImport.status === 'cancelled') {
       return;
     }
 
@@ -68,12 +69,43 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
             variant: 'destructive',
           });
           setImporting(false);
+        } else if (data.status === 'cancelled') {
+          toast({
+            title: 'Import Cancelled',
+            description: 'The import process was stopped.',
+          });
+          setImporting(false);
+          setIsCancelling(false);
         }
       }
     }, 2000); // Poll every 2 seconds
 
     return () => clearInterval(interval);
   }, [currentImport, toast]);
+
+  const handleCancel = async () => {
+    if (!currentImport) return;
+    
+    setIsCancelling(true);
+    try {
+      await supabase
+        .from('csv_import_progress')
+        .update({ status: 'cancelled' })
+        .eq('id', currentImport.id);
+      
+      toast({
+        title: "Stopping Import",
+        description: "The import process is being cancelled...",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      setIsCancelling(false);
+    }
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, dataType: 'items' | 'customers' | 'invoices' | 'invoice_line_items') => {
     const file = event.target.files?.[0];
@@ -310,6 +342,17 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
                     </div>
                   </AlertDescription>
                 </Alert>
+              )}
+
+              {currentImport.status === 'processing' && (
+                <Button 
+                  onClick={handleCancel} 
+                  variant="destructive"
+                  disabled={isCancelling}
+                  className="w-full"
+                >
+                  {isCancelling ? 'Stopping...' : 'Stop Import'}
+                </Button>
               )}
             </div>
           )}

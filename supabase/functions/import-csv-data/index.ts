@@ -131,6 +131,18 @@ async function processImportStreaming(
         break;
       }
 
+      // Check if import was cancelled
+      const { data: progressCheck } = await supabase
+        .from('csv_import_progress')
+        .select('status')
+        .eq('id', progressId)
+        .single();
+      
+      if (progressCheck?.status === 'cancelled') {
+        console.log('Import cancelled by user');
+        return; // Exit early
+      }
+
       // Decode chunk and add to buffer
       buffer += decoder.decode(value, { stream: true });
       
