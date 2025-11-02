@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface InvoiceLineItem {
   id: string;
@@ -187,13 +187,13 @@ export const InvoicePDF = ({ invoice, lineItems }: InvoicePDFProps) => (
           <View style={{ marginBottom: 10 }}>
             <Text style={styles.label}>Invoice Date</Text>
             <Text style={styles.value}>
-              {invoice.invoice_date ? format(new Date(invoice.invoice_date), 'MMM d, yyyy') : 'N/A'}
+              {invoice.invoice_date ? format(parseISO(invoice.invoice_date + 'T00:00:00'), 'MMM d, yyyy') : 'N/A'}
             </Text>
           </View>
           <View style={{ marginBottom: 10 }}>
             <Text style={styles.label}>Due Date</Text>
             <Text style={styles.value}>
-              {invoice.due_date ? format(new Date(invoice.due_date), 'MMM d, yyyy') : 'N/A'}
+              {invoice.due_date ? format(parseISO(invoice.due_date + 'T00:00:00'), 'MMM d, yyyy') : 'N/A'}
             </Text>
           </View>
           <View>

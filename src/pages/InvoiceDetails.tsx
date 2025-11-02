@@ -50,7 +50,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { pdf } from '@react-pdf/renderer';
 import { InvoicePDF } from '@/components/InvoicePDF';
 import { useInvoiceEdit } from '@/hooks/useInvoiceEdit';
@@ -405,7 +405,7 @@ export default function InvoiceDetailsPage() {
   const calculateDaysUntilDue = () => {
     if (!invoice?.due_date) return null;
     const today = new Date();
-    const dueDate = new Date(invoice.due_date);
+    const dueDate = parseISO(invoice.due_date + 'T00:00:00');
     const diffTime = dueDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -640,11 +640,11 @@ export default function InvoiceDetailsPage() {
                 <div className="flex items-center gap-1">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Invoice:</span>
-                  <span className="font-medium">{invoice.invoice_date ? format(new Date(invoice.invoice_date), 'MMM d, yyyy') : 'N/A'}</span>
+                  <span className="font-medium">{invoice.invoice_date ? format(parseISO(invoice.invoice_date + 'T00:00:00'), 'MMM d, yyyy') : 'N/A'}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">Due:</span>
-                  <span className="font-medium">{invoice.due_date ? format(new Date(invoice.due_date), 'MMM d, yyyy') : 'N/A'}</span>
+                  <span className="font-medium">{invoice.due_date ? format(parseISO(invoice.due_date + 'T00:00:00'), 'MMM d, yyyy') : 'N/A'}</span>
                 </div>
               </div>
             </div>

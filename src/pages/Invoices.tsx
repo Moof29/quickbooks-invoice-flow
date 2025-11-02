@@ -52,7 +52,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { InvoiceDialog } from '@/components/InvoiceDialog';
@@ -209,11 +209,11 @@ const Invoices = () => {
     
     let matchesDateRange = true;
     if (filters.dateFrom || filters.dateTo) {
-      const invoiceDate = new Date(invoice.invoice_date);
-      if (filters.dateFrom && invoiceDate < new Date(filters.dateFrom)) {
+      const invoiceDate = parseISO(invoice.invoice_date + 'T00:00:00');
+      if (filters.dateFrom && invoiceDate < parseISO(filters.dateFrom + 'T00:00:00')) {
         matchesDateRange = false;
       }
-      if (filters.dateTo && invoiceDate > new Date(filters.dateTo)) {
+      if (filters.dateTo && invoiceDate > parseISO(filters.dateTo + 'T00:00:00')) {
         matchesDateRange = false;
       }
     }
@@ -233,12 +233,12 @@ const Invoices = () => {
         bValue = b.customer_profile?.company_name || b.customer_profile?.display_name || '';
         break;
       case 'invoice_date':
-        aValue = new Date(a.invoice_date || 0).getTime();
-        bValue = new Date(b.invoice_date || 0).getTime();
+        aValue = parseISO(a.invoice_date || '1970-01-01' + 'T00:00:00').getTime();
+        bValue = parseISO(b.invoice_date || '1970-01-01' + 'T00:00:00').getTime();
         break;
       case 'due_date':
-        aValue = new Date(a.due_date || 0).getTime();
-        bValue = new Date(b.due_date || 0).getTime();
+        aValue = parseISO(a.due_date || '1970-01-01' + 'T00:00:00').getTime();
+        bValue = parseISO(b.due_date || '1970-01-01' + 'T00:00:00').getTime();
         break;
       case 'amount':
         aValue = a.total || 0;
@@ -597,10 +597,10 @@ const Invoices = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {format(new Date(invoice.invoice_date), 'MMM d, yyyy')}
+                          {format(parseISO(invoice.invoice_date + 'T00:00:00'), 'MMM d, yyyy')}
                         </TableCell>
                         <TableCell>
-                          {format(new Date(invoice.due_date), 'MMM d, yyyy')}
+                          {format(parseISO(invoice.due_date + 'T00:00:00'), 'MMM d, yyyy')}
                         </TableCell>
                         <TableCell className="font-semibold">
                           ${invoice.total.toFixed(2)}
@@ -694,13 +694,13 @@ const Invoices = () => {
                       <div>
                         <span className="block">Invoice Date</span>
                         <span className="font-medium text-foreground">
-                          {format(new Date(invoice.invoice_date), 'MMM d, yyyy')}
+                          {format(parseISO(invoice.invoice_date + 'T00:00:00'), 'MMM d, yyyy')}
                         </span>
                       </div>
                       <div>
                         <span className="block">Due Date</span>
                         <span className="font-medium text-foreground">
-                          {format(new Date(invoice.due_date), 'MMM d, yyyy')}
+                          {format(parseISO(invoice.due_date + 'T00:00:00'), 'MMM d, yyyy')}
                         </span>
                       </div>
                     </div>
