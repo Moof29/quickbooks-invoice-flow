@@ -271,6 +271,8 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
         return <CheckCircle2 className="h-5 w-5 text-green-500" />;
       case 'failed':
         return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'cancelled':
+        return <XCircle className="h-5 w-5 text-yellow-500" />;
       default:
         return null;
     }
@@ -304,6 +306,7 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
                         {currentImport.status === 'processing' && 'Processing data...'}
                         {currentImport.status === 'completed' && 'Import completed!'}
                         {currentImport.status === 'failed' && 'Import failed'}
+                        {currentImport.status === 'cancelled' && 'Import cancelled'}
                       </div>
                       {currentImport.total_rows > 0 && (
                         <div className="text-sm text-muted-foreground">
@@ -321,6 +324,24 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
                   <Progress value={progress} />
                   <p className="text-sm text-center text-muted-foreground">
                     {Math.round(progress)}%
+                  </p>
+                </div>
+              )}
+
+              {/* Stop button for active imports */}
+              {(currentImport.status === 'processing' || currentImport.status === 'uploading') && (
+                <div className="space-y-2">
+                  <Button 
+                    onClick={handleCancel} 
+                    variant="destructive"
+                    disabled={isCancelling}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isCancelling ? 'Stopping Import...' : 'Stop Import'}
+                  </Button>
+                  <p className="text-xs text-center text-muted-foreground">
+                    Click to cancel the current import operation
                   </p>
                 </div>
               )}
@@ -344,14 +365,17 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
                 </Alert>
               )}
 
-              {currentImport.status === 'processing' && (
+              {/* Restart button for completed/failed/cancelled imports */}
+              {(currentImport.status === 'completed' || currentImport.status === 'failed' || currentImport.status === 'cancelled') && (
                 <Button 
-                  onClick={handleCancel} 
-                  variant="destructive"
-                  disabled={isCancelling}
+                  onClick={() => {
+                    setCurrentImport(null);
+                    setImporting(false);
+                    setProgress(0);
+                  }} 
                   className="w-full"
                 >
-                  {isCancelling ? 'Stopping...' : 'Stop Import'}
+                  Start New Import
                 </Button>
               )}
             </div>

@@ -175,6 +175,18 @@ async function processImportStreaming(
         
         // Process batch when full
         if (batchRows.length >= BATCH_SIZE) {
+          // Check if cancelled before processing batch
+          const { data: cancelCheck } = await supabase
+            .from('csv_import_progress')
+            .select('status')
+            .eq('id', progressId)
+            .single();
+          
+          if (cancelCheck?.status === 'cancelled') {
+            console.log('Import cancelled by user - stopping batch processing');
+            return;
+          }
+
           const batchResult = await processBatch(
             supabase,
             orgId,
