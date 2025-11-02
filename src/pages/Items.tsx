@@ -28,12 +28,14 @@ import {
   DollarSign,
   Box,
   Plus,
-  Star
+  Star,
+  Upload
 } from "lucide-react";
 import { format } from 'date-fns';
 import { Input } from "@/components/ui/input";
 import { MobileFAB } from "@/components/MobileFAB";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ImportCSVDialog } from "@/components/ImportCSVDialog";
 
 interface Item {
   id: string;
@@ -54,6 +56,7 @@ interface Item {
 export default function Items() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -153,6 +156,14 @@ export default function Items() {
           <p className="text-sm md:text-base text-muted-foreground">Manage your inventory and product catalog</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => setImportDialogOpen(true)}
+            variant="outline"
+            size={isMobile ? "sm" : "default"}
+          >
+            <Upload className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Import CSV</span>
+          </Button>
           <Button 
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
@@ -500,6 +511,12 @@ export default function Items() {
 
       {/* Mobile FAB */}
       <MobileFAB onClick={() => {}} label="Add Product" />
+      
+      {/* Import CSV Dialog */}
+      <ImportCSVDialog 
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+      />
     </div>
   );
 }

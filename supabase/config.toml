@@ -39,3 +39,6 @@ verify_jwt = true
 
 [functions.generate-test-orders]
 verify_jwt = true
+
+[functions.import-csv-data]
+verify_jwt = true
