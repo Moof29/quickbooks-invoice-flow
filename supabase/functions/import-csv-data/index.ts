@@ -107,8 +107,8 @@ async function processImportStreaming(
     let buffer = '';
     let lineCount = 0;
     let isFirstLine = true;
-    const BATCH_SIZE = 50;
-    const UPDATE_INTERVAL = 100;
+    const BATCH_SIZE = 10; // Ultra-small batches to minimize memory
+    const UPDATE_INTERVAL = 50;
     let batchRows: any[] = [];
 
     // Process chunks as they arrive

@@ -85,85 +85,20 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
     setCurrentDataType(dataType);
 
     try {
-      // 1. Create progress record
-      const { data: progressRecord, error: progressError } = await supabase
-        .from('csv_import_progress')
-        .insert({
-          organization_id: profile.organization_id,
-          file_name: file.name,
-          file_path: `${profile.organization_id}/${dataType.replace('_', '-')}/${Date.now()}_${file.name}`,
-          data_type: dataType,
-          status: 'uploading',
-        })
-        .select()
-        .single();
-
-      if (progressError) throw progressError;
-
-      setCurrentImport(progressRecord as ImportProgress);
-
-      // 2. Upload large file using TUS resumable upload
-      const filePath = `${profile.organization_id}/${dataType.replace('_', '-')}/${Date.now()}_${file.name}`;
+      const FILE_SIZE_LIMIT = 10 * 1024 * 1024; // 10MB chunks
       
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('No active session');
-
-      await new Promise<void>((resolve, reject) => {
-        const upload = new tus.Upload(file, {
-          endpoint: `https://pnqcbnmrfzqihymmzhkb.supabase.co/storage/v1/upload/resumable`,
-          retryDelays: [0, 3000, 5000, 10000, 20000],
-          headers: {
-            authorization: `Bearer ${session.access_token}`,
-            'x-upsert': 'false',
-          },
-          uploadDataDuringCreation: true,
-          removeFingerprintOnSuccess: true,
-          metadata: {
-            bucketName: 'csv-imports',
-            objectName: filePath,
-            contentType: 'text/csv',
-            cacheControl: '3600',
-          },
-          chunkSize: 6 * 1024 * 1024, // 6MB chunks
-          onError: (error) => {
-            console.error('TUS upload error:', error);
-            reject(error);
-          },
-          onProgress: (bytesUploaded, bytesTotal) => {
-            const percentage = (bytesUploaded / bytesTotal) * 100;
-            setProgress(Math.min(percentage * 0.9, 90)); // Reserve 10% for processing
-          },
-          onSuccess: () => {
-            console.log('TUS upload completed successfully');
-            resolve();
-          },
+      // If file is small enough, upload directly
+      if (file.size <= FILE_SIZE_LIMIT) {
+        await uploadAndProcess(file, dataType);
+      } else {
+        // Split large file into chunks and process sequentially
+        toast({
+          title: 'Large File Detected',
+          description: `Splitting ${Math.ceil(file.size / FILE_SIZE_LIMIT)} chunks for processing...`,
         });
-
-        upload.findPreviousUploads().then((previousUploads) => {
-          if (previousUploads.length) {
-            upload.resumeFromPreviousUpload(previousUploads[0]);
-          }
-          upload.start();
-        });
-      });
-
-      console.log(`File uploaded to storage: ${filePath}`);
-
-      // 3. Trigger background processing
-      const { error: functionError } = await supabase.functions.invoke('import-csv-data', {
-        body: { 
-          filePath, 
-          dataType,
-          progressId: progressRecord.id,
-        },
-      });
-
-      if (functionError) throw functionError;
-
-      toast({
-        title: 'Import Started',
-        description: `Processing ${file.name} in background. This may take a few minutes for large files.`,
-      });
+        
+        await splitAndUploadFile(file, dataType);
+      }
 
     } catch (error: any) {
       console.error('Import error:', error);
@@ -175,6 +110,122 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
       setImporting(false);
       setCurrentImport(null);
     }
+  };
+
+  const uploadAndProcess = async (file: File, dataType: string) => {
+    // 1. Create progress record
+    const { data: progressRecord, error: progressError } = await supabase
+      .from('csv_import_progress')
+      .insert({
+        organization_id: profile.organization_id,
+        file_name: file.name,
+        file_path: `${profile.organization_id}/${dataType.replace('_', '-')}/${Date.now()}_${file.name}`,
+        data_type: dataType,
+        status: 'uploading',
+      })
+      .select()
+      .single();
+
+    if (progressError) throw progressError;
+
+    setCurrentImport(progressRecord as ImportProgress);
+
+    // 2. Upload file using TUS resumable upload
+    const filePath = `${profile.organization_id}/${dataType.replace('_', '-')}/${Date.now()}_${file.name}`;
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('No active session');
+
+    await new Promise<void>((resolve, reject) => {
+      const upload = new tus.Upload(file, {
+        endpoint: `https://pnqcbnmrfzqihymmzhkb.supabase.co/storage/v1/upload/resumable`,
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: {
+          authorization: `Bearer ${session.access_token}`,
+          'x-upsert': 'false',
+        },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        metadata: {
+          bucketName: 'csv-imports',
+          objectName: filePath,
+          contentType: 'text/csv',
+          cacheControl: '3600',
+        },
+        chunkSize: 6 * 1024 * 1024, // 6MB chunks
+        onError: (error) => {
+          console.error('TUS upload error:', error);
+          reject(error);
+        },
+        onProgress: (bytesUploaded, bytesTotal) => {
+          const percentage = (bytesUploaded / bytesTotal) * 100;
+          setProgress(Math.min(percentage * 0.9, 90)); // Reserve 10% for processing
+        },
+        onSuccess: () => {
+          console.log('TUS upload completed successfully');
+          resolve();
+        },
+      });
+
+      upload.findPreviousUploads().then((previousUploads) => {
+        if (previousUploads.length) {
+          upload.resumeFromPreviousUpload(previousUploads[0]);
+        }
+        upload.start();
+      });
+    });
+
+    console.log(`File uploaded to storage: ${filePath}`);
+
+    // 3. Trigger background processing
+    const { error: functionError } = await supabase.functions.invoke('import-csv-data', {
+      body: { 
+        filePath, 
+        dataType,
+        progressId: progressRecord.id,
+      },
+    });
+
+    if (functionError) throw functionError;
+
+    toast({
+      title: 'Import Started',
+      description: `Processing ${file.name} in background.`,
+    });
+  };
+
+  const splitAndUploadFile = async (file: File, dataType: string) => {
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+    const text = await file.text();
+    const lines = text.split('\n');
+    const headers = lines[0];
+    
+    const totalChunks = Math.ceil((lines.length - 1) / 1000); // ~1000 rows per chunk
+    let currentChunk = 0;
+    
+    for (let i = 1; i < lines.length; i += 1000) {
+      currentChunk++;
+      const chunkLines = [headers, ...lines.slice(i, i + 1000)];
+      const chunkContent = chunkLines.join('\n');
+      const chunkBlob = new Blob([chunkContent], { type: 'text/csv' });
+      const chunkFile = new File([chunkBlob], `${file.name}_chunk${currentChunk}.csv`, { type: 'text/csv' });
+      
+      toast({
+        title: `Processing Chunk ${currentChunk}/${totalChunks}`,
+        description: 'Please wait...',
+      });
+      
+      await uploadAndProcess(chunkFile, dataType);
+      
+      // Wait for processing to complete before next chunk
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+    
+    toast({
+      title: 'All Chunks Processed',
+      description: `Successfully split and imported ${totalChunks} chunks`,
+    });
+    setImporting(false);
   };
 
   const getStatusIcon = () => {
