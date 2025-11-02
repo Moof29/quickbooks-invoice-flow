@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +28,9 @@ import {
   DollarSign,
   Box,
   Plus,
-  Star
+  Star,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { format } from 'date-fns';
 import { Input } from "@/components/ui/input";
@@ -53,20 +55,60 @@ interface Item {
 
 export default function Items() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
 
-  // Fetch items
-  const { data: items = [], isLoading, error } = useQuery<Item[]>({
-    queryKey: ['items'],
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1); // Reset to first page on new search
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch total count for pagination
+  const { data: totalCount = 0 } = useQuery<number>({
+    queryKey: ['items-count', debouncedSearch],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
+        .from('item_record')
+        .select('*', { count: 'exact', head: true });
+
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,sku.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
+      }
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
+    }
+  });
+
+  // Fetch paginated items
+  const { data: items = [], isLoading, error } = useQuery<Item[]>({
+    queryKey: ['items', currentPage, debouncedSearch],
+    queryFn: async () => {
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let query = supabase
         .from('item_record')
         .select('*')
-        .order('name');
-      
+        .order('name')
+        .range(from, to);
+
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,sku.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     }
@@ -112,11 +154,22 @@ export default function Items() {
     }
   });
 
-  const filteredItems = items.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const toggleItem = (id: string) => {
+    setSelectedItems(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = () => {
+    setSelectedItems(prev =>
+      prev.length === items.length ? [] : items.map(i => i.id)
+    );
+  };
+
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const totalValue = items.reduce((sum, item) => sum + (item.unit_price || 0) * (item.quantity_on_hand || 0), 0);
+  const totalItems = totalCount;
+  const lowStockItems = items.filter(item => (item.quantity_on_hand || 0) < 10).length;
 
   const getStatusBadge = (item: Item) => {
     if (item.qbo_id && item.sync_status === 'synced') {
@@ -127,22 +180,6 @@ export default function Items() {
     }
     return <Badge variant="outline">Local</Badge>;
   };
-
-  const toggleItem = (id: string) => {
-    setSelectedItems(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
-
-  const toggleAll = () => {
-    setSelectedItems(prev =>
-      prev.length === filteredItems.length ? [] : filteredItems.map(i => i.id)
-    );
-  };
-
-  const totalValue = filteredItems.reduce((sum, item) => sum + (item.unit_price || 0) * (item.quantity_on_hand || 0), 0);
-  const totalItems = filteredItems.length;
-  const lowStockItems = filteredItems.filter(item => (item.quantity_on_hand || 0) < 10).length;
 
   return (
     <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
@@ -271,7 +308,7 @@ export default function Items() {
             </div>
           </CardContent>
         </Card>
-      ) : filteredItems.length === 0 ? (
+      ) : items.length === 0 ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-8 md:p-16">
             <div className="text-center">
@@ -310,7 +347,7 @@ export default function Items() {
                   <TableRow>
                     <TableHead className="w-[50px]">
                       <Checkbox
-                        checked={selectedItems.length === filteredItems.length && filteredItems.length > 0}
+                        checked={selectedItems.length === items.length && items.length > 0}
                         onCheckedChange={toggleAll}
                       />
                     </TableHead>
@@ -325,7 +362,7 @@ export default function Items() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredItems.map((item) => (
+                  {items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>
                         <Checkbox
@@ -409,7 +446,7 @@ export default function Items() {
 
           {/* Mobile Card View */}
           <div className="md:hidden space-y-3">
-            {filteredItems.map((item) => (
+            {items.map((item) => (
               <Card key={item.id} className="border-0 shadow-sm">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
@@ -495,6 +532,42 @@ export default function Items() {
               </Card>
             ))}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <Card className="border-0 shadow-sm mt-4">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} products
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline ml-1">Previous</span>
+                    </Button>
+                    <div className="text-sm font-medium">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <span className="hidden sm:inline mr-1">Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 
