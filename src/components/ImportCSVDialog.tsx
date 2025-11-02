@@ -1,136 +1,223 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 
 interface ImportCSVDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+interface ImportProgress {
+  id: string;
+  status: string;
+  total_rows: number;
+  processed_rows: number;
+  successful_rows: number;
+  failed_rows: number;
+  errors: any; // Json type from database
+}
+
 export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [currentImport, setCurrentImport] = useState<ImportProgress | null>(null);
   const { toast } = useToast();
+  const { profile } = useAuthProfile();
 
-  const parseCSV = (text: string): any[] => {
-    const lines = text.split('\n');
-    const headerLine = lines[0].replace('﻿', '');
-    
-    // Parse CSV line handling quoted fields properly
-    const parseLine = (line: string): string[] => {
-      const result: string[] = [];
-      let current = '';
-      let inQuotes = false;
-      
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        const nextChar = line[i + 1];
+  // Poll for progress updates
+  useEffect(() => {
+    if (!currentImport || currentImport.status === 'completed' || currentImport.status === 'failed') {
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('csv_import_progress')
+        .select('*')
+        .eq('id', currentImport.id)
+        .single();
+
+      if (data) {
+        setCurrentImport(data as ImportProgress);
         
-        if (char === '"') {
-          if (inQuotes && nextChar === '"') {
-            // Escaped quote
-            current += '"';
-            i++; // Skip next quote
-          } else {
-            // Toggle quotes
-            inQuotes = !inQuotes;
-          }
-        } else if (char === ',' && !inQuotes) {
-          // End of field
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += char;
+        if (data.total_rows > 0) {
+          setProgress((data.processed_rows / data.total_rows) * 100);
+        }
+
+        if (data.status === 'completed') {
+          toast({
+            title: 'Import Complete',
+            description: `Successfully imported ${data.successful_rows} records. ${data.failed_rows} failed.`,
+          });
+          setImporting(false);
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } else if (data.status === 'failed') {
+          toast({
+            title: 'Import Failed',
+            description: 'The import process failed. Check the errors below.',
+            variant: 'destructive',
+          });
+          setImporting(false);
         }
       }
-      
-      // Add last field
-      result.push(current.trim());
-      return result;
-    };
-    
-    const headers = parseLine(headerLine);
-    
-    return lines.slice(1)
-      .filter(line => line.trim())
-      .map(line => {
-        const values = parseLine(line);
-        const obj: any = {};
-        headers.forEach((header, i) => {
-          obj[header] = values[i];
-        });
-        return obj;
-      });
-  };
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [currentImport, toast]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, dataType: 'items' | 'customers' | 'invoices') => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !profile?.organization_id) return;
 
     setImporting(true);
     setProgress(0);
+    setCurrentImport(null);
 
     try {
-      const text = await file.text();
-      const csvData = parseCSV(text);
-      
-      console.log(`Parsed ${csvData.length} rows of ${dataType}`);
-      setProgress(20);
+      // 1. Create progress record
+      const { data: progressRecord, error: progressError } = await supabase
+        .from('csv_import_progress')
+        .insert({
+          organization_id: profile.organization_id,
+          file_name: file.name,
+          file_path: `${profile.organization_id}/${dataType}/${Date.now()}_${file.name}`,
+          data_type: dataType,
+          status: 'uploading',
+        })
+        .select()
+        .single();
 
-      const { data, error } = await supabase.functions.invoke('import-csv-data', {
-        body: { csvData, dataType }
+      if (progressError) throw progressError;
+
+      setCurrentImport(progressRecord as ImportProgress);
+
+      // 2. Upload file to storage
+      const filePath = `${profile.organization_id}/${dataType}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('csv-imports')
+        .upload(filePath, file, {
+          contentType: 'text/csv',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      console.log(`File uploaded to storage: ${filePath}`);
+
+      // 3. Trigger background processing
+      const { error: functionError } = await supabase.functions.invoke('import-csv-data', {
+        body: { 
+          filePath, 
+          dataType,
+          progressId: progressRecord.id,
+        },
       });
 
-      if (error) throw error;
+      if (functionError) throw functionError;
 
-      setProgress(100);
-      
       toast({
-        title: 'Import Complete',
-        description: `✅ ${data.stats.successful} imported, ❌ ${data.stats.failed} failed`,
+        title: 'Import Started',
+        description: `Processing ${file.name} in background. This may take a few minutes for large files.`,
       });
-
-      if (data.stats.errors.length > 0) {
-        console.error('Import errors:', data.stats.errors);
-      }
-
-      setTimeout(() => {
-        onOpenChange(false);
-        window.location.reload();
-      }, 1500);
 
     } catch (error: any) {
-      console.error('Import failed:', error);
+      console.error('Import error:', error);
       toast({
         title: 'Import Failed',
-        description: error.message,
+        description: error.message || 'Failed to import CSV data',
         variant: 'destructive',
       });
-    } finally {
       setImporting(false);
-      setProgress(0);
+      setCurrentImport(null);
+    }
+  };
+
+  const getStatusIcon = () => {
+    if (!currentImport) return null;
+    
+    switch (currentImport.status) {
+      case 'uploading':
+      case 'processing':
+        return <Loader2 className="h-5 w-5 animate-spin text-blue-500" />;
+      case 'completed':
+        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+      case 'failed':
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      default:
+        return null;
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Existing QBO Data</DialogTitle>
           <DialogDescription>
-            Upload CSV files exported from QuickBooks Online to populate your database with real data.
+            Upload CSV files exported from QuickBooks Online. Supports large files (100MB+).
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {importing && (
-            <div className="space-y-2">
-              <Progress value={progress} />
-              <p className="text-sm text-muted-foreground text-center">Importing data...</p>
+          {importing && currentImport && (
+            <div className="space-y-4">
+              <Alert>
+                <div className="flex items-center gap-2">
+                  {getStatusIcon()}
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      <div className="font-medium">
+                        {currentImport.status === 'uploading' && 'Uploading file...'}
+                        {currentImport.status === 'processing' && 'Processing data...'}
+                        {currentImport.status === 'completed' && 'Import completed!'}
+                        {currentImport.status === 'failed' && 'Import failed'}
+                      </div>
+                      {currentImport.total_rows > 0 && (
+                        <div className="text-sm text-muted-foreground">
+                          {currentImport.processed_rows} of {currentImport.total_rows} rows processed
+                          ({currentImport.successful_rows} successful, {currentImport.failed_rows} failed)
+                        </div>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </div>
+              </Alert>
+
+              {currentImport.total_rows > 0 && (
+                <div className="space-y-2">
+                  <Progress value={progress} />
+                  <p className="text-sm text-center text-muted-foreground">
+                    {Math.round(progress)}%
+                  </p>
+                </div>
+              )}
+
+              {currentImport.errors && currentImport.errors.length > 0 && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      <p className="font-medium">Errors encountered:</p>
+                      <ul className="text-sm space-y-1 max-h-32 overflow-y-auto">
+                        {currentImport.errors.slice(0, 10).map((err, idx) => (
+                          <li key={idx}>Row {err.row}: {err.error}</li>
+                        ))}
+                        {currentImport.errors.length > 10 && (
+                          <li>...and {currentImport.errors.length - 10} more errors</li>
+                        )}
+                      </ul>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           )}
 
@@ -205,7 +292,8 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
               <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded">
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <p>
-                  Upload in order: Items → Customers → Invoices. Existing records will be updated based on QuickBooks ID.
+                  Upload in order: Items → Customers → Invoices. Large files supported (up to 500MB). 
+                  Existing records will be updated based on QuickBooks ID.
                 </p>
               </div>
             </>

@@ -818,6 +818,71 @@ export type Database = {
           },
         ]
       }
+      csv_import_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          data_type: string
+          errors: Json | null
+          failed_rows: number | null
+          file_name: string
+          file_path: string
+          id: string
+          organization_id: string
+          processed_rows: number | null
+          started_at: string | null
+          status: string
+          successful_rows: number | null
+          total_rows: number | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_type: string
+          errors?: Json | null
+          failed_rows?: number | null
+          file_name: string
+          file_path: string
+          id?: string
+          organization_id: string
+          processed_rows?: number | null
+          started_at?: string | null
+          status?: string
+          successful_rows?: number | null
+          total_rows?: number | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_type?: string
+          errors?: Json | null
+          failed_rows?: number | null
+          file_name?: string
+          file_path?: string
+          id?: string
+          organization_id?: string
+          processed_rows?: number | null
+          started_at?: string | null
+          status?: string
+          successful_rows?: number | null
+          total_rows?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "csv_import_progress_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       currencies: {
         Row: {
           created_at: string | null
