@@ -84,9 +84,10 @@ async function processImportStreaming(
   let failedRows = 0;
   const errors: Array<{ row: number; error: string }> = [];
   let totalRows = 0;
+  let headers: string[] = [];
 
   try {
-    console.log('Starting streaming download...');
+    console.log('Starting true streaming download...');
     
     // Download file from storage
     const { data: fileData, error: downloadError } = await supabase
@@ -96,80 +97,132 @@ async function processImportStreaming(
 
     if (downloadError) throw new Error(`Failed to download file: ${downloadError.message}`);
 
-    // Read file as stream and process in chunks
-    const text = await fileData.text();
-    console.log(`File downloaded, size: ${text.length} characters`);
+    console.log('File downloaded, starting chunk processing...');
     
-    // Parse CSV headers
-    const lines = text.split('\n');
-    const headers = parseCSVLine(lines[0]);
-    totalRows = lines.length - 1; // Exclude header row
+    // Read file as stream in chunks to avoid loading entire file into memory
+    const stream = fileData.stream();
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
     
-    console.log(`CSV has ${totalRows} data rows`);
-    
-    // Update total rows
-    await supabase
-      .from('csv_import_progress')
-      .update({ total_rows: totalRows })
-      .eq('id', progressId);
-
-    // Process in small batches to avoid memory issues
+    let buffer = '';
+    let lineCount = 0;
+    let isFirstLine = true;
     const BATCH_SIZE = 50;
-    const UPDATE_INTERVAL = 50;
+    const UPDATE_INTERVAL = 100;
     let batchRows: any[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
+    // Process chunks as they arrive
+    while (true) {
+      const { done, value } = await reader.read();
       
-      const values = parseCSVLine(lines[i]);
-      if (values.length !== headers.length) continue;
-
-      const row: any = {};
-      headers.forEach((header, index) => {
-        row[header] = values[index] || '';
-      });
-
-      batchRows.push(row);
-
-      // Process when batch is full or at end of file
-      if (batchRows.length >= BATCH_SIZE || i === lines.length - 1) {
-        const batchResult = await processBatch(
-          supabase,
-          orgId,
-          batchRows,
-          dataType,
-          processedRows
-        );
-
-        successfulRows += batchResult.successful;
-        failedRows += batchResult.failed;
-        processedRows += batchResult.processed;
-        errors.push(...batchResult.errors);
-
-        // Update progress
-        if (processedRows % UPDATE_INTERVAL === 0 || i === lines.length - 1) {
-          await supabase
-            .from('csv_import_progress')
-            .update({
-              processed_rows: processedRows,
-              successful_rows: successfulRows,
-              failed_rows: failedRows,
-              errors: errors.slice(-100), // Keep last 100 errors
-            })
-            .eq('id', progressId);
-          
-          console.log(`Progress: ${processedRows}/${totalRows} rows (${successfulRows} successful, ${failedRows} failed)`);
+      if (done) {
+        // Process any remaining data in buffer
+        if (buffer.trim()) {
+          const values = parseCSVLine(buffer);
+          if (!isFirstLine && values.length === headers.length) {
+            const row: any = {};
+            headers.forEach((header, index) => {
+              row[header] = values[index] || '';
+            });
+            batchRows.push(row);
+            lineCount++;
+          }
         }
+        break;
+      }
 
-        batchRows = []; // Clear batch
+      // Decode chunk and add to buffer
+      buffer += decoder.decode(value, { stream: true });
+      
+      // Process complete lines from buffer
+      let newlineIndex;
+      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.substring(0, newlineIndex).trim();
+        buffer = buffer.substring(newlineIndex + 1);
+        
+        if (!line) continue;
+        
+        if (isFirstLine) {
+          // Parse headers
+          headers = parseCSVLine(line);
+          isFirstLine = false;
+          console.log(`CSV headers: ${headers.length} columns`);
+          continue;
+        }
+        
+        const values = parseCSVLine(line);
+        if (values.length !== headers.length) continue;
+        
+        const row: any = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        
+        batchRows.push(row);
+        lineCount++;
+        
+        // Process batch when full
+        if (batchRows.length >= BATCH_SIZE) {
+          const batchResult = await processBatch(
+            supabase,
+            orgId,
+            batchRows,
+            dataType,
+            processedRows
+          );
+
+          successfulRows += batchResult.successful;
+          failedRows += batchResult.failed;
+          processedRows += batchResult.processed;
+          errors.push(...batchResult.errors);
+
+          // Update progress periodically
+          if (processedRows % UPDATE_INTERVAL === 0) {
+            await supabase
+              .from('csv_import_progress')
+              .update({
+                processed_rows: processedRows,
+                successful_rows: successfulRows,
+                failed_rows: failedRows,
+                total_rows: lineCount, // Update estimated total
+                errors: errors.slice(-100),
+              })
+              .eq('id', progressId);
+            
+            console.log(`Progress: ${processedRows} rows processed (${successfulRows} successful, ${failedRows} failed)`);
+          }
+
+          batchRows = []; // Clear batch immediately to free memory
+        }
       }
     }
+
+    // Process any remaining rows in final batch
+    if (batchRows.length > 0) {
+      const batchResult = await processBatch(
+        supabase,
+        orgId,
+        batchRows,
+        dataType,
+        processedRows
+      );
+
+      successfulRows += batchResult.successful;
+      failedRows += batchResult.failed;
+      processedRows += batchResult.processed;
+      errors.push(...batchResult.errors);
+      
+      batchRows = []; // Clear memory
+    }
+
+    totalRows = lineCount;
 
     // Mark as completed
     await supabase
       .from('csv_import_progress')
       .update({
         status: 'completed',
+        total_rows: totalRows,
         processed_rows: processedRows,
         successful_rows: successfulRows,
         failed_rows: failedRows,
