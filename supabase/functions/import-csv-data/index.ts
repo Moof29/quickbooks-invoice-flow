@@ -83,7 +83,7 @@ async function importItems(supabase: any, orgId: string, rows: any[], stats: Imp
       name: row.name || 'Unnamed Item',
       sku: row.sku || null,
       description: row.description || null,
-      unit_price: parseFloat(row.unit_price) || 0,
+      purchase_cost: parseFloat(row.purchase_cost || row.unit_price) || 0,
       is_active: row.active === 'true' || row.active === true,
       item_type: row.type || 'NonInventory',
       qbo_sync_status: 'synced',
