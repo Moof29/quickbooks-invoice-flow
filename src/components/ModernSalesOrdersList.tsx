@@ -527,7 +527,7 @@ export function ModernSalesOrdersList() {
     
       // Fetch ALL pending order IDs matching current filters
       let query: any = supabase
-        .from("sales_order")
+        .from("invoice_record")
         .select("id, status")
         .eq("organization_id", organizationId)
         .eq("status", "pending"); // Only pending orders

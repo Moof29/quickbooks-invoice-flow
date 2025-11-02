@@ -100,39 +100,9 @@ export const useOrderLifecycle = () => {
     },
   });
 
-  const updateOrderStatusMutation = useMutation({
-    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
-      const { error } = await supabase
-        .from('sales_order' as any)
-        .update({ status })
-        .eq('id', orderId);
-
-      if (error) throw error;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['sales-order', variables.orderId] });
-      
-      toast({
-        title: 'Status Updated',
-        description: `Order status changed to ${variables.status}`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
   return {
     convertOrder: convertOrderMutation.mutate,
     isConverting: convertOrderMutation.isPending,
     convertingInvoiceId,
-    updateOrderStatus: updateOrderStatusMutation.mutate,
-    isUpdatingStatus: updateOrderStatusMutation.isPending,
   };
 };

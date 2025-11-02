@@ -3721,752 +3721,132 @@ export type Database = {
         }
         Relationships: []
       }
-      sales_order: {
+      sales_order_backup: {
         Row: {
           approved_at: string | null
           approved_by: string | null
-          created_at: string
+          created_at: string | null
           created_from_template: boolean | null
-          customer_id: string
-          delivery_date: string
+          customer_id: string | null
+          delivery_date: string | null
           discount_total: number | null
-          id: string
+          id: string | null
           invoice_id: string | null
           invoiced: boolean | null
           is_no_order_today: boolean | null
           memo: string | null
-          order_date: string
-          order_number: string
-          organization_id: string
+          order_date: string | null
+          order_number: string | null
+          organization_id: string | null
           shipping_total: number | null
           status: string | null
           subtotal: number | null
           tax_total: number | null
           template_id: string | null
           total: number | null
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
-          created_at?: string
+          created_at?: string | null
           created_from_template?: boolean | null
-          customer_id: string
-          delivery_date: string
+          customer_id?: string | null
+          delivery_date?: string | null
           discount_total?: number | null
-          id?: string
+          id?: string | null
           invoice_id?: string | null
           invoiced?: boolean | null
           is_no_order_today?: boolean | null
           memo?: string | null
-          order_date?: string
-          order_number: string
-          organization_id: string
+          order_date?: string | null
+          order_number?: string | null
+          organization_id?: string | null
           shipping_total?: number | null
           status?: string | null
           subtotal?: number | null
           tax_total?: number | null
           template_id?: string | null
           total?: number | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
-          created_at?: string
+          created_at?: string | null
           created_from_template?: boolean | null
-          customer_id?: string
-          delivery_date?: string
+          customer_id?: string | null
+          delivery_date?: string | null
           discount_total?: number | null
-          id?: string
+          id?: string | null
           invoice_id?: string | null
           invoiced?: boolean | null
           is_no_order_today?: boolean | null
           memo?: string | null
-          order_date?: string
-          order_number?: string
-          organization_id?: string
+          order_date?: string | null
+          order_number?: string | null
+          organization_id?: string | null
           shipping_total?: number | null
           status?: string | null
           subtotal?: number | null
           tax_total?: number | null
           template_id?: string | null
           total?: number | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_customer_id_fkey1"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customer_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_organization_id_fkey1"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales_order_archived: {
-        Row: {
-          approved_at: string | null
-          approved_by: string | null
-          created_at: string | null
-          created_by: string | null
-          currency_id: string | null
-          custom_fields: Json | null
-          customer_id: string | null
-          customer_po_number: string | null
-          delivery_date: string
-          discount_rate: number | null
-          discount_total: number | null
-          discount_type: string | null
-          exchange_rate: number | null
-          id: string
-          invoice_id: string | null
-          invoiced: boolean
-          is_no_order_today: boolean
-          last_sync_at: string | null
-          memo: string | null
-          message: string | null
-          order_date: string | null
-          order_number: string | null
-          organization_id: string
-          promised_ship_date: string | null
-          qbo_estimate_id: string | null
-          requested_ship_date: string | null
-          shipping_address_line1: string | null
-          shipping_address_line2: string | null
-          shipping_city: string | null
-          shipping_country: string | null
-          shipping_method: string | null
-          shipping_postal_code: string | null
-          shipping_state: string | null
-          shipping_terms: string | null
-          shipping_total: number | null
-          source_system: string | null
-          status: string | null
-          subtotal: number | null
-          sync_status: string | null
-          tax_total: number | null
-          terms: string | null
-          total: number | null
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          approved_at?: string | null
-          approved_by?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          currency_id?: string | null
-          custom_fields?: Json | null
-          customer_id?: string | null
-          customer_po_number?: string | null
-          delivery_date?: string
-          discount_rate?: number | null
-          discount_total?: number | null
-          discount_type?: string | null
-          exchange_rate?: number | null
-          id?: string
-          invoice_id?: string | null
-          invoiced?: boolean
-          is_no_order_today?: boolean
-          last_sync_at?: string | null
-          memo?: string | null
-          message?: string | null
-          order_date?: string | null
-          order_number?: string | null
-          organization_id: string
-          promised_ship_date?: string | null
-          qbo_estimate_id?: string | null
-          requested_ship_date?: string | null
-          shipping_address_line1?: string | null
-          shipping_address_line2?: string | null
-          shipping_city?: string | null
-          shipping_country?: string | null
-          shipping_method?: string | null
-          shipping_postal_code?: string | null
-          shipping_state?: string | null
-          shipping_terms?: string | null
-          shipping_total?: number | null
-          source_system?: string | null
-          status?: string | null
-          subtotal?: number | null
-          sync_status?: string | null
-          tax_total?: number | null
-          terms?: string | null
-          total?: number | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          approved_at?: string | null
-          approved_by?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          currency_id?: string | null
-          custom_fields?: Json | null
-          customer_id?: string | null
-          customer_po_number?: string | null
-          delivery_date?: string
-          discount_rate?: number | null
-          discount_total?: number | null
-          discount_type?: string | null
-          exchange_rate?: number | null
-          id?: string
-          invoice_id?: string | null
-          invoiced?: boolean
-          is_no_order_today?: boolean
-          last_sync_at?: string | null
-          memo?: string | null
-          message?: string | null
-          order_date?: string | null
-          order_number?: string | null
-          organization_id?: string
-          promised_ship_date?: string | null
-          qbo_estimate_id?: string | null
-          requested_ship_date?: string | null
-          shipping_address_line1?: string | null
-          shipping_address_line2?: string | null
-          shipping_city?: string | null
-          shipping_country?: string | null
-          shipping_method?: string | null
-          shipping_postal_code?: string | null
-          shipping_state?: string | null
-          shipping_terms?: string | null
-          shipping_total?: number | null
-          source_system?: string | null
-          status?: string | null
-          subtotal?: number | null
-          sync_status?: string | null
-          tax_total?: number | null
-          terms?: string | null
-          total?: number | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_currency_id_fkey"
-            columns: ["currency_id"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customer_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_record"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales_order_fulfillment: {
-        Row: {
-          carrier: string | null
-          created_at: string | null
-          created_by: string | null
-          custom_fields: Json | null
-          fulfillment_date: string | null
-          fulfillment_number: string | null
-          id: string
-          last_sync_at: string | null
-          notes: string | null
-          organization_id: string
-          sales_order_id: string | null
-          shipping_method: string | null
-          status: string | null
-          sync_status: string | null
-          tracking_number: string | null
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          carrier?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          custom_fields?: Json | null
-          fulfillment_date?: string | null
-          fulfillment_number?: string | null
-          id?: string
-          last_sync_at?: string | null
-          notes?: string | null
-          organization_id: string
-          sales_order_id?: string | null
-          shipping_method?: string | null
-          status?: string | null
-          sync_status?: string | null
-          tracking_number?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          carrier?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          custom_fields?: Json | null
-          fulfillment_date?: string | null
-          fulfillment_number?: string | null
-          id?: string
-          last_sync_at?: string | null
-          notes?: string | null
-          organization_id?: string
-          sales_order_id?: string | null
-          shipping_method?: string | null
-          status?: string | null
-          sync_status?: string | null
-          tracking_number?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_fulfillment_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_fulfillment_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_fulfillment_sales_order_id_fkey"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order_archive_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_fulfillment_sales_order_id_fkey"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order_archived"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_fulfillment_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales_order_fulfillment_line: {
-        Row: {
-          created_at: string | null
-          fulfillment_id: string | null
-          id: string
-          item_id: string | null
-          last_sync_at: string | null
-          location_id: string | null
-          lot_number: string | null
-          notes: string | null
-          organization_id: string
-          quantity: number
-          sales_order_line_item_id: string | null
-          serial_number: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          fulfillment_id?: string | null
-          id?: string
-          item_id?: string | null
-          last_sync_at?: string | null
-          location_id?: string | null
-          lot_number?: string | null
-          notes?: string | null
-          organization_id: string
-          quantity: number
-          sales_order_line_item_id?: string | null
-          serial_number?: string | null
           updated_at?: string | null
         }
-        Update: {
-          created_at?: string | null
-          fulfillment_id?: string | null
-          id?: string
-          item_id?: string | null
-          last_sync_at?: string | null
-          location_id?: string | null
-          lot_number?: string | null
-          notes?: string | null
-          organization_id?: string
-          quantity?: number
-          sales_order_line_item_id?: string | null
-          serial_number?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_fulfillment_line_fulfillment_id_fkey"
-            columns: ["fulfillment_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order_fulfillment"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_fulfillment_line_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "item_record"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_fulfillment_line_sales_order_line_item_id_fkey"
-            columns: ["sales_order_line_item_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order_line_item_archived"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      sales_order_invoice_link: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          invoice_id: string
-          organization_id: string
-          sales_order_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          invoice_id: string
-          organization_id: string
-          sales_order_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          invoice_id?: string
-          organization_id?: string
-          sales_order_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_invoice_link_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_invoice_link_invoice_id_fkey1"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_record"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_invoice_link_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_invoice_link_sales_order_id_fkey1"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales_order_invoice_link_archived: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          created_by_metadata: Json | null
-          id: string
-          invoice_id: string | null
-          organization_id: string
-          sales_order_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          created_by_metadata?: Json | null
-          id?: string
-          invoice_id?: string | null
-          organization_id: string
-          sales_order_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          created_by_metadata?: Json | null
-          id?: string
-          invoice_id?: string | null
-          organization_id?: string
-          sales_order_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_invoice_link_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_record"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_invoice_link_sales_order_id_fkey"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order_archive_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_invoice_link_sales_order_id_fkey"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order_archived"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales_order_line_item: {
-        Row: {
-          amount: number | null
-          created_at: string
-          discount_amount: number | null
-          discount_rate: number | null
-          id: string
-          item_id: string
-          organization_id: string
-          quantity: number
-          quantity_fulfilled: number | null
-          quantity_invoiced: number | null
-          sales_order_id: string
-          tax_amount: number | null
-          tax_rate: number | null
-          unit_price: number
-          updated_at: string
-        }
-        Insert: {
-          amount?: number | null
-          created_at?: string
-          discount_amount?: number | null
-          discount_rate?: number | null
-          id?: string
-          item_id: string
-          organization_id: string
-          quantity?: number
-          quantity_fulfilled?: number | null
-          quantity_invoiced?: number | null
-          sales_order_id: string
-          tax_amount?: number | null
-          tax_rate?: number | null
-          unit_price?: number
-          updated_at?: string
-        }
-        Update: {
-          amount?: number | null
-          created_at?: string
-          discount_amount?: number | null
-          discount_rate?: number | null
-          id?: string
-          item_id?: string
-          organization_id?: string
-          quantity?: number
-          quantity_fulfilled?: number | null
-          quantity_invoiced?: number | null
-          sales_order_id?: string
-          tax_amount?: number | null
-          tax_rate?: number | null
-          unit_price?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_line_item_item_id_fkey1"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "item_record"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_line_item_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_line_item_sales_order_id_fkey1"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales_order_line_item_archived: {
+      sales_order_line_item_backup: {
         Row: {
           amount: number | null
           created_at: string | null
-          custom_fields: Json | null
-          description: string | null
           discount_amount: number | null
           discount_rate: number | null
-          id: string
+          id: string | null
           item_id: string | null
-          last_sync_at: string | null
-          organization_id: string
-          position: number | null
-          quantity: number
+          organization_id: string | null
+          quantity: number | null
           quantity_fulfilled: number | null
           quantity_invoiced: number | null
           sales_order_id: string | null
           tax_amount: number | null
-          tax_code: string | null
           tax_rate: number | null
-          unit_price: number
+          unit_price: number | null
           updated_at: string | null
         }
         Insert: {
           amount?: number | null
           created_at?: string | null
-          custom_fields?: Json | null
-          description?: string | null
           discount_amount?: number | null
           discount_rate?: number | null
-          id?: string
+          id?: string | null
           item_id?: string | null
-          last_sync_at?: string | null
-          organization_id: string
-          position?: number | null
-          quantity: number
+          organization_id?: string | null
+          quantity?: number | null
           quantity_fulfilled?: number | null
           quantity_invoiced?: number | null
           sales_order_id?: string | null
           tax_amount?: number | null
-          tax_code?: string | null
           tax_rate?: number | null
-          unit_price: number
+          unit_price?: number | null
           updated_at?: string | null
         }
         Update: {
           amount?: number | null
           created_at?: string | null
-          custom_fields?: Json | null
-          description?: string | null
           discount_amount?: number | null
           discount_rate?: number | null
-          id?: string
+          id?: string | null
           item_id?: string | null
-          last_sync_at?: string | null
-          organization_id?: string
-          position?: number | null
-          quantity?: number
+          organization_id?: string | null
+          quantity?: number | null
           quantity_fulfilled?: number | null
           quantity_invoiced?: number | null
           sales_order_id?: string | null
           tax_amount?: number | null
-          tax_code?: string | null
           tax_rate?: number | null
-          unit_price?: number
+          unit_price?: number | null
           updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_line_item_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "item_record"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_line_item_sales_order_id_fkey"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order_archive_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_line_item_sales_order_id_fkey"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_order_archived"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales_order_number_sequences: {
-        Row: {
-          last_number: number
-          organization_id: string
-          updated_at: string | null
-          year: number
-        }
-        Insert: {
-          last_number?: number
-          organization_id: string
-          updated_at?: string | null
-          year: number
-        }
-        Update: {
-          last_number?: number
-          organization_id?: string
-          updated_at?: string | null
-          year?: number
         }
         Relationships: []
       }
@@ -5480,199 +4860,8 @@ export type Database = {
           },
         ]
       }
-      sales_order_archive_view: {
-        Row: {
-          approved_at: string | null
-          approved_by: string | null
-          archive_status: string | null
-          created_at: string | null
-          created_by: string | null
-          currency_id: string | null
-          custom_fields: Json | null
-          customer_id: string | null
-          customer_po_number: string | null
-          delivery_date: string | null
-          discount_rate: number | null
-          discount_total: number | null
-          discount_type: string | null
-          exchange_rate: number | null
-          id: string | null
-          invoice_id: string | null
-          invoiced: boolean | null
-          is_no_order_today: boolean | null
-          last_sync_at: string | null
-          memo: string | null
-          message: string | null
-          order_date: string | null
-          order_number: string | null
-          organization_id: string | null
-          promised_ship_date: string | null
-          qbo_estimate_id: string | null
-          requested_ship_date: string | null
-          shipping_address_line1: string | null
-          shipping_address_line2: string | null
-          shipping_city: string | null
-          shipping_country: string | null
-          shipping_method: string | null
-          shipping_postal_code: string | null
-          shipping_state: string | null
-          shipping_terms: string | null
-          shipping_total: number | null
-          source_system: string | null
-          status: string | null
-          subtotal: number | null
-          sync_status: string | null
-          tax_total: number | null
-          terms: string | null
-          total: number | null
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          approved_at?: string | null
-          approved_by?: string | null
-          archive_status?: never
-          created_at?: string | null
-          created_by?: string | null
-          currency_id?: string | null
-          custom_fields?: Json | null
-          customer_id?: string | null
-          customer_po_number?: string | null
-          delivery_date?: string | null
-          discount_rate?: number | null
-          discount_total?: number | null
-          discount_type?: string | null
-          exchange_rate?: number | null
-          id?: string | null
-          invoice_id?: string | null
-          invoiced?: boolean | null
-          is_no_order_today?: boolean | null
-          last_sync_at?: string | null
-          memo?: string | null
-          message?: string | null
-          order_date?: string | null
-          order_number?: string | null
-          organization_id?: string | null
-          promised_ship_date?: string | null
-          qbo_estimate_id?: string | null
-          requested_ship_date?: string | null
-          shipping_address_line1?: string | null
-          shipping_address_line2?: string | null
-          shipping_city?: string | null
-          shipping_country?: string | null
-          shipping_method?: string | null
-          shipping_postal_code?: string | null
-          shipping_state?: string | null
-          shipping_terms?: string | null
-          shipping_total?: number | null
-          source_system?: string | null
-          status?: string | null
-          subtotal?: number | null
-          sync_status?: string | null
-          tax_total?: number | null
-          terms?: string | null
-          total?: number | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          approved_at?: string | null
-          approved_by?: string | null
-          archive_status?: never
-          created_at?: string | null
-          created_by?: string | null
-          currency_id?: string | null
-          custom_fields?: Json | null
-          customer_id?: string | null
-          customer_po_number?: string | null
-          delivery_date?: string | null
-          discount_rate?: number | null
-          discount_total?: number | null
-          discount_type?: string | null
-          exchange_rate?: number | null
-          id?: string | null
-          invoice_id?: string | null
-          invoiced?: boolean | null
-          is_no_order_today?: boolean | null
-          last_sync_at?: string | null
-          memo?: string | null
-          message?: string | null
-          order_date?: string | null
-          order_number?: string | null
-          organization_id?: string | null
-          promised_ship_date?: string | null
-          qbo_estimate_id?: string | null
-          requested_ship_date?: string | null
-          shipping_address_line1?: string | null
-          shipping_address_line2?: string | null
-          shipping_city?: string | null
-          shipping_country?: string | null
-          shipping_method?: string | null
-          shipping_postal_code?: string | null
-          shipping_state?: string | null
-          shipping_terms?: string | null
-          shipping_total?: number | null
-          source_system?: string | null
-          status?: string | null
-          subtotal?: number | null
-          sync_status?: string | null
-          tax_total?: number | null
-          terms?: string | null
-          total?: number | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_currency_id_fkey"
-            columns: ["currency_id"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customer_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_record"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Functions: {
-      approve_sales_order: {
-        Args: { p_approved_by: string; p_sales_order_id: string }
-        Returns: undefined
-      }
       batch_create_invoices_from_orders_archived: {
         Args: {
           p_due_days?: number
@@ -5687,10 +4876,6 @@ export type Database = {
           success: boolean
         }[]
       }
-      bulk_create_sales_orders_from_templates: {
-        Args: { p_orders: Json }
-        Returns: Json
-      }
       bulk_update_invoice_status: {
         Args: {
           p_invoice_ids: string[]
@@ -5699,16 +4884,6 @@ export type Database = {
         }
         Returns: Json
       }
-      calculate_sales_order_totals: {
-        Args: { p_sales_order_id: string }
-        Returns: {
-          shipping_amount: number
-          subtotal: number
-          tax_amount: number
-          total: number
-        }[]
-      }
-      can_delete_sales_order: { Args: { order_id: string }; Returns: boolean }
       cancel_batch_job: {
         Args: { p_cancelled_by: string; p_job_id: string }
         Returns: undefined
@@ -5788,56 +4963,6 @@ export type Database = {
         }
         Returns: string
       }
-      create_invoice_from_sales_order_archived: {
-        Args: {
-          p_due_days?: number
-          p_invoice_date?: string
-          p_sales_order_id: string
-          p_user_context?: Json
-        }
-        Returns: string
-      }
-      create_invoice_from_sales_order_sql_archived: {
-        Args: {
-          p_created_by: string
-          p_organization_id: string
-          p_sales_order_id: string
-        }
-        Returns: string
-      }
-      create_sales_order_atomic:
-        | {
-            Args: {
-              p_created_from_template?: boolean
-              p_customer_id: string
-              p_delivery_date: string
-              p_is_no_order_today: boolean
-              p_memo: string
-              p_order_date: string
-              p_organization_id: string
-              p_status: string
-              p_template_id?: string
-            }
-            Returns: {
-              order_id: string
-              order_number: string
-            }[]
-          }
-        | {
-            Args: {
-              p_customer_id: string
-              p_delivery_date: string
-              p_is_no_order_today: boolean
-              p_memo: string
-              p_order_date: string
-              p_organization_id: string
-              p_status: string
-            }
-            Returns: {
-              order_id: string
-              order_number: string
-            }[]
-          }
       enqueue_batch_job: {
         Args: {
           p_job_type: string
@@ -5864,16 +4989,6 @@ export type Database = {
           orders_created: number
           success: boolean
         }[]
-      }
-      generate_sales_order_number: { Args: { org_id: string }; Returns: string }
-      generate_sales_orders_from_templates: {
-        Args: {
-          p_customer_id?: string
-          p_date?: string
-          p_organization_id?: string
-          p_template_id?: string
-        }
-        Returns: Json
       }
       get_batch_processing_stats: { Args: never; Returns: Json }
       get_bulk_invoice_job_status: {
@@ -6022,7 +5137,6 @@ export type Database = {
         }
         Returns: string
       }
-      rollback_to_sales_order_model: { Args: never; Returns: string }
       setup_table_rls: { Args: { table_name: string }; Returns: undefined }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

@@ -70,16 +70,6 @@ interface InvoiceLineItem {
   };
 }
 
-interface SalesOrderLink {
-  id: string;
-  sales_order_id: string;
-  sales_order?: {
-    order_number: string;
-    order_date: string;
-    delivery_date: string;
-  };
-}
-
 interface InvoiceDetails {
   id: string;
   invoice_number: string;
@@ -89,10 +79,10 @@ interface InvoiceDetails {
   subtotal: number;
   tax_total: number;
   status: string;
-  memo?: string;
-  amount_paid?: number;
-  amount_due?: number;
-  customer_profile?: {
+  memo: string;
+  amount_paid: number;
+  amount_due: number;
+  customer_profile: {
     id: string;
     display_name: string;
     company_name: string;
@@ -109,7 +99,6 @@ export default function InvoiceDetailsPage() {
   
   const [invoice, setInvoice] = useState<InvoiceDetails | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
-  const [salesOrderLinks, setSalesOrderLinks] = useState<SalesOrderLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableItems, setAvailableItems] = useState<{ id: string; name: string; unit_price: number }[]>([]);
   const [newItem, setNewItem] = useState({ item_id: '', quantity: '1', unit_price: '0' });
@@ -198,10 +187,6 @@ export default function InvoiceDetailsPage() {
 
       if (lineItemsError) throw lineItemsError;
       setLineItems(lineItemsData || []);
-
-      // Note: Sales order links may not be relevant in unified invoice system
-      // This data is kept for historical reference if needed
-      setSalesOrderLinks([]);
       
     } catch (error: any) {
       console.error('Error loading invoice details:', error);
