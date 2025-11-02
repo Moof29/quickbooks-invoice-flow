@@ -144,20 +144,20 @@ async function importCustomers(supabase: any, orgId: string, rows: any[], stats:
       organization_id: orgId,
       qbo_id: row.id?.toString(),
       display_name: row.display_name || row.company_name || 'Unnamed Customer',
-      company_name: row.company_name || null,
-      email: row.email || null,
+      company_name: (row.company_name && row.company_name !== 'null') ? row.company_name : null,
+      email: (row.email && row.email !== 'null') ? row.email : null,
       phone: null, // Not in CSV
-      billing_address_line1: row.bill_addr_line1 || null,
-      billing_address_line2: row.bill_addr_line2 || null,
-      billing_city: row.bill_addr_city || null,
-      billing_state: row.bill_addr_state || null,
-      billing_postal_code: row.bill_addr_postal_code || null,
-      shipping_address_line1: row.ship_addr_line1 || null,
-      shipping_address_line2: row.ship_addr_line2 || null,
-      shipping_city: row.ship_addr_city || null,
-      shipping_state: row.ship_addr_state || null,
-      shipping_postal_code: row.ship_addr_postal_code || null,
-      notes: row.notes || null,
+      billing_address_line1: (row.bill_addr_line1 && row.bill_addr_line1 !== 'null') ? row.bill_addr_line1 : null,
+      billing_address_line2: (row.bill_addr_line2 && row.bill_addr_line2 !== 'null') ? row.bill_addr_line2 : null,
+      billing_city: (row.bill_addr_city && row.bill_addr_city !== 'null') ? row.bill_addr_city : null,
+      billing_state: (row.bill_addr_state && row.bill_addr_state !== 'null') ? row.bill_addr_state : null,
+      billing_postal_code: (row.bill_addr_postal_code && row.bill_addr_postal_code !== 'null') ? row.bill_addr_postal_code : null,
+      shipping_address_line1: (row.ship_addr_line1 && row.ship_addr_line1 !== 'null') ? row.ship_addr_line1 : null,
+      shipping_address_line2: (row.ship_addr_line2 && row.ship_addr_line2 !== 'null') ? row.ship_addr_line2 : null,
+      shipping_city: (row.ship_addr_city && row.ship_addr_city !== 'null') ? row.ship_addr_city : null,
+      shipping_state: (row.ship_addr_state && row.ship_addr_state !== 'null') ? row.ship_addr_state : null,
+      shipping_postal_code: (row.ship_addr_postal_code && row.ship_addr_postal_code !== 'null') ? row.ship_addr_postal_code : null,
+      notes: (row.notes && row.notes !== 'null') ? row.notes : null,
       is_active: row.active === 'true' || row.active === true,
       balance: row.balance ? parseFloat(row.balance) : 0,
       qbo_sync_status: 'synced',
@@ -170,9 +170,23 @@ async function importCustomers(supabase: any, orgId: string, rows: any[], stats:
       .upsert(customers, { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false });
 
     if (error) {
-      console.error(`Batch ${i}-${i + batch.length} failed:`, error);
-      stats.failed += batch.length;
-      stats.errors.push({ row: i, error: error.message });
+      console.error(`Batch ${i}-${i + batch.length} failed, retrying individually:`, error.message);
+      // Try each customer individually when batch fails
+      for (let j = 0; j < customers.length; j++) {
+        const { error: customerError } = await supabase
+          .from('customer_profile')
+          .upsert([customers[j]], { 
+            onConflict: 'organization_id,qbo_id',
+            ignoreDuplicates: false 
+          });
+        
+        if (customerError) {
+          stats.failed++;
+          stats.errors.push({ row: i + j, error: `${batch[j].display_name}: ${customerError.message}` });
+        } else {
+          stats.successful++;
+        }
+      }
     } else {
       stats.successful += batch.length;
     }
