@@ -52,9 +52,10 @@ export function Combobox({
   // Filter options based on search
   const filteredOptions = React.useMemo(() => {
     if (!searchQuery) return options
-    return options.filter((option) =>
-      option.label.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    return options.filter((option) => {
+      if (!option.label) return false
+      return option.label.toLowerCase().includes(searchQuery.toLowerCase())
+    })
   }, [options, searchQuery])
 
   React.useEffect(() => {

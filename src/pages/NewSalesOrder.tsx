@@ -178,15 +178,19 @@ export default function NewSalesOrder() {
     createOrderMutation.mutate();
   };
 
-  const customerOptions = customers.map(c => ({
-    value: c.id,
-    label: c.company_name,
-  }));
+  const customerOptions = customers
+    .filter(c => c.company_name) // Filter out null/undefined names
+    .map(c => ({
+      value: c.id,
+      label: c.company_name,
+    }));
 
-  const itemOptions = items.map(i => ({
-    value: i.id,
-    label: i.name,
-  }));
+  const itemOptions = items
+    .filter(i => i.name) // Filter out null/undefined names
+    .map(i => ({
+      value: i.id,
+      label: i.name,
+    }));
 
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
 
