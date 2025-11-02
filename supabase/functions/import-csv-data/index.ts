@@ -86,8 +86,6 @@ async function importItems(supabase: any, orgId: string, rows: any[], stats: Imp
       unit_price: parseFloat(row.unit_price) || 0,
       is_active: row.active === 'true' || row.active === true,
       item_type: row.type || 'NonInventory',
-      track_qty_on_hand: row.track_qty_on_hand === 'true' || row.track_qty_on_hand === true,
-      qty_on_hand: row.qty_on_hand ? parseFloat(row.qty_on_hand) : null,
       qbo_sync_status: 'synced',
       source_system: 'QBO',
     }));
