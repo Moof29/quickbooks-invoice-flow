@@ -81,7 +81,6 @@ const SalesOrders = () => {
           console.log('Order updated in real-time:', payload);
           // Invalidate queries to refresh the data
           queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
-          queryClient.invalidateQueries({ queryKey: ['sales-orders-stats'] });
         }
       )
       .subscribe();
@@ -90,37 +89,6 @@ const SalesOrders = () => {
       supabase.removeChannel(channel);
     };
   }, [organizationId, queryClient]);
-
-  // Fetch all orders for stats (from invoice_record)
-  const { data: allOrders } = useQuery({
-    queryKey: ['sales-orders-stats', organizationId],
-    queryFn: async () => {
-      if (!organizationId) return [];
-
-      const { data, error } = await supabase
-        .from('invoice_record')
-        .select('id, status, total')
-        .eq('organization_id', organizationId)
-        .in('status', ['pending', 'invoiced', 'cancelled']);  // All order statuses
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!organizationId,
-  }) as any;
-
-  // Calculate stats
-  const stats = useMemo(() => {
-    if (!allOrders) return { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 };
-    
-    return allOrders.reduce((acc, order) => {
-      if (order.status === 'pending') acc.pending++;
-      if (order.status === 'invoiced') acc.invoiced++;
-      if (order.status === 'cancelled') acc.cancelled++;
-      acc.totalValue += order.total || 0;
-      return acc;
-    }, { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 });
-  }, [allOrders]);
 
   // Fetch sales orders for upcoming deliveries (from invoice_record)
   const { data: orders, isLoading, error } = useQuery({
@@ -215,6 +183,19 @@ const SalesOrders = () => {
              invoiceNumber.toLowerCase().includes(query);
     });
   }, [orders, searchQuery]);
+
+  // Calculate stats from filtered orders (reflects current date/status/search selection)
+  const stats = useMemo(() => {
+    if (!filteredOrders) return { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 };
+    
+    return filteredOrders.reduce((acc: any, order: any) => {
+      if (order.status === 'pending') acc.pending++;
+      if (order.status === 'invoiced') acc.invoiced++;
+      if (order.status === 'cancelled') acc.cancelled++;
+      acc.totalValue += order.total || 0;
+      return acc;
+    }, { pending: 0, invoiced: 0, cancelled: 0, totalValue: 0 });
+  }, [filteredOrders]);
 
   const handleClearAllOrders = async () => {
     setIsClearing(true);
