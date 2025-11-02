@@ -7,6 +7,7 @@ import { Upload, FileText, AlertCircle, Loader2, CheckCircle2, XCircle } from 'l
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
+import * as tus from 'tus-js-client';
 
 interface ImportCSVDialogProps {
   open: boolean;
@@ -90,7 +91,7 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
         .insert({
           organization_id: profile.organization_id,
           file_name: file.name,
-          file_path: `${profile.organization_id}/${dataType}/${Date.now()}_${file.name}`,
+          file_path: `${profile.organization_id}/${dataType.replace('_', '-')}/${Date.now()}_${file.name}`,
           data_type: dataType,
           status: 'uploading',
         })
@@ -101,16 +102,50 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
 
       setCurrentImport(progressRecord as ImportProgress);
 
-      // 2. Upload file to storage
+      // 2. Upload large file using TUS resumable upload
       const filePath = `${profile.organization_id}/${dataType.replace('_', '-')}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('csv-imports')
-        .upload(filePath, file, {
-          contentType: 'text/csv',
-          upsert: false,
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+
+      await new Promise<void>((resolve, reject) => {
+        const upload = new tus.Upload(file, {
+          endpoint: `https://pnqcbnmrfzqihymmzhkb.supabase.co/storage/v1/upload/resumable`,
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          headers: {
+            authorization: `Bearer ${session.access_token}`,
+            'x-upsert': 'false',
+          },
+          uploadDataDuringCreation: true,
+          removeFingerprintOnSuccess: true,
+          metadata: {
+            bucketName: 'csv-imports',
+            objectName: filePath,
+            contentType: 'text/csv',
+            cacheControl: '3600',
+          },
+          chunkSize: 6 * 1024 * 1024, // 6MB chunks
+          onError: (error) => {
+            console.error('TUS upload error:', error);
+            reject(error);
+          },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const percentage = (bytesUploaded / bytesTotal) * 100;
+            setProgress(Math.min(percentage * 0.9, 90)); // Reserve 10% for processing
+          },
+          onSuccess: () => {
+            console.log('TUS upload completed successfully');
+            resolve();
+          },
         });
 
-      if (uploadError) throw uploadError;
+        upload.findPreviousUploads().then((previousUploads) => {
+          if (previousUploads.length) {
+            upload.resumeFromPreviousUpload(previousUploads[0]);
+          }
+          upload.start();
+        });
+      });
 
       console.log(`File uploaded to storage: ${filePath}`);
 
