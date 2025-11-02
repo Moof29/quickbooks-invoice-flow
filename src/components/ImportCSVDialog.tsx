@@ -298,6 +298,17 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
     let currentChunk = 0;
     
     for (let i = 1; i < lines.length; i += 1000) {
+      // Check if user cancelled before uploading next chunk
+      if (isCancelling) {
+        toast({
+          title: 'Upload Stopped',
+          description: `Stopped at chunk ${currentChunk}/${totalChunks}`,
+        });
+        setImporting(false);
+        setIsCancelling(false);
+        return;
+      }
+
       currentChunk++;
       const chunkLines = [headers, ...lines.slice(i, i + 1000)];
       const chunkContent = chunkLines.join('\n');
