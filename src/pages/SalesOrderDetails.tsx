@@ -694,7 +694,7 @@ export default function SalesOrderDetails() {
               <div>
                 <p className="text-sm text-muted-foreground">Delivery Date</p>
                 <p className="text-lg font-semibold">
-                  {format(parseISO(order.delivery_date), "MMM dd, yyyy")}
+                  {format(parseISO(order.delivery_date + 'T00:00:00'), "MMM dd, yyyy")}
                 </p>
               </div>
             </div>

@@ -14,7 +14,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Users, Package, DollarSign } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 export function ContextualSidebar() {
   const location = useLocation();
@@ -180,7 +180,7 @@ export function ContextualSidebar() {
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">
-                        {format(new Date(order.order_date), 'MMM dd, yyyy')}
+                        {format(parseISO(order.order_date + 'T00:00:00'), 'MMM dd, yyyy')}
                       </span>
                       <span className="font-medium">${order.total?.toFixed(2) || '0.00'}</span>
                     </div>

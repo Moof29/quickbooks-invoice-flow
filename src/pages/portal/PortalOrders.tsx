@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Building2, LogOut, ArrowLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface Order {
   id: string;
@@ -134,7 +134,7 @@ export default function PortalOrders() {
                     <div>
                       <CardTitle className="text-lg">{order.invoice_number}</CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Order Date: {format(new Date(order.order_date), 'MMM d, yyyy')}
+                        Order Date: {format(parseISO(order.order_date + 'T00:00:00'), 'MMM d, yyyy')}
                       </p>
                     </div>
                     <Badge variant={getStatusVariant(order.status)}>
@@ -147,7 +147,7 @@ export default function PortalOrders() {
                     <div>
                       <div className="font-medium">Delivery Date</div>
                       <div className="text-muted-foreground">
-                        {format(new Date(order.delivery_date), 'MMM d, yyyy')}
+                        {format(parseISO(order.delivery_date + 'T00:00:00'), 'MMM d, yyyy')}
                       </div>
                     </div>
                     <div>

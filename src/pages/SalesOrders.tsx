@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, FileText, Loader2, Search, X, CheckCircle, XCircle, Clock, DollarSign, Ban, AlertCircle, CalendarIcon } from "lucide-react";
-import { format, addDays, startOfDay } from "date-fns";
+import { format, addDays, startOfDay, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { MobileFAB } from "@/components/MobileFAB";
@@ -460,7 +460,7 @@ const SalesOrders = () => {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>Order #{order.invoice_number}</span>
                           <span>•</span>
-                          <span>Delivery: {format(new Date(order.delivery_date), 'EEE, MMM dd, yyyy')}</span>
+                          <span>Delivery: {format(parseISO(order.delivery_date + 'T00:00:00'), 'EEE, MMM dd, yyyy')}</span>
                         </div>
                         
                         {/* Duplicate Warning Alert */}
