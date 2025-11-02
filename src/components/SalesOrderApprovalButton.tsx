@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { useOrderLifecycle } from '@/hooks/useOrderLifecycle';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -32,23 +32,20 @@ export function SalesOrderApprovalButton({
   const queryClient = useQueryClient();
   const { profile } = useAuthProfile();
   const { toast } = useToast();
+  const { convertOrder, isConverting } = useOrderLifecycle();
 
-  const reviewMutation = useMutation({
-    mutationFn: async () => {
-      if (!profile?.id) {
-        throw new Error('User not authenticated');
-      }
+  const handleApproval = async () => {
+    if (!profile?.id) {
+      toast({ 
+        title: 'Authentication required',
+        description: 'Please log in to approve orders',
+        variant: 'destructive'
+      });
+      return;
+    }
 
-      // Call the convert-order-to-invoice edge function to convert pending -> invoiced
-      const { data, error } = await supabase.functions.invoke(
-        "convert-order-to-invoice",
-        { body: { invoiceId: salesOrderId, action: 'approve' } }
-      );
-
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Failed to approve order');
-    },
-    onSuccess: () => {
+    try {
+      await convertOrder({ invoiceId: salesOrderId, action: 'invoice' });
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       queryClient.invalidateQueries({ queryKey: ['sales-order', salesOrderId] });
       toast({ 
@@ -57,15 +54,14 @@ export function SalesOrderApprovalButton({
       });
       setOpen(false);
       onApproval?.();
-    },
-    onError: (error: any) => {
+    } catch (error: any) {
       toast({ 
         title: 'Failed to approve order',
         description: error.message,
         variant: 'destructive'
       });
-    },
-  });
+    }
+  };
 
   // Only show confirm button for draft orders
   if (currentStatus !== 'draft') {
@@ -78,10 +74,10 @@ export function SalesOrderApprovalButton({
         <Button 
           variant="default" 
           className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-          disabled={reviewMutation.isPending}
+          disabled={isConverting}
         >
           <CheckCircle2 className="h-4 w-4" />
-          {reviewMutation.isPending ? 'Confirming...' : 'Confirm Order'}
+          {isConverting ? 'Confirming...' : 'Confirm Order'}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -92,15 +88,15 @@ export function SalesOrderApprovalButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={reviewMutation.isPending}>
+          <AlertDialogCancel disabled={isConverting}>
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction 
-            onClick={() => reviewMutation.mutate()}
-            disabled={reviewMutation.isPending}
+            onClick={handleApproval}
+            disabled={isConverting}
             className="bg-green-600 hover:bg-green-700"
           >
-            {reviewMutation.isPending ? 'Confirming...' : 'Confirm Order'}
+            {isConverting ? 'Confirming...' : 'Confirm Order'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

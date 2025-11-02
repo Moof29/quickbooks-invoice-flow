@@ -221,11 +221,11 @@ const SalesOrders = () => {
   const handleClearAllOrders = async () => {
     setIsClearing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('clear-sales-orders');
+      const { data, error } = await supabase.functions.invoke('clear-pending-orders');
       
       if (error) throw error;
       
-      toast.success('All orders cleared successfully');
+      toast.success('All pending orders cleared successfully');
       
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       

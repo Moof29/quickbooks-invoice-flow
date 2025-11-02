@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
+import { useOrderLifecycle } from "@/hooks/useOrderLifecycle";
 import { format, parseISO } from "date-fns";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -460,72 +461,49 @@ export default function SalesOrderDetails() {
     },
   });
 
-  // Cancel order mutation
-  const cancelOrderMutation = useMutation({
-    mutationFn: async () => {
-      // Call the convert edge function with cancel action
-      const { data, error } = await supabase.functions.invoke(
-        "convert-order-to-invoice",
-        { body: { invoiceId: salesOrderId, action: 'cancel' } }
-      );
+  // Use order lifecycle hook
+  const { convertOrder, isConverting } = useOrderLifecycle();
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Failed to cancel order");
-
-      return data;
-    },
-    onSuccess: () => {
+  // Cancel order handler
+  const handleCancelOrder = async () => {
+    try {
+      await convertOrder({ invoiceId: salesOrderId!, action: 'cancel' });
       queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({
         title: "Order canceled",
-        description: "A 'No Order Today' invoice has been created",
+        description: "Order has been canceled",
       });
       setShowCancelDialog(false);
-    },
-    onError: (error: any) => {
+    } catch (error: any) {
       toast({
         title: "Error canceling order",
         description: error.message,
         variant: "destructive",
       });
       setShowCancelDialog(false);
-    },
-  });
+    }
+  };
 
-  // Create invoice mutation
-  const createInvoiceMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke(
-        "create-invoice-from-order",
-        { body: { order_id: salesOrderId } }
-      );
-
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error?.message || "Failed to create invoice");
-
-      return data;
-    },
-    onSuccess: (data) => {
+  // Create invoice handler
+  const handleCreateInvoice = async () => {
+    try {
+      await convertOrder({ invoiceId: salesOrderId!, action: 'invoice' });
       queryClient.invalidateQueries({ queryKey: ["sales-order", salesOrderId] });
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({
         title: "Invoice created",
-        description: `Invoice ${data.invoice_number} created successfully`,
+        description: "Invoice created successfully",
       });
-      // Navigate to invoice details
-      if (data.invoice_id) {
-        navigate(`/invoices/${data.invoice_id}`);
-      }
-    },
-    onError: (error: any) => {
+      navigate(`/invoices/${salesOrderId}`);
+    } catch (error: any) {
       toast({
         title: "Error creating invoice",
         description: error.message,
         variant: "destructive",
       });
-    },
-  });
+    }
+  };
 
   const handleQuantityChange = (lineItemId: string, value: string) => {
     setQuantities(prev => ({ ...prev, [lineItemId]: value }));
@@ -631,11 +609,11 @@ export default function SalesOrderDetails() {
           {/* Create Invoice Button (only for pending orders) */}
           {order.status === "pending" && (
             <Button
-              onClick={() => createInvoiceMutation.mutate()}
-              disabled={createInvoiceMutation.isPending}
+              onClick={handleCreateInvoice}
+              disabled={isConverting}
             >
               <Receipt className="h-4 w-4 mr-2" />
-              {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+              {isConverting ? "Creating..." : "Create Invoice"}
             </Button>
           )}
           
@@ -963,11 +941,11 @@ export default function SalesOrderDetails() {
           <AlertDialogFooter>
             <AlertDialogCancel>Keep Order</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => cancelOrderMutation.mutate()}
+              onClick={handleCancelOrder}
               className="bg-destructive hover:bg-destructive/90"
-              disabled={cancelOrderMutation.isPending}
+              disabled={isConverting}
             >
-              {cancelOrderMutation.isPending ? "Canceling..." : "Cancel Order"}
+              {isConverting ? "Canceling..." : "Cancel Order"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

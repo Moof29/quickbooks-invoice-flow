@@ -22,7 +22,7 @@ export function GenerateTestDataButton() {
 
   const generateTestData = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('generate-test-sales-orders');
+      const { data, error } = await supabase.functions.invoke('generate-test-orders');
       
       if (error) {
         throw new Error(error.message);
@@ -32,7 +32,7 @@ export function GenerateTestDataButton() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
-      toast.success(`Successfully created ${data.orders} test sales orders with ${data.lineItems} line items`);
+      toast.success(`Successfully created ${data.orders} test orders with ${data.lineItems} line items`);
       setOpen(false);
     },
     onError: (error: any) => {
@@ -51,10 +51,10 @@ export function GenerateTestDataButton() {
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Generate Test Sales Orders</AlertDialogTitle>
+          <AlertDialogTitle>Generate Test Orders</AlertDialogTitle>
           <AlertDialogDescription>
-            This will create 20 fake sales orders with random data for testing purposes. 
-            The orders will be distributed across different statuses (pending, approved, invoiced) 
+            This will create 20 fake orders with random data for testing purposes. 
+            The orders will be distributed across different statuses (pending, invoiced) 
             and will include line items from your existing items catalog.
           </AlertDialogDescription>
         </AlertDialogHeader>

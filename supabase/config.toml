@@ -33,3 +33,9 @@ verify_jwt = true
 
 [functions.batch-processor]
 verify_jwt = false
+
+[functions.clear-pending-orders]
+verify_jwt = true
+
+[functions.generate-test-orders]
+verify_jwt = true

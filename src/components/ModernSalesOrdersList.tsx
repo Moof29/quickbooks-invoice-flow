@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthProfile } from "@/hooks/useAuthProfile";
+import { useOrderLifecycle } from "@/hooks/useOrderLifecycle";
 import { format, parseISO, isToday, isTomorrow, isFuture, isPast, addDays } from "date-fns";
 import {
   Calendar,
@@ -230,25 +231,18 @@ export function ModernSalesOrdersList() {
     },
   });
 
-  // Cancel order mutation (cancels pending invoice)
+  // Cancel order mutation - use direct hook
+  const { convertOrder, isConverting } = useOrderLifecycle();
+  
   const cancelOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      // Call the cancel edge function which handles status update and NO ORDER line item
-      const { data, error } = await supabase.functions.invoke(
-        "convert-order-to-invoice",
-        { body: { invoiceId: orderId, action: 'cancel' } }
-      );
-
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Failed to cancel order");
-
-      return data;
+      await convertOrder({ invoiceId: orderId, action: 'cancel' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
       toast({
         title: "Order canceled",
-        description: "A 'No Order Today' invoice has been created",
+        description: "Order has been canceled",
       });
       setCancelOrderId(null);
     },
@@ -918,17 +912,10 @@ export function ModernSalesOrdersList() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              const { data, error } = await supabase.functions.invoke(
-                                "create-invoice-from-order",
-                                { body: { order_id: order.id } }
-                              );
-                              if (error) throw error;
-                              if (!data?.success) throw new Error(data?.error?.message || 'Failed to create invoice');
-                              
+                              await convertOrder({ invoiceId: order.id, action: 'invoice' });
                               queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
                               toast({ 
                                 title: "Invoice created successfully",
-                                description: `Invoice ${data.invoice_number} created`
                               });
                             } catch (error: any) {
                               toast({
@@ -1046,17 +1033,10 @@ export function ModernSalesOrdersList() {
                             onClick={async (e) => {
                               e.stopPropagation();
                               try {
-                                const { data, error } = await supabase.functions.invoke(
-                                  "create-invoice-from-order",
-                                  { body: { order_id: order.id } }
-                                );
-                                if (error) throw error;
-                                if (!data?.success) throw new Error(data?.error?.message || 'Failed to create invoice');
-                                
+                                await convertOrder({ invoiceId: order.id, action: 'invoice' });
                                 queryClient.invalidateQueries({ queryKey: ["sales-orders"] });
                                 toast({ 
                                   title: "Invoice created successfully",
-                                  description: `Invoice ${data.invoice_number} created`
                                 });
                               } catch (error: any) {
                                 toast({
