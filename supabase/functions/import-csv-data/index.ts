@@ -44,6 +44,12 @@ Deno.serve(async (req) => {
     const { filePath, dataType, progressId } = await req.json();
     console.log(`Starting import for ${dataType} from storage: ${filePath}`);
 
+    // Validate dataType
+    const validTypes = ['items', 'customers', 'invoices', 'invoice_line_items'];
+    if (!validTypes.includes(dataType)) {
+      throw new Error(`Invalid data type: ${dataType}. Must be one of: ${validTypes.join(', ')}`);
+    }
+
     // Update progress to processing
     await supabaseClient
       .from('csv_import_progress')
@@ -118,6 +124,8 @@ async function processImport(
       await importCustomers(supabase, orgId, rows, progress);
     } else if (dataType === 'invoices') {
       await importInvoices(supabase, orgId, rows, progress);
+    } else if (dataType === 'invoice_line_items') {
+      await importInvoiceLineItems(supabase, orgId, rows, progress);
     }
 
     // Mark as completed
@@ -350,6 +358,96 @@ async function importInvoices(supabase: any, orgId: string, rows: any[], progres
           progress.successfulRows++;
         }
         progress.processedRows++;
+      } catch (err: any) {
+        progress.failedRows++;
+        progress.errors.push({ row: i, error: err.message });
+        progress.processedRows++;
+      }
+
+      if (progress.processedRows % UPDATE_INTERVAL === 0) {
+        await supabase
+          .from('csv_import_progress')
+          .update({
+            processed_rows: progress.processedRows,
+            successful_rows: progress.successfulRows,
+            failed_rows: progress.failedRows,
+            errors: progress.errors.slice(-100),
+          })
+          .eq('id', progress.progressId);
+      }
+    }
+  }
+}
+
+async function importInvoiceLineItems(supabase: any, orgId: string, rows: any[], progress: ImportProgress) {
+  const BATCH_SIZE = 100;
+  const UPDATE_INTERVAL = 50;
+
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE);
+    
+    for (const row of batch) {
+      try {
+        // Find invoice by QBO ID
+        const { data: invoice } = await supabase
+          .from('invoice_record')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('qbo_id', row.invoice_id?.toString())
+          .single();
+
+        if (!invoice) {
+          progress.failedRows++;
+          progress.errors.push({ 
+            row: i, 
+            error: `Invoice not found for QBO ID: ${row.invoice_id}` 
+          });
+          progress.processedRows++;
+          continue;
+        }
+
+        // Find item by QBO ID
+        const { data: item } = await supabase
+          .from('item_record')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('qbo_id', row.item_id?.toString())
+          .single();
+
+        if (!item) {
+          progress.failedRows++;
+          progress.errors.push({ 
+            row: i, 
+            error: `Item not found for QBO ID: ${row.item_id}` 
+          });
+          progress.processedRows++;
+          continue;
+        }
+
+        // Create line item
+        const lineItem = {
+          organization_id: orgId,
+          invoice_id: invoice.id,
+          item_id: item.id,
+          description: row.description || row.item_name || null,
+          quantity: parseFloat(row.quantity) || 0,
+          unit_price: parseFloat(row.unit_price || row.rate) || 0,
+          discount_amount: parseFloat(row.discount_amount) || 0,
+          tax_rate: parseFloat(row.tax_rate) || 0,
+        };
+
+        const { error } = await supabase
+          .from('invoice_line_item')
+          .insert(lineItem);
+
+        if (error) {
+          progress.failedRows++;
+          progress.errors.push({ row: i, error: error.message });
+        } else {
+          progress.successfulRows++;
+        }
+        progress.processedRows++;
+
       } catch (err: any) {
         progress.failedRows++;
         progress.errors.push({ row: i, error: err.message });

@@ -27,6 +27,7 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentImport, setCurrentImport] = useState<ImportProgress | null>(null);
+  const [currentDataType, setCurrentDataType] = useState<string>('');
   const { toast } = useToast();
   const { profile } = useAuthProfile();
 
@@ -73,13 +74,14 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
     return () => clearInterval(interval);
   }, [currentImport, toast]);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, dataType: 'items' | 'customers' | 'invoices') => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, dataType: 'items' | 'customers' | 'invoices' | 'invoice_line_items') => {
     const file = event.target.files?.[0];
     if (!file || !profile?.organization_id) return;
 
     setImporting(true);
     setProgress(0);
     setCurrentImport(null);
+    setCurrentDataType(dataType);
 
     try {
       // 1. Create progress record
@@ -100,7 +102,7 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
       setCurrentImport(progressRecord as ImportProgress);
 
       // 2. Upload file to storage
-      const filePath = `${profile.organization_id}/${dataType}/${Date.now()}_${file.name}`;
+      const filePath = `${profile.organization_id}/${dataType.replace('_', '-')}/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from('csv-imports')
         .upload(filePath, file, {
@@ -163,6 +165,11 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
           <DialogTitle>Import Existing QBO Data</DialogTitle>
           <DialogDescription>
             Upload CSV files exported from QuickBooks Online. Supports large files (100MB+).
+            {currentImport && (
+              <span className="block mt-1 font-medium text-foreground">
+                Currently importing: {currentDataType.replace('_', ' ').toUpperCase()}
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -289,11 +296,36 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
                 </label>
               </div>
 
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="font-medium">Invoice Line Items CSV</h3>
+                </div>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => handleFileUpload(e, 'invoice_line_items')}
+                  className="hidden"
+                  id="invoice-line-items-upload"
+                />
+                <label htmlFor="invoice-line-items-upload">
+                  <Button variant="outline" className="w-full" asChild>
+                    <span>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Invoice Line Items
+                    </span>
+                  </Button>
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Upload after invoices. Links line items to existing invoices and items.
+                </p>
+              </div>
+
               <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded">
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <p>
-                  Upload in order: Items → Customers → Invoices. Large files supported (up to 500MB). 
-                  Existing records will be updated based on QuickBooks ID.
+                  <strong>Upload order:</strong> Items → Customers → Invoices → Invoice Line Items. 
+                  Large files supported (up to 500MB). Existing records will be updated based on QuickBooks ID.
                 </p>
               </div>
             </>
