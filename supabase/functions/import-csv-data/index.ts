@@ -140,10 +140,12 @@ async function importCustomers(supabase: any, orgId: string, rows: any[], stats:
   
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
-    const customers = batch.map(row => ({
-      organization_id: orgId,
-      qbo_id: row.id?.toString(),
-      display_name: row.display_name || row.company_name || 'Unnamed Customer',
+    const customers = batch.map(row => {
+      const displayName = row.display_name || row.company_name || 'Unnamed Customer';
+      return {
+        organization_id: orgId,
+        qbo_id: row.id?.toString(),
+        display_name: displayName.length > 50 ? displayName.substring(0, 50) : displayName,
       company_name: (row.company_name && row.company_name !== 'null') ? row.company_name : null,
       email: (row.email && row.email !== 'null') ? row.email : null,
       phone: null, // Not in CSV
@@ -160,10 +162,11 @@ async function importCustomers(supabase: any, orgId: string, rows: any[], stats:
       notes: (row.notes && row.notes !== 'null') ? row.notes : null,
       is_active: row.active === 'true' || row.active === true,
       balance: row.balance ? parseFloat(row.balance) : 0,
-      qbo_sync_status: 'synced',
-      source_system: 'QBO',
-      portal_enabled: false,
-    }));
+        qbo_sync_status: 'synced',
+        source_system: 'QBO',
+        portal_enabled: false,
+      };
+    });
 
     const { data, error } = await supabase
       .from('customer_profile')
