@@ -597,10 +597,10 @@ const Invoices = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {format(parseISO(invoice.invoice_date + 'T00:00:00'), 'MMM d, yyyy')}
+                          {invoice.invoice_date ? format(parseISO(invoice.invoice_date + 'T00:00:00'), 'MMM d, yyyy') : 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {format(parseISO(invoice.due_date + 'T00:00:00'), 'MMM d, yyyy')}
+                          {invoice.due_date ? format(parseISO(invoice.due_date + 'T00:00:00'), 'MMM d, yyyy') : 'N/A'}
                         </TableCell>
                         <TableCell className="font-semibold">
                           ${invoice.total.toFixed(2)}
@@ -694,13 +694,13 @@ const Invoices = () => {
                       <div>
                         <span className="block">Invoice Date</span>
                         <span className="font-medium text-foreground">
-                          {format(parseISO(invoice.invoice_date + 'T00:00:00'), 'MMM d, yyyy')}
+                          {invoice.invoice_date ? format(parseISO(invoice.invoice_date + 'T00:00:00'), 'MMM d, yyyy') : 'N/A'}
                         </span>
                       </div>
                       <div>
                         <span className="block">Due Date</span>
                         <span className="font-medium text-foreground">
-                          {format(parseISO(invoice.due_date + 'T00:00:00'), 'MMM d, yyyy')}
+                          {invoice.due_date ? format(parseISO(invoice.due_date + 'T00:00:00'), 'MMM d, yyyy') : 'N/A'}
                         </span>
                       </div>
                     </div>
