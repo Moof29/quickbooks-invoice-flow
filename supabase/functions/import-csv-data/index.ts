@@ -77,18 +77,26 @@ async function importItems(supabase: any, orgId: string, rows: any[], stats: Imp
   
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
-    const items = batch.map(row => ({
-      organization_id: orgId,
-      qbo_id: row.id?.toString(),
-      name: row.name || 'Unnamed Item',
-      sku: (row.sku && row.sku !== 'null') ? row.sku : null,
-      description: (row.description && row.description !== 'null') ? row.description : null,
-      purchase_cost: parseFloat(row.unit_price || row.purchase_cost) || 0,
-      is_active: row.active === 'true' || row.active === true,
-      item_type: row.type || 'NonInventory',
-      qbo_sync_status: 'synced',
-      source_system: 'QBO',
-    }));
+    const items = batch
+      .filter(row => row.type !== 'Category') // Skip Category type items
+      .map(row => ({
+        organization_id: orgId,
+        qbo_id: row.id?.toString(),
+        name: row.name || 'Unnamed Item',
+        sku: (row.sku && row.sku !== 'null') ? row.sku : null,
+        description: (row.description && row.description !== 'null') ? row.description : null,
+        purchase_cost: parseFloat(row.unit_price || row.purchase_cost) || 0,
+        is_active: row.active === 'true' || row.active === true,
+        item_type: row.type || 'NonInventory',
+        qbo_sync_status: 'synced',
+        source_system: 'QBO',
+      }));
+
+    if (items.length === 0) {
+      // All items in batch were categories, skip
+      stats.successful += batch.filter(row => row.type === 'Category').length;
+      continue;
+    }
 
     // Upsert will UPDATE existing records (matching on organization_id,qbo_id) or INSERT new ones
     const { data, error } = await supabase
@@ -117,7 +125,12 @@ async function importItems(supabase: any, orgId: string, rows: any[], stats: Imp
         }
       }
     } else {
-      stats.successful += batch.length;
+      stats.successful += items.length;
+      // Count skipped categories as successful
+      const skippedCategories = batch.length - items.length;
+      if (skippedCategories > 0) {
+        stats.successful += skippedCategories;
+      }
     }
   }
 }
