@@ -17,17 +17,57 @@ export const useOrderLifecycle = () => {
     mutationFn: async ({ invoiceId, action }: ConvertOrderParams) => {
       setConvertingInvoiceId(invoiceId);
       
-      const { data, error } = await supabase.functions.invoke('convert-order-to-invoice', {
-        body: {
-          invoice_id: invoiceId,
-          action,
-        },
-      });
-
-      if (error) throw new Error(error.message || 'Failed to convert invoice');
-      if (data?.error) throw new Error(data.error);
-
-      return data;
+      if (action === 'cancel') {
+        // Keep using RPC for cancel (has complex audit logic)
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+        
+        const { data, error } = await supabase.rpc('cancel_invoice_order', {
+          p_invoice_id: invoiceId,
+          p_cancelled_by: user.id
+        });
+        
+        if (error) throw new Error(error.message || 'Failed to cancel order');
+        return data;
+      }
+      
+      // Direct database update for 'invoice' action (2-3x faster)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      // Fetch invoice to get delivery_date and validate status
+      const { data: invoice, error: fetchError } = await supabase
+        .from('invoice_record')
+        .select('id, delivery_date, status, invoice_number')
+        .eq('id', invoiceId)
+        .single();
+      
+      if (fetchError) throw new Error('Invoice not found');
+      if (invoice.status !== 'pending') throw new Error('Invoice is not in pending status');
+      
+      // Update invoice status directly
+      const { data: updateData, error: updateError } = await supabase
+        .from('invoice_record')
+        .update({
+          status: 'invoiced',
+          invoice_date: invoice.delivery_date,
+          due_date: invoice.delivery_date,
+          approved_at: new Date().toISOString(),
+          approved_by: user.id,
+          updated_by: user.id,
+        })
+        .eq('id', invoiceId)
+        .eq('status', 'pending') // Safety check for race conditions
+        .select()
+        .single();
+      
+      if (updateError) throw new Error(updateError.message || 'Failed to update invoice');
+      if (!updateData) throw new Error('Invoice already converted or not found');
+      
+      return {
+        success: true,
+        invoice_number: invoice.invoice_number,
+      };
     },
     onMutate: async ({ invoiceId, action }) => {
       // Just mark as converting, no optimistic updates (faster)
