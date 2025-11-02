@@ -109,7 +109,7 @@ const Customers = () => {
 
       let query = supabase
         .from('customer_profile')
-        .select('id, display_name, company_name, email, phone, billing_city, billing_state, created_at, is_active, portal_enabled, portal_invitation_sent_at')
+        .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .range(from, to);
