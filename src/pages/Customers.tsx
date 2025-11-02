@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +26,9 @@ import {
   ShoppingBag,
   UserCircle,
   Shield,
-  FileText
+  FileText,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,9 +57,10 @@ interface Customer {
 }
 
 const Customers = () => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [showPortalUsersDialog, setShowPortalUsersDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
@@ -66,37 +70,65 @@ const Customers = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
 
+  // Debounce search term
   useEffect(() => {
-    loadCustomers();
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1); // Reset to first page on new search
+    }, 300);
+    return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const loadCustomers = async () => {
-    try {
+  // Fetch total count for pagination
+  const { data: totalCount = 0 } = useQuery<number>({
+    queryKey: ['customers-count', debouncedSearch],
+    queryFn: async () => {
+      let query = supabase
+        .from('customer_profile')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true);
+
+      if (debouncedSearch) {
+        query = query.or(`display_name.ilike.%${debouncedSearch}%,company_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+      }
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
+    }
+  });
+
+  // Fetch paginated customers
+  const { data: customers = [], isLoading } = useQuery<Customer[]>({
+    queryKey: ['customers', currentPage, debouncedSearch],
+    queryFn: async () => {
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from('customer_profile')
         .select('id, display_name, company_name, email, phone, billing_city, billing_state, created_at, is_active, portal_enabled, portal_invitation_sent_at')
         .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-      if (searchTerm) {
-        query = query.or(`display_name.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+      if (debouncedSearch) {
+        query = query.or(`display_name.ilike.%${debouncedSearch}%,company_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
-      setCustomers(data || []);
-    } catch (error) {
-      console.error('Error loading customers:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load customers",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return data || [];
     }
+  });
+
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  const loadCustomers = () => {
+    queryClient.invalidateQueries({ queryKey: ['customers'] });
+    queryClient.invalidateQueries({ queryKey: ['customers-count'] });
   };
 
   const handleTogglePortalAccess = async (customerId: string, currentStatus: boolean) => {
@@ -112,16 +144,8 @@ const Customers = () => {
 
       if (error) throw error;
 
-      // Update local state to avoid re-sorting
-      setCustomers(prev => prev.map(customer => 
-        customer.id === customerId 
-          ? { 
-              ...customer, 
-              portal_enabled: newStatus,
-              portal_invitation_sent_at: newStatus ? new Date().toISOString() : null
-            }
-          : customer
-      ));
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
 
       toast({
         title: "Success",
@@ -208,7 +232,12 @@ const Customers = () => {
     );
   };
 
-  if (loading) {
+  const activeCustomers = totalCount;
+  const totalRevenue = 0; // Placeholder - can be calculated from orders if needed
+  const avgOrderValue = 0; // Placeholder - can be calculated from orders if needed
+  const topCustomers = 0; // Placeholder - can be calculated from orders if needed
+
+  if (isLoading && customers.length === 0) {
     return (
       <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6 lg:p-8">
         <div className="animate-pulse space-y-4 md:space-y-6">
@@ -219,8 +248,7 @@ const Customers = () => {
     );
   }
 
-  const totalCustomers = customers.length;
-  const activeCustomers = customers.filter(c => c.is_active).length;
+  const totalCustomers = totalCount;
 
   return (
     <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
@@ -470,6 +498,38 @@ const Customers = () => {
               </Button>
             </div>
           )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} customers
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="text-sm font-medium">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -616,6 +676,38 @@ const Customers = () => {
           </Card>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-4">
+          <div className="text-sm text-muted-foreground">
+            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} customers
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <div className="text-sm font-medium">
+              Page {currentPage} of {totalPages}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Mobile FAB */}
       <MobileFAB onClick={() => setShowCustomerDialog(true)} label="Add Customer" />
