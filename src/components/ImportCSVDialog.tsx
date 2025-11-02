@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +30,7 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
   const [currentImport, setCurrentImport] = useState<ImportProgress | null>(null);
   const [currentDataType, setCurrentDataType] = useState<string>('');
   const [isCancelling, setIsCancelling] = useState(false);
+  const cancelledRef = useRef(false); // Ref for immediate cancellation check
   const { toast } = useToast();
   const { profile } = useAuthProfile();
 
@@ -137,6 +138,8 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
     if (!profile?.organization_id) return;
     
     setIsCancelling(true);
+    cancelledRef.current = true; // Set ref immediately for synchronous checks
+    
     try {
       const { error } = await supabase
         .from('csv_import_progress')
@@ -166,6 +169,7 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
         variant: "destructive",
       });
       setIsCancelling(false);
+      cancelledRef.current = false;
     }
   };
 
@@ -298,14 +302,15 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
     let currentChunk = 0;
     
     for (let i = 1; i < lines.length; i += 1000) {
-      // Check if user cancelled before uploading next chunk
-      if (isCancelling) {
+      // Check ref for immediate cancellation (synchronous)
+      if (cancelledRef.current) {
         toast({
           title: 'Upload Stopped',
           description: `Stopped at chunk ${currentChunk}/${totalChunks}`,
         });
         setImporting(false);
         setIsCancelling(false);
+        cancelledRef.current = false;
         return;
       }
 
