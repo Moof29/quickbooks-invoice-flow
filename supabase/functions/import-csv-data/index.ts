@@ -385,44 +385,90 @@ async function processBatch(
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // QuickBooks invoice CSV uses "customer_ref_name" for customer display name
-        const customerName = row.customer_ref_name || row.Customer || row.customer;
+        // Get customer name and clean it
+        let customerName = row.customer_ref_name || row.Customer || row.customer;
         
         if (!customerName) {
           failed++;
-          errors.push({ row: startIndex + i, error: `No customer name found in row` });
+          errors.push({ row: startIndex + i, error: `No customer name found` });
           processed++;
           continue;
         }
         
-        // Find customer by display_name (which matches customer_ref_name from QB export)
-        const { data: customer } = await supabase
+        // Strip "(deleted)" suffix from customer names
+        customerName = customerName.replace(/\s*\(deleted\)\s*$/i, '').trim();
+        
+        // Try exact match first
+        let customer = await supabase
           .from('customer_profile')
           .select('id')
           .eq('organization_id', orgId)
           .eq('display_name', customerName)
-          .single();
+          .maybeSingle();
 
-        if (!customer) {
+        // If no exact match, try fuzzy matching (case insensitive, partial match)
+        if (!customer.data) {
+          const { data: fuzzyCustomers } = await supabase
+            .from('customer_profile')
+            .select('id, display_name')
+            .eq('organization_id', orgId)
+            .ilike('display_name', `%${customerName}%`)
+            .limit(1);
+          
+          if (fuzzyCustomers && fuzzyCustomers.length > 0) {
+            customer.data = fuzzyCustomers[0];
+          }
+        }
+
+        if (!customer.data) {
           failed++;
           errors.push({ row: startIndex + i, error: `Customer not found: "${customerName}"` });
           processed++;
           continue;
         }
 
+        // Parse dates with better error handling
+        let invoiceDate = new Date();
+        let dueDate = null;
+        
+        try {
+          if (row.txn_date) {
+            const parsed = new Date(row.txn_date);
+            if (!isNaN(parsed.getTime())) {
+              invoiceDate = parsed;
+            }
+          }
+        } catch (e) {
+          console.warn(`Invalid invoice date for row ${startIndex + i}: ${row.txn_date}`);
+        }
+        
+        try {
+          if (row.due_date) {
+            const parsed = new Date(row.due_date);
+            if (!isNaN(parsed.getTime())) {
+              dueDate = parsed;
+            }
+          }
+        } catch (e) {
+          console.warn(`Invalid due date for row ${startIndex + i}: ${row.due_date}`);
+        }
+
+        const totalAmt = parseFloat(row.total_amt || row.total_amount || row.total || 0);
+        const balance = parseFloat(row.balance || 0);
+
         const invoice = {
           organization_id: orgId,
           qbo_id: row.id?.toString(),
           invoice_number: row.doc_number || `INV-${row.id}`,
-          invoice_date: row.txn_date ? new Date(row.txn_date).toISOString() : new Date().toISOString(),
-          due_date: row.due_date ? new Date(row.due_date).toISOString() : null,
-          customer_id: customer.id,
-          subtotal: parseFloat(row.total_amt) || 0,
+          invoice_date: invoiceDate.toISOString(),
+          due_date: dueDate ? dueDate.toISOString() : null,
+          customer_id: customer.data.id,
+          subtotal: totalAmt,
           tax_total: 0,
-          total: parseFloat(row.total_amt) || 0,
-          amount_paid: parseFloat(row.balance) ? parseFloat(row.total_amt) - parseFloat(row.balance) : 0,
-          amount_due: parseFloat(row.balance) || 0,
-          status: row.balance === '0' || row.balance === 0 ? 'paid' : 'invoiced',
+          total: totalAmt,
+          amount_paid: totalAmt - balance,
+          amount_due: balance,
+          status: balance === 0 ? 'paid' : 'invoiced',
           qbo_sync_status: 'synced',
           source_system: 'QBO',
           memo: row.customer_memo || null,
