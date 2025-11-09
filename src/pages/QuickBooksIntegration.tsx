@@ -86,21 +86,21 @@ const QuickBooksIntegration = () => {
   const loadConnectionStatus = async () => {
     try {
       console.log('Loading connection status for profile:', profile);
+      // Use the safe view which handles RLS and doesn't expose tokens
       const { data, error } = await supabase
-        .from('qbo_connection')
-        .select('id, is_active, last_connected_at, last_sync_at, qbo_company_id, qbo_realm_id, environment, qbo_token_expires_at')
-        .eq('organization_id', profile?.organization_id)
+        .from('qbo_connection_safe' as any)
+        .select('*')
         .maybeSingle();
 
       console.log('Connection query result:', { data, error });
       if (error) throw error;
       
-      // Check if token is expired
-      if (data && data.qbo_token_expires_at) {
-        const isExpired = new Date(data.qbo_token_expires_at) < new Date();
+      // Check if token is expired (view includes qbo_token_expires_at)
+      if (data && (data as any).qbo_token_expires_at) {
+        const isExpired = new Date((data as any).qbo_token_expires_at) < new Date();
         if (isExpired) {
           console.log('Token expired, marking connection as inactive');
-          data.is_active = false;
+          (data as any).is_active = false;
         }
       }
       
