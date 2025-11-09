@@ -824,11 +824,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           data_type: string
+          error_file_path: string | null
           errors: Json | null
           failed_rows: number | null
           file_name: string
           file_path: string
           id: string
+          import_settings: Json | null
           organization_id: string
           processed_rows: number | null
           started_at: string | null
@@ -842,11 +844,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data_type: string
+          error_file_path?: string | null
           errors?: Json | null
           failed_rows?: number | null
           file_name: string
           file_path: string
           id?: string
+          import_settings?: Json | null
           organization_id: string
           processed_rows?: number | null
           started_at?: string | null
@@ -860,11 +864,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data_type?: string
+          error_file_path?: string | null
           errors?: Json | null
           failed_rows?: number | null
           file_name?: string
           file_path?: string
           id?: string
+          import_settings?: Json | null
           organization_id?: string
           processed_rows?: number | null
           started_at?: string | null

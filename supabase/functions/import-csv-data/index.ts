@@ -32,8 +32,10 @@ Deno.serve(async (req) => {
 
     if (!profile?.organization_id) throw new Error('No organization found');
 
-    const { filePath, dataType, progressId } = await req.json();
+    const { filePath, dataType, progressId, options, columnMappings } = await req.json();
     console.log(`Starting streaming import for ${dataType} from storage: ${filePath}`);
+    console.log('Import options:', options);
+    console.log('Column mappings:', columnMappings ? 'present' : 'not provided');
 
     // Validate dataType
     const validTypes = ['items', 'customers', 'invoices', 'invoice_line_items'];
@@ -41,18 +43,22 @@ Deno.serve(async (req) => {
       throw new Error(`Invalid data type: ${dataType}. Must be one of: ${validTypes.join(', ')}`);
     }
 
-    // Update progress to processing
+    // Update progress to processing and store settings
     await supabaseClient
       .from('csv_import_progress')
       .update({ 
         status: 'processing',
-        started_at: new Date().toISOString()
+        started_at: new Date().toISOString(),
+        import_settings: {
+          options: options || {},
+          columnMappings: columnMappings || [],
+        }
       })
       .eq('id', progressId);
 
     // Start background streaming processing
     EdgeRuntime.waitUntil(
-      processImportStreaming(supabaseClient, profile.organization_id, filePath, dataType, progressId)
+      processImportStreaming(supabaseClient, profile.organization_id, filePath, dataType, progressId, options, columnMappings)
     );
 
     return new Response(
@@ -77,7 +83,9 @@ async function processImportStreaming(
   orgId: string,
   filePath: string,
   dataType: string,
-  progressId: string
+  progressId: string,
+  options?: any,
+  columnMappings?: any[]
 ) {
   let processedRows = 0;
   let successfulRows = 0;
@@ -165,10 +173,21 @@ async function processImportStreaming(
         const values = parseCSVLine(line);
         if (values.length !== headers.length) continue;
         
-        const row: any = {};
+        let row: any = {};
         headers.forEach((header, index) => {
           row[header] = values[index] || '';
         });
+        
+        // Apply column mappings if provided
+        if (columnMappings && columnMappings.length > 0) {
+          const mappedRow: any = {};
+          columnMappings.forEach((mapping: any) => {
+            if (row[mapping.sourceColumn] !== undefined) {
+              mappedRow[mapping.targetField] = row[mapping.sourceColumn];
+            }
+          });
+          row = mappedRow;
+        }
         
         batchRows.push(row);
         lineCount++;
@@ -192,7 +211,8 @@ async function processImportStreaming(
             orgId,
             batchRows,
             dataType,
-            processedRows
+            processedRows,
+            options
           );
 
           successfulRows += batchResult.successful;
@@ -240,7 +260,8 @@ async function processImportStreaming(
         orgId,
         batchRows,
         dataType,
-        processedRows
+        processedRows,
+        options
       );
 
       successfulRows += batchResult.successful;
@@ -319,12 +340,24 @@ async function processBatch(
   orgId: string,
   rows: any[],
   dataType: string,
-  startIndex: number
+  startIndex: number,
+  options?: any
 ): Promise<{ successful: number; failed: number; processed: number; errors: Array<{ row: number; error: string }> }> {
   let successful = 0;
   let failed = 0;
   let processed = 0;
   const errors: Array<{ row: number; error: string }> = [];
+
+  // If dry run mode, just count as successful without saving
+  if (options?.dryRun) {
+    console.log(`Dry run mode: Skipping database operations for ${rows.length} rows`);
+    return {
+      successful: rows.length,
+      failed: 0,
+      processed: rows.length,
+      errors: []
+    };
+  }
 
   if (dataType === 'items') {
     const items = rows
@@ -343,12 +376,14 @@ async function processBatch(
       }));
 
     if (items.length > 0) {
+      // Determine upsert options based on duplicate strategy
+      const upsertConfig = options?.duplicateStrategy === 'skip'
+        ? { onConflict: 'organization_id,qbo_id', ignoreDuplicates: true }
+        : { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false };
+
       const { error } = await supabase
         .from('item_record')
-        .upsert(items, {
-          onConflict: 'organization_id,qbo_id',
-          ignoreDuplicates: false,
-        });
+        .upsert(items, upsertConfig);
 
       if (error) {
         // Retry individually on batch failure
@@ -399,9 +434,14 @@ async function processBatch(
       };
     });
 
+    // Determine upsert options based on duplicate strategy
+    const upsertConfig = options?.duplicateStrategy === 'skip'
+      ? { onConflict: 'organization_id,qbo_id', ignoreDuplicates: true }
+      : { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false };
+
     const { error } = await supabase
       .from('customer_profile')
-      .upsert(customers, { onConflict: 'organization_id,qbo_id', ignoreDuplicates: false });
+      .upsert(customers, upsertConfig);
 
     if (error) {
       for (let i = 0; i < customers.length; i++) {

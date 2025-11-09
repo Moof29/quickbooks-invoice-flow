@@ -3,8 +3,18 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, AlertCircle, Loader2, CheckCircle2, XCircle, Download } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Loader2, CheckCircle2, XCircle, Download, History, Settings, ChevronUp, ChevronDown } from 'lucide-react';
 import { downloadCSVTemplate } from '@/lib/csv-templates';
+import { parseCSVFile, ParsedCSV } from '@/lib/csv-parser';
+import { validateCSV, ValidationResult } from '@/lib/csv-validator';
+import { ColumnMapping, applyColumnMapping } from '@/lib/column-mapper';
+import { CSVPreviewDialog } from '@/components/CSVPreviewDialog';
+import { ImportHistoryDialog } from '@/components/ImportHistoryDialog';
+import { ColumnMappingDialog } from '@/components/ColumnMappingDialog';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
@@ -25,6 +35,13 @@ interface ImportProgress {
   errors: any; // Json type from database
 }
 
+interface ImportOptions {
+  dryRun: boolean;
+  duplicateStrategy: 'skip' | 'update' | 'error';
+  dateFormat: 'auto' | 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
+  batchSize: number;
+}
+
 export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -32,6 +49,30 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
   const [currentDataType, setCurrentDataType] = useState<string>('');
   const [isCancelling, setIsCancelling] = useState(false);
   const cancelledRef = useRef(false); // Ref for immediate cancellation check
+  
+  // Column mapping state
+  const [showMapping, setShowMapping] = useState(false);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([]);
+  
+  // Preview state
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState<ParsedCSV | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [pendingFile, setPendingFile] = useState<{ file: File; dataType: string } | null>(null);
+  
+  // History state
+  const [showHistory, setShowHistory] = useState(false);
+  
+  // Advanced options state
+  const [showOptions, setShowOptions] = useState(false);
+  const [importOptions, setImportOptions] = useState<ImportOptions>({
+    dryRun: false,
+    duplicateStrategy: 'update',
+    dateFormat: 'auto',
+    batchSize: 10,
+  });
+  
   const { toast } = useToast();
   const { profile } = useAuthProfile();
 
@@ -176,29 +217,79 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, dataType: 'items' | 'customers' | 'invoices' | 'invoice_line_items') => {
     const file = event.target.files?.[0];
-    if (!file || !profile?.organization_id) return;
+    if (!file) return;
 
+    try {
+      // Parse CSV to get headers
+      const parsed = await parseCSVFile(file, 10);
+
+      setCsvHeaders(parsed.headers);
+      setPendingFile({ file, dataType });
+      setShowMapping(true);
+    } catch (error: any) {
+      toast({
+        title: 'Parse Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+
+    // Reset file input
+    event.target.value = '';
+  };
+
+  const handleMappingConfirm = async (mappings: ColumnMapping[]) => {
+    if (!pendingFile) return;
+
+    setColumnMappings(mappings);
+
+    try {
+      // Re-parse with mappings applied
+      const parsed = await parseCSVFile(pendingFile.file, 10);
+
+      // Apply column mappings to preview data
+      const mappedRows = parsed.rows.map(row => applyColumnMapping(row, mappings));
+      const mappedPreview = {
+        ...parsed,
+        rows: mappedRows,
+        headers: mappings.map(m => m.targetField),
+      };
+
+      const validation = validateCSV(mappedPreview.headers, mappedRows, pendingFile.dataType as any);
+
+      setPreviewData(mappedPreview);
+      setValidationResult(validation);
+      setShowPreview(true);
+    } catch (error: any) {
+      toast({
+        title: 'Mapping Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!pendingFile || !profile?.organization_id) return;
+
+    setShowPreview(false);
     setImporting(true);
     setProgress(0);
     setCurrentImport(null);
-    setCurrentDataType(dataType);
+    setCurrentDataType(pendingFile.dataType);
 
     try {
       const FILE_SIZE_LIMIT = 10 * 1024 * 1024; // 10MB chunks
-      
-      // If file is small enough, upload directly
-      if (file.size <= FILE_SIZE_LIMIT) {
-        await uploadAndProcess(file, dataType);
+
+      if (pendingFile.file.size <= FILE_SIZE_LIMIT) {
+        await uploadAndProcess(pendingFile.file, pendingFile.dataType);
       } else {
-        // Split large file into chunks and process sequentially
         toast({
           title: 'Large File Detected',
-          description: `Splitting ${Math.ceil(file.size / FILE_SIZE_LIMIT)} chunks for processing...`,
+          description: `Splitting ${Math.ceil(pendingFile.file.size / FILE_SIZE_LIMIT)} chunks for processing...`,
         });
-        
-        await splitAndUploadFile(file, dataType);
+        await splitAndUploadFile(pendingFile.file, pendingFile.dataType);
       }
-
     } catch (error: any) {
       console.error('Import error:', error);
       toast({
@@ -208,6 +299,10 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
       });
       setImporting(false);
       setCurrentImport(null);
+    } finally {
+      setPendingFile(null);
+      setPreviewData(null);
+      setValidationResult(null);
     }
   };
 
@@ -276,12 +371,14 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
 
     console.log(`File uploaded to storage: ${filePath}`);
 
-    // 3. Trigger background processing
+    // 3. Trigger background processing with options
     const { error: functionError } = await supabase.functions.invoke('import-csv-data', {
       body: { 
         filePath, 
         dataType,
         progressId: progressRecord.id,
+        options: importOptions,
+        columnMappings: columnMappings.length > 0 ? columnMappings : undefined,
       },
     });
 
@@ -370,6 +467,16 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
               </span>
             )}
           </DialogDescription>
+          <div className="flex items-center justify-end mt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHistory(true)}
+            >
+              <History className="h-4 w-4 mr-2" />
+              View Import History
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -480,6 +587,75 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
 
           {!importing && (
             <>
+              {/* Advanced Options Section */}
+              <Collapsible open={showOptions} onOpenChange={setShowOptions}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between">
+                    <span className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Advanced Options
+                    </span>
+                    {showOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 mt-4 p-4 border rounded-lg">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="dry-run">Dry Run (Test Mode)</Label>
+                      <Switch
+                        id="dry-run"
+                        checked={importOptions.dryRun}
+                        onCheckedChange={(checked) =>
+                          setImportOptions(prev => ({ ...prev, dryRun: checked }))
+                        }
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Validate and preview import without saving to database
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="duplicate-strategy">Duplicate Handling</Label>
+                    <Select
+                      value={importOptions.duplicateStrategy}
+                      onValueChange={(value: any) =>
+                        setImportOptions(prev => ({ ...prev, duplicateStrategy: value }))
+                      }
+                    >
+                      <SelectTrigger id="duplicate-strategy">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="skip">Skip duplicates</SelectItem>
+                        <SelectItem value="update">Update existing (default)</SelectItem>
+                        <SelectItem value="error">Error on duplicates</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="date-format">Date Format</Label>
+                    <Select
+                      value={importOptions.dateFormat}
+                      onValueChange={(value: any) =>
+                        setImportOptions(prev => ({ ...prev, dateFormat: value }))
+                      }
+                    >
+                      <SelectTrigger id="date-format">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto-detect</SelectItem>
+                        <SelectItem value="MM/DD/YYYY">MM/DD/YYYY (US)</SelectItem>
+                        <SelectItem value="DD/MM/YYYY">DD/MM/YYYY (EU)</SelectItem>
+                        <SelectItem value="YYYY-MM-DD">YYYY-MM-DD (ISO)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
               <div className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-muted-foreground" />
@@ -629,6 +805,29 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
             </>
           )}
         </div>
+
+        <CSVPreviewDialog
+          open={showPreview}
+          onOpenChange={setShowPreview}
+          csvData={previewData}
+          validation={validationResult}
+          onConfirm={handleConfirmImport}
+          fileName={pendingFile?.file.name || ''}
+          dataType={pendingFile?.dataType || ''}
+        />
+
+        <ColumnMappingDialog
+          open={showMapping}
+          onOpenChange={setShowMapping}
+          csvHeaders={csvHeaders}
+          dataType={pendingFile?.dataType as any || 'items'}
+          onConfirm={handleMappingConfirm}
+        />
+
+        <ImportHistoryDialog
+          open={showHistory}
+          onOpenChange={setShowHistory}
+        />
       </DialogContent>
     </Dialog>
   );
