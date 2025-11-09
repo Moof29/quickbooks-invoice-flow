@@ -47,43 +47,10 @@ Deno.serve(async (req) => {
 
     console.log('Starting customer deletion for organization:', organizationId);
 
-    // Step 1: Delete ALL invoices and related records FIRST (before getting customer list)
-    // This prevents the check_organization_references trigger from firing during customer deletion
-    
-    console.log('Deleting invoice line items...');
-    const { error: invoiceLineItemsError } = await supabase
-      .from('invoice_line_item')
-      .delete()
-      .eq('organization_id', organizationId);
+    // With CASCADE foreign key, invoices are automatically deleted when customers are deleted
+    // We only need to delete customer-related data that won't cascade
 
-    if (invoiceLineItemsError) {
-      console.error('Error deleting invoice line items:', invoiceLineItemsError);
-      throw invoiceLineItemsError;
-    }
-
-    console.log('Deleting invoice payments...');
-    const { error: invoicePaymentsError } = await supabase
-      .from('invoice_payment')
-      .delete()
-      .eq('organization_id', organizationId);
-
-    if (invoicePaymentsError) {
-      console.error('Error deleting invoice payments:', invoicePaymentsError);
-      throw invoicePaymentsError;
-    }
-
-    console.log('Deleting ALL invoices for organization...');
-    const { error: invoicesError } = await supabase
-      .from('invoice_record')
-      .delete()
-      .eq('organization_id', organizationId);
-
-    if (invoicesError) {
-      console.error('Error deleting invoices:', invoicesError);
-      throw invoicesError;
-    }
-
-    // Step 2: Get all customer IDs for this organization
+    // Step 1: Get all customer IDs for this organization
     const { data: customers, error: customersError } = await supabase
       .from('customer_profile')
       .select('id')
@@ -98,97 +65,25 @@ Deno.serve(async (req) => {
     console.log(`Found ${customerIds.length} customers to process`);
 
     if (customerIds.length > 0) {
-      // Step 3: Delete other records that reference customers
-      console.log('Deleting payment receipts...');
-      const { error: paymentReceiptsError } = await supabase
-        .from('payment_receipt')
-        .delete()
-        .in('customer_id', customerIds);
-
-      if (paymentReceiptsError && paymentReceiptsError.code !== 'PGRST116') {
-        console.error('Error deleting payment receipts:', paymentReceiptsError);
-        throw paymentReceiptsError;
-      }
-
-      console.log('Deleting credit memos...');
-      const { error: creditMemosError } = await supabase
-        .from('credit_memo_record')
-        .delete()
-        .in('customer_id', customerIds);
-
-      if (creditMemosError && creditMemosError.code !== 'PGRST116') {
-        console.error('Error deleting credit memos:', creditMemosError);
-        throw creditMemosError;
-      }
-
-      console.log('Deleting estimates...');
-      const { error: estimatesError } = await supabase
-        .from('estimate_record')
-        .delete()
-        .in('customer_id', customerIds);
-
-      if (estimatesError && estimatesError.code !== 'PGRST116') {
-        console.error('Error deleting estimates:', estimatesError);
-        throw estimatesError;
-      }
-
-      console.log('Deleting sales receipts...');
-      const { error: salesReceiptsError } = await supabase
-        .from('sales_receipt_record')
-        .delete()
-        .in('customer_id', customerIds);
-
-      if (salesReceiptsError && salesReceiptsError.code !== 'PGRST116') {
-        console.error('Error deleting sales receipts:', salesReceiptsError);
-        throw salesReceiptsError;
-      }
-
-      console.log('Deleting time activities...');
-      const { error: timeActivitiesError } = await supabase
-        .from('time_activity_record')
-        .delete()
-        .in('customer_id', customerIds);
-
-      if (timeActivitiesError && timeActivitiesError.code !== 'PGRST116') {
-        console.error('Error deleting time activities:', timeActivitiesError);
-        throw timeActivitiesError;
-      }
-
-      console.log('Deleting customer messages...');
-      const { error: messagesError } = await supabase
-        .from('customer_messages')
-        .delete()
-        .in('customer_id', customerIds);
-
-      if (messagesError && messagesError.code !== 'PGRST116') {
-        console.error('Error deleting customer messages:', messagesError);
-        throw messagesError;
-      }
-
-      console.log('Deleting customer payment methods...');
-      const { error: paymentMethodsError } = await supabase
-        .from('customer_payment_methods')
-        .delete()
-        .in('customer_id', customerIds);
-
-      if (paymentMethodsError && paymentMethodsError.code !== 'PGRST116') {
-        console.error('Error deleting customer payment methods:', paymentMethodsError);
-        throw paymentMethodsError;
-      }
-
-      console.log('Deleting customer item prices...');
-      const { error: itemPricesError } = await supabase
-        .from('customer_item_price')
-        .delete()
-        .in('customer_id', customerIds);
-
-      if (itemPricesError && itemPricesError.code !== 'PGRST116') {
-        console.error('Error deleting customer item prices:', itemPricesError);
-        throw itemPricesError;
-      }
+      // Step 2: Delete customer-related records (invoices will cascade automatically)
+      console.log('Deleting customer-related records in parallel...');
+      
+      await Promise.all([
+        supabase.from('payment_receipt_record').delete().in('customer_id', customerIds),
+        supabase.from('credit_memo_record').delete().in('customer_id', customerIds),
+        supabase.from('estimate_record').delete().in('customer_id', customerIds),
+        supabase.from('sales_receipt_record').delete().in('customer_id', customerIds),
+        supabase.from('employee_time_tracking').delete().in('customer_id', customerIds),
+        supabase.from('customer_messages').delete().in('customer_id', customerIds),
+        supabase.from('customer_payment_methods').delete().in('customer_id', customerIds),
+        supabase.from('customer_item_price').delete().in('customer_id', customerIds),
+        supabase.from('customer_portal_user_links').delete().in('customer_id', customerIds),
+      ]);
+      
+      console.log('Customer-related records deleted');
     }
 
-    // Step 4: Delete customer template items
+    // Step 3: Delete customer template items
     console.log('Deleting customer template items...');
     const { error: templateItemsError } = await supabase
       .from('customer_template_items')
@@ -200,7 +95,7 @@ Deno.serve(async (req) => {
       throw templateItemsError;
     }
 
-    // Step 5: Delete customer templates
+    // Step 4: Delete customer templates
     console.log('Deleting customer templates...');
     const { error: templatesError } = await supabase
       .from('customer_templates')
@@ -212,7 +107,7 @@ Deno.serve(async (req) => {
       throw templatesError;
     }
 
-    // Step 6: Delete all customers for this organization in batches
+    // Step 5: Delete all customers (invoices will cascade automatically)
     let totalDeleted = 0;
     const batchSize = 500;
 

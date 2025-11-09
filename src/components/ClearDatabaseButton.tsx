@@ -22,31 +22,20 @@ export function ClearDatabaseButton() {
 
   const clearDatabase = useMutation({
     mutationFn: async () => {
-      const results = {
-        invoices: 0,
-        items: 0,
-        customers: 0,
-      };
-
-      // Clear items first (no dependencies)
-      const { data: itemData, error: itemError } = await supabase.functions.invoke('clear-items');
-      if (itemError) throw new Error(`Failed to clear items: ${itemError.message}`);
-      results.items = itemData?.deleted_count || 0;
-
-      // Clear customers (this will also clear invoices and sales orders due to foreign keys)
-      const { data: customerData, error: customerError } = await supabase.functions.invoke('clear-customers');
-      if (customerError) throw new Error(`Failed to clear customers: ${customerError.message}`);
-      results.customers = customerData?.deleted_count || 0;
-
-      return results;
+      // Use the unified clear-all-data function for better reliability and performance
+      const { data, error } = await supabase.functions.invoke('clear-all-data');
+      if (error) throw new Error(`Failed to clear data: ${error.message}`);
+      return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      
+      const counts = data?.deletionCounts || {};
       toast.success(
-        `Database cleared: ${data.items} items, ${data.customers} customers (and all related data) deleted`
+        `Database cleared successfully: ${counts.items || 0} items, ${counts.customers || 0} customers, ${counts.invoices || 0} invoices deleted`
       );
       setOpen(false);
     },
