@@ -68,15 +68,16 @@ export function ClearDatabaseButton() {
         <AlertDialogHeader>
           <AlertDialogTitle>Clear All Data</AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete ALL of the following from your organization:
-            <ul className="list-disc list-inside mt-2 space-y-1 font-semibold">
-              <li>All products/items</li>
-              <li>All customers and customer templates</li>
-              <li>All sales orders and line items</li>
-              <li>All invoices and invoice line items</li>
-            </ul>
-            <br />
-            <strong className="text-destructive">This action cannot be undone.</strong>
+            <div>
+              This will permanently delete ALL of the following from your organization:
+              <ul className="list-disc list-inside mt-2 space-y-1 font-semibold">
+                <li>All products/items</li>
+                <li>All customers and customer templates</li>
+                <li>All invoices and invoice line items</li>
+              </ul>
+              <br />
+              <strong className="text-destructive">This action cannot be undone.</strong>
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
