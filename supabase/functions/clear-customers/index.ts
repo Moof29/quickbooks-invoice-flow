@@ -47,7 +47,43 @@ Deno.serve(async (req) => {
 
     console.log('Starting customer deletion for organization:', organizationId);
 
-    // Step 1: Get all customer IDs for this organization
+    // Step 1: Delete ALL invoices and related records FIRST (before getting customer list)
+    // This prevents the check_organization_references trigger from firing during customer deletion
+    
+    console.log('Deleting invoice line items...');
+    const { error: invoiceLineItemsError } = await supabase
+      .from('invoice_line_item')
+      .delete()
+      .eq('organization_id', organizationId);
+
+    if (invoiceLineItemsError) {
+      console.error('Error deleting invoice line items:', invoiceLineItemsError);
+      throw invoiceLineItemsError;
+    }
+
+    console.log('Deleting invoice payments...');
+    const { error: invoicePaymentsError } = await supabase
+      .from('invoice_payment')
+      .delete()
+      .eq('organization_id', organizationId);
+
+    if (invoicePaymentsError) {
+      console.error('Error deleting invoice payments:', invoicePaymentsError);
+      throw invoicePaymentsError;
+    }
+
+    console.log('Deleting ALL invoices for organization...');
+    const { error: invoicesError } = await supabase
+      .from('invoice_record')
+      .delete()
+      .eq('organization_id', organizationId);
+
+    if (invoicesError) {
+      console.error('Error deleting invoices:', invoicesError);
+      throw invoicesError;
+    }
+
+    // Step 2: Get all customer IDs for this organization
     const { data: customers, error: customersError } = await supabase
       .from('customer_profile')
       .select('id')
@@ -62,46 +98,7 @@ Deno.serve(async (req) => {
     console.log(`Found ${customerIds.length} customers to process`);
 
     if (customerIds.length > 0) {
-      // Step 2: Delete all dependent records that reference customers
-      
-      // Delete invoice line items first (references invoices)
-      console.log('Deleting invoice line items...');
-      const { error: invoiceLineItemsError } = await supabase
-        .from('invoice_line_item')
-        .delete()
-        .eq('organization_id', organizationId);
-
-      if (invoiceLineItemsError) {
-        console.error('Error deleting invoice line items:', invoiceLineItemsError);
-        throw invoiceLineItemsError;
-      }
-
-      // Delete invoice payments (references invoices)
-      console.log('Deleting invoice payments...');
-      const { error: invoicePaymentsError } = await supabase
-        .from('invoice_payment')
-        .delete()
-        .eq('organization_id', organizationId);
-
-      if (invoicePaymentsError) {
-        console.error('Error deleting invoice payments:', invoicePaymentsError);
-        throw invoicePaymentsError;
-      }
-
-      // Delete ALL invoices for the organization (not just those with customer_ids)
-      // This prevents the trigger from firing on orphaned invoices during customer deletion
-      console.log('Deleting ALL invoices for organization...');
-      const { error: invoicesError } = await supabase
-        .from('invoice_record')
-        .delete()
-        .eq('organization_id', organizationId);
-
-      if (invoicesError) {
-        console.error('Error deleting invoices:', invoicesError);
-        throw invoicesError;
-      }
-
-      // Delete other records that reference customers
+      // Step 3: Delete other records that reference customers
       console.log('Deleting payment receipts...');
       const { error: paymentReceiptsError } = await supabase
         .from('payment_receipt')
@@ -191,7 +188,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 3: Delete customer template items
+    // Step 4: Delete customer template items
     console.log('Deleting customer template items...');
     const { error: templateItemsError } = await supabase
       .from('customer_template_items')
@@ -203,7 +200,7 @@ Deno.serve(async (req) => {
       throw templateItemsError;
     }
 
-    // Step 4: Delete customer templates
+    // Step 5: Delete customer templates
     console.log('Deleting customer templates...');
     const { error: templatesError } = await supabase
       .from('customer_templates')
@@ -215,7 +212,7 @@ Deno.serve(async (req) => {
       throw templatesError;
     }
 
-    // Step 5: Delete all customers for this organization in batches
+    // Step 6: Delete all customers for this organization in batches
     let totalDeleted = 0;
     const batchSize = 500;
 
