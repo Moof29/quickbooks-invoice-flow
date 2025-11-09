@@ -25,6 +25,7 @@ interface QBOConnection {
   qbo_company_id: string;
   qbo_realm_id: string;
   environment: string;
+  qbo_token_expires_at: string;
 }
 
 interface SyncHistory {
@@ -85,14 +86,24 @@ const QuickBooksIntegration = () => {
   const loadConnectionStatus = async () => {
     try {
       console.log('Loading connection status for profile:', profile);
-      // Use safe view instead of direct table access (using type assertion for new view)
       const { data, error } = await supabase
-        .from('qbo_connection_safe' as any)
-        .select('*')
+        .from('qbo_connection')
+        .select('id, is_active, last_connected_at, last_sync_at, qbo_company_id, qbo_realm_id, environment, qbo_token_expires_at')
+        .eq('organization_id', profile?.organization_id)
         .maybeSingle();
 
       console.log('Connection query result:', { data, error });
       if (error) throw error;
+      
+      // Check if token is expired
+      if (data && data.qbo_token_expires_at) {
+        const isExpired = new Date(data.qbo_token_expires_at) < new Date();
+        if (isExpired) {
+          console.log('Token expired, marking connection as inactive');
+          data.is_active = false;
+        }
+      }
+      
       setConnection(data as unknown as QBOConnection | null);
     } catch (error) {
       console.error('Error loading connection status:', error);
