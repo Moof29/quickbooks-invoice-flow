@@ -47,9 +47,32 @@ Deno.serve(async (req) => {
 
     console.log('Starting customer deletion for organization:', organizationId);
 
-    // Step 1: Delete ALL invoices and related records FIRST (before getting customer list)
-    // This prevents the check_organization_references trigger from firing during customer deletion
+    // Step 1: Delete sales orders and invoices in correct order
+    // Sales orders must be deleted BEFORE invoices (sales_order may reference invoice_record)
+    // This prevents the check_organization_references trigger from failing
     
+    console.log('Deleting sales order line items...');
+    const { error: salesOrderLineItemsError } = await supabase
+      .from('sales_order_line_item')
+      .delete()
+      .eq('organization_id', organizationId);
+
+    if (salesOrderLineItemsError) {
+      console.error('Error deleting sales order line items:', salesOrderLineItemsError);
+      throw salesOrderLineItemsError;
+    }
+
+    console.log('Deleting ALL sales orders for organization...');
+    const { error: salesOrdersError } = await supabase
+      .from('sales_order')
+      .delete()
+      .eq('organization_id', organizationId);
+
+    if (salesOrdersError) {
+      console.error('Error deleting sales orders:', salesOrdersError);
+      throw salesOrdersError;
+    }
+
     console.log('Deleting invoice line items...');
     const { error: invoiceLineItemsError } = await supabase
       .from('invoice_line_item')
@@ -81,30 +104,6 @@ Deno.serve(async (req) => {
     if (invoicesError) {
       console.error('Error deleting invoices:', invoicesError);
       throw invoicesError;
-    }
-
-    // Delete sales order line items
-    console.log('Deleting sales order line items...');
-    const { error: salesOrderLineItemsError } = await supabase
-      .from('sales_order_line_item')
-      .delete()
-      .eq('organization_id', organizationId);
-
-    if (salesOrderLineItemsError) {
-      console.error('Error deleting sales order line items:', salesOrderLineItemsError);
-      throw salesOrderLineItemsError;
-    }
-
-    // Delete sales orders
-    console.log('Deleting ALL sales orders for organization...');
-    const { error: salesOrdersError } = await supabase
-      .from('sales_order')
-      .delete()
-      .eq('organization_id', organizationId);
-
-    if (salesOrdersError) {
-      console.error('Error deleting sales orders:', salesOrdersError);
-      throw salesOrdersError;
     }
 
     // Step 2: Get all customer IDs for this organization
