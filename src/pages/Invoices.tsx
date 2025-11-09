@@ -85,29 +85,7 @@ interface Invoice {
   };
 }
 
-// Helper function to filter invoices by customer name (client-side)
-function filterInvoicesByCustomerName(invoices: Invoice[], searchTerm: string): Invoice[] {
-  if (!searchTerm || searchTerm.trim() === '') return invoices;
-
-  const search = searchTerm.toLowerCase().trim();
-
-  // Check if search term is numeric (skip customer filter for numeric)
-  if (/^\d+\.?\d*$/.test(search)) return invoices;
-
-  return invoices.filter(invoice => {
-    const displayName = invoice.customer_profile?.display_name?.toLowerCase() || '';
-    const companyName = invoice.customer_profile?.company_name?.toLowerCase() || '';
-    const invoiceNumber = invoice.invoice_number?.toLowerCase() || '';
-    const memo = invoice.memo?.toLowerCase() || '';
-
-    return (
-      displayName.includes(search) ||
-      companyName.includes(search) ||
-      invoiceNumber.includes(search) ||
-      memo.includes(search)
-    );
-  });
-}
+// Customer name filtering is now done server-side for better performance
 
 const Invoices = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -165,7 +143,7 @@ const Invoices = () => {
         .select('*', { count: 'exact', head: true })
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue']);
 
-      // Apply search filter - enhanced with numeric detection
+      // Apply search filter - enhanced with numeric detection and customer search
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         const isNumeric = /^\d+\.?\d*$/.test(searchValue);
@@ -179,10 +157,12 @@ const Invoices = () => {
             `amount_due.eq.${numericValue}`
           );
         } else {
-          // Text search: invoice number and memo
+          // Text search: invoice number, memo, and customer names (server-side)
           query = query.or(
             `invoice_number.ilike.%${searchValue}%,` +
-            `memo.ilike.%${searchValue}%`
+            `memo.ilike.%${searchValue}%,` +
+            `customer_profile.display_name.ilike.%${searchValue}%,` +
+            `customer_profile.company_name.ilike.%${searchValue}%`
           );
         }
       }
@@ -248,7 +228,7 @@ const Invoices = () => {
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue'])
         .range(from, to);
 
-      // Apply search filter - enhanced with numeric detection
+      // Apply search filter - enhanced with numeric detection and customer search
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         const isNumeric = /^\d+\.?\d*$/.test(searchValue);
@@ -262,10 +242,12 @@ const Invoices = () => {
             `amount_due.eq.${numericValue}`
           );
         } else {
-          // Text search: invoice number and memo
+          // Text search: invoice number, memo, and customer names (server-side)
           query = query.or(
             `invoice_number.ilike.%${searchValue}%,` +
-            `memo.ilike.%${searchValue}%`
+            `memo.ilike.%${searchValue}%,` +
+            `customer_profile.display_name.ilike.%${searchValue}%,` +
+            `customer_profile.company_name.ilike.%${searchValue}%`
           );
         }
       }
@@ -321,10 +303,7 @@ const Invoices = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-
-      // Apply client-side customer name filtering
-      const filtered = filterInvoicesByCustomerName(data || [], debouncedSearch);
-      return filtered;
+      return data || [];
     }
   });
 
