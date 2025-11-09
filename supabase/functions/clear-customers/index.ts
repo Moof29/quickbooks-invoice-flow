@@ -45,7 +45,34 @@ Deno.serve(async (req) => {
 
     const organizationId = profile.organization_id;
 
-    // Delete customer templates first (due to foreign keys)
+    console.log('Starting customer deletion for organization:', organizationId);
+
+    // Step 1: Delete sales order line items first
+    console.log('Deleting sales order line items...');
+    const { error: soLineItemsError } = await supabase
+      .from('sales_order_line_item')
+      .delete()
+      .eq('organization_id', organizationId);
+
+    if (soLineItemsError) {
+      console.error('Error deleting sales order line items:', soLineItemsError);
+      throw soLineItemsError;
+    }
+
+    // Step 2: Delete sales orders
+    console.log('Deleting sales orders...');
+    const { error: salesOrdersError } = await supabase
+      .from('sales_order')
+      .delete()
+      .eq('organization_id', organizationId);
+
+    if (salesOrdersError) {
+      console.error('Error deleting sales orders:', salesOrdersError);
+      throw salesOrdersError;
+    }
+
+    // Step 3: Delete customer template items
+    console.log('Deleting customer template items...');
     const { error: templateItemsError } = await supabase
       .from('customer_template_items')
       .delete()
@@ -53,8 +80,11 @@ Deno.serve(async (req) => {
 
     if (templateItemsError) {
       console.error('Error deleting template items:', templateItemsError);
+      throw templateItemsError;
     }
 
+    // Step 4: Delete customer templates
+    console.log('Deleting customer templates...');
     const { error: templatesError } = await supabase
       .from('customer_templates')
       .delete()
@@ -62,9 +92,10 @@ Deno.serve(async (req) => {
 
     if (templatesError) {
       console.error('Error deleting templates:', templatesError);
+      throw templatesError;
     }
 
-    // Delete all customers for this organization in batches
+    // Step 5: Delete all customers for this organization in batches
     let totalDeleted = 0;
     const batchSize = 500;
 
