@@ -32,17 +32,9 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate a random state parameter for security
     const state = crypto.randomUUID();
 
-    // Store the state and organization ID in the database temporarily
-    await supabase.from("qbo_connection").upsert({
-      organization_id: organizationId,
-      qbo_access_token: null, // Clear any existing token
-      qbo_refresh_token: null,
-      is_active: false,
-      last_connected_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      qbo_realm_id: state, // Temporarily store state here
-      qbo_company_id: "pending", // Will be updated after callback
-    });
+    // Don't modify existing connection during initiate - just generate the auth URL
+    // The callback will handle storing/updating the connection
+    console.log("Initiating OAuth for organization:", organizationId);
 
     // QuickBooks OAuth URL
     const scope = "com.intuit.quickbooks.accounting";

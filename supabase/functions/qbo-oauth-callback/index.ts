@@ -172,6 +172,8 @@ const handler = async (req: Request): Promise<Response> => {
         .from("qbo_connection")
         .update({
           is_active: true,
+          qbo_realm_id: realmId,
+          qbo_company_id: realmId,
           last_connected_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
