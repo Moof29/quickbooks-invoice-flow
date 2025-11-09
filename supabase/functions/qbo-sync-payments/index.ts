@@ -23,6 +23,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { organizationId, direction = "both" }: SyncRequest = await req.json();
 
+    console.log("=== Starting Payment Sync ===");
+    console.log("Organization ID:", organizationId);
+    console.log("Direction:", direction);
+
     // Get QuickBooks connection using secure function
     const { data: connections, error: connectionError } = await supabase
       .rpc("get_qbo_connection_for_sync", { p_organization_id: organizationId });
@@ -43,31 +47,28 @@ const handler = async (req: Request): Promise<Response> => {
       errors: [] as string[]
     };
 
-    // Pull items from QuickBooks
+    // Pull payments from QuickBooks
     if (direction === "pull" || direction === "both") {
       try {
-        const pullResult = await pullItemsFromQB(supabase, connection);
+        const pullResult = await pullPaymentsFromQB(supabase, connection);
         syncResults.pulled = pullResult;
       } catch (error: any) {
+        console.error("Pull error:", error);
         syncResults.errors.push(`Pull error: ${error.message}`);
       }
     }
 
-    // Push items to QuickBooks (for future implementation)
+    // Push payments to QuickBooks (for future implementation)
     if (direction === "push" || direction === "both") {
-      try {
-        const pushResult = await pushItemsToQB(supabase, connection);
-        syncResults.pushed = pushResult;
-      } catch (error: any) {
-        syncResults.errors.push(`Push error: ${error.message}`);
-      }
+      console.log("Push to QuickBooks not yet implemented for payments");
+      syncResults.pushed = 0;
     }
 
     // Log sync history
     await supabase.from("qbo_sync_history").insert({
       organization_id: organizationId,
       sync_type: "manual",
-      entity_types: ["item"],
+      entity_types: ["payment"],
       status: syncResults.errors.length > 0 ? "partial_success" : "completed",
       entity_count: syncResults.pulled + syncResults.pushed,
       success_count: syncResults.pulled + syncResults.pushed,
@@ -76,6 +77,9 @@ const handler = async (req: Request): Promise<Response> => {
       completed_at: new Date().toISOString(),
       error_summary: syncResults.errors.length > 0 ? syncResults.errors.join("; ") : null,
     });
+
+    console.log("=== Payment Sync Complete ===");
+    console.log("Results:", syncResults);
 
     return new Response(
       JSON.stringify({ 
@@ -89,7 +93,7 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
   } catch (error: any) {
-    console.error("Error in qbo-sync-items:", error);
+    console.error("Error in qbo-sync-payments:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
@@ -133,13 +137,12 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
   }
 }
 
-async function pullItemsFromQB(supabase: any, connection: any): Promise<number> {
-  console.log("Pulling items from QuickBooks...");
+async function pullPaymentsFromQB(supabase: any, connection: any): Promise<number> {
+  console.log("Pulling payments from QuickBooks...");
   console.log("Connection details:", {
     environment: connection.environment,
     realm_id: connection.qbo_realm_id,
     has_token: !!connection.qbo_access_token,
-    token_preview: connection.qbo_access_token?.substring(0, 10) + "..."
   });
   
   // Use sandbox URL for testing, production for live
@@ -147,7 +150,7 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
     ? 'https://sandbox-quickbooks.api.intuit.com' 
     : 'https://quickbooks-api.intuit.com';
   const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/query`;
-  const query = "SELECT * FROM Item MAXRESULTS 1000";
+  const query = "SELECT * FROM Payment MAXRESULTS 1000";
 
   console.log("Making request to:", qbApiUrl);
   console.log("Query:", query);
@@ -171,7 +174,7 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
     }
 
     const data = await response.json();
-    console.log("QuickBooks API full response:", JSON.stringify(data, null, 2));
+    console.log("QuickBooks API response received");
     
     // Check if QueryResponse exists
     if (!data.QueryResponse) {
@@ -179,68 +182,123 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
       return 0;
     }
     
-    const items = data.QueryResponse?.Item || [];
+    const payments = data.QueryResponse?.Payment || [];
     
-    console.log(`Found ${items.length} items in QuickBooks`);
-    
-    // If no items, let's also check what's in the QueryResponse
-    if (items.length === 0) {
-      console.log("QueryResponse content:", JSON.stringify(data.QueryResponse, null, 2));
-    }
+    console.log(`Found ${payments.length} payments in QuickBooks`);
 
-    // Save items to database
+    // Save payments to database
     let savedCount = 0;
-    for (const qbItem of items) {
+    for (const qbPayment of payments) {
       try {
-        // Map QB item to our database structure - FIXED PRICING BUG
-        const itemData = {
+        console.log(`Processing payment ${qbPayment.Id}...`);
+        
+        // Get customer ID from customer reference
+        let customerId = null;
+        if (qbPayment.CustomerRef) {
+          const { data: customer } = await supabase
+            .from('customer_profile')
+            .select('id')
+            .eq('organization_id', connection.organization_id)
+            .eq('qbo_id', qbPayment.CustomerRef.value)
+            .single();
+          
+          customerId = customer?.id || null;
+        }
+
+        // Get invoice ID from line items (if payment is applied to an invoice)
+        let invoiceId = null;
+        let unapplied = true;
+        
+        if (qbPayment.Line && qbPayment.Line.length > 0) {
+          // Find the line with a LinkedTxn that points to an invoice
+          for (const line of qbPayment.Line) {
+            if (line.LinkedTxn && line.LinkedTxn.length > 0) {
+              for (const linkedTxn of line.LinkedTxn) {
+                if (linkedTxn.TxnType === 'Invoice') {
+                  // Look up the invoice by QBO ID
+                  const { data: invoice } = await supabase
+                    .from('invoice_record')
+                    .select('id')
+                    .eq('organization_id', connection.organization_id)
+                    .eq('qbo_id', linkedTxn.TxnId)
+                    .single();
+                  
+                  if (invoice) {
+                    invoiceId = invoice.id;
+                    unapplied = false;
+                    break;
+                  }
+                }
+              }
+            }
+            if (invoiceId) break;
+          }
+        }
+
+        // Check if payment is unapplied
+        if (qbPayment.Unapplied !== undefined) {
+          unapplied = qbPayment.Unapplied;
+        }
+
+        // Map payment method
+        let paymentMethod = 'other';
+        if (qbPayment.PaymentMethodRef) {
+          const methodName = qbPayment.PaymentMethodRef.name?.toLowerCase() || '';
+          if (methodName.includes('cash')) paymentMethod = 'cash';
+          else if (methodName.includes('check')) paymentMethod = 'check';
+          else if (methodName.includes('credit') || methodName.includes('card')) paymentMethod = 'credit_card';
+          else if (methodName.includes('ach') || methodName.includes('bank')) paymentMethod = 'ach';
+          else paymentMethod = 'other';
+        }
+
+        // Map QB payment to our database structure
+        const paymentData = {
           organization_id: connection.organization_id,
-          qbo_id: qbItem.Id.toString(),
-          name: qbItem.Name,
-          sku: qbItem.Sku || null,
-          description: qbItem.Description || null,
-          item_type: qbItem.Type || null,
-          is_active: qbItem.Active !== false,
-          // CRITICAL FIX: UnitPrice is selling price, not cost price
-          unit_price: qbItem.UnitPrice ? parseFloat(qbItem.UnitPrice.toString()) : null,
-          purchase_cost: qbItem.PurchaseCost ? parseFloat(qbItem.PurchaseCost.toString()) : null,
-          // Inventory tracking
-          quantity_on_hand: qbItem.QtyOnHand ? parseFloat(qbItem.QtyOnHand.toString()) : null,
-          track_qty_on_hand: qbItem.TrackQtyOnHand || false,
-          // Tax configuration
-          taxable: qbItem.Taxable !== false,
-          sales_tax_code_ref: qbItem.SalesTaxCodeRef ? qbItem.SalesTaxCodeRef : null,
-          // Account references (stored as JSONB)
-          income_account_ref: qbItem.IncomeAccountRef ? qbItem.IncomeAccountRef : null,
-          expense_account_ref: qbItem.ExpenseAccountRef ? qbItem.ExpenseAccountRef : null,
-          asset_account_ref: qbItem.AssetAccountRef ? qbItem.AssetAccountRef : null,
-          // Sync metadata
-          qbo_sync_token: qbItem.SyncToken ? parseInt(qbItem.SyncToken) : null,
-          qbo_created_at: qbItem.MetaData?.CreateTime || null,
-          qbo_updated_at: qbItem.MetaData?.LastUpdatedTime || null,
-          sync_status: 'synced',
+          qbo_id: qbPayment.Id.toString(),
+          customer_id: customerId,
+          invoice_id: invoiceId,
+          payment_date: qbPayment.TxnDate || new Date().toISOString().split('T')[0],
+          amount: qbPayment.TotalAmt ? parseFloat(qbPayment.TotalAmt.toString()) : 0,
+          payment_method: paymentMethod,
+          reference_number: qbPayment.PaymentRefNum || null,
+          notes: qbPayment.PrivateNote || null,
+          // QBO sync fields
+          qbo_sync_status: 'synced',
+          qbo_sync_token: qbPayment.SyncToken ? parseInt(qbPayment.SyncToken) : null,
+          qbo_created_at: qbPayment.MetaData?.CreateTime || null,
+          qbo_updated_at: qbPayment.MetaData?.LastUpdatedTime || null,
           last_sync_at: new Date().toISOString(),
+          // Deposit account reference (JSONB)
+          deposit_account_ref: qbPayment.DepositToAccountRef || null,
+          // Unapplied payment flag
+          unapplied: unapplied,
+          unapplied_amount: unapplied ? parseFloat(qbPayment.TotalAmt?.toString() || '0') : null,
+          // Payment status
+          payment_status: 'completed',
+          // Reconciliation
+          reconciliation_status: 'unreconciled',
         };
 
-        // Insert or update item - try insert first, then update if exists
+        // Insert or update payment
         const { error } = await supabase
-          .from('item_record')
-          .upsert(itemData, {
+          .from('invoice_payment')
+          .upsert(paymentData, {
             onConflict: 'organization_id,qbo_id',
             ignoreDuplicates: false
           });
 
         if (error) {
-          console.error(`Failed to save item ${qbItem.Name}:`, error);
+          console.error(`Failed to save payment ${qbPayment.Id}:`, error);
         } else {
           savedCount++;
+          console.log(`✓ Saved payment ${qbPayment.Id}`);
         }
-      } catch (itemError: any) {
-        console.error(`Error processing item ${qbItem.Name}:`, itemError);
+      } catch (paymentError: any) {
+        console.error(`Error processing payment ${qbPayment.Id}:`, paymentError);
       }
     }
 
-    console.log(`Successfully saved ${savedCount} items to database`);
+    console.log(`Successfully saved ${savedCount} payments to database`);
     return savedCount;
 
   } catch (error: any) {
@@ -251,11 +309,6 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
     });
     throw new Error(`Network error: ${error.message}`);
   }
-}
-
-async function pushItemsToQB(supabase: any, connection: any): Promise<number> {
-  console.log("Push to QuickBooks not yet implemented for items");
-  return 0;
 }
 
 serve(handler);

@@ -1220,36 +1220,64 @@ export type Database = {
       }
       customer_profile: {
         Row: {
+          account_number: string | null
+          auto_invoice: boolean | null
           balance: number | null
           billing_address_line1: string | null
           billing_address_line2: string | null
           billing_city: string | null
           billing_country: string | null
+          billing_frequency: string | null
+          billing_instructions: string | null
           billing_postal_code: string | null
           billing_state: string | null
           company_name: string | null
+          contact_name: string | null
+          contact_title: string | null
           created_at: string | null
           created_by: string | null
+          credit_hold: boolean | null
+          credit_hold_reason: string | null
           credit_limit: number | null
+          currency_code: string | null
           currency_id: string | null
           custom_fields: Json | null
+          customer_class_ref: Json | null
+          customer_notes: string | null
+          customer_type: string | null
+          days_past_due: number | null
           display_name: string
           email: string | null
           fax: string | null
+          fax_number: string | null
           first_name: string | null
           id: string
+          internal_notes: string | null
+          invoice_delivery_method: string | null
           is_active: boolean | null
+          is_job: boolean | null
+          job_type: string | null
           last_name: string | null
+          last_payment_amount: number | null
+          last_payment_date: string | null
           last_sync_at: string | null
           mobile: string | null
+          mobile_phone: string | null
           notes: string | null
           organization_id: string
+          overdue_balance: number | null
+          parent_ref: Json | null
           payment_terms: string | null
+          payment_terms_ref: Json | null
           phone: string | null
           portal_enabled: boolean | null
           portal_invitation_sent_at: string | null
+          preferred_billing_day: number | null
+          preferred_shipping_method: string | null
+          price_level_ref: Json | null
           qbo_id: string | null
           qbo_sync_status: string | null
+          sales_tax_code_ref: Json | null
           shipping_address_line1: string | null
           shipping_address_line2: string | null
           shipping_city: string | null
@@ -1259,42 +1287,73 @@ export type Database = {
           source_system: string | null
           sync_status: string | null
           tax_exempt: boolean | null
+          tax_exempt_cert_number: string | null
+          tax_exempt_reason: string | null
           tax_id: string | null
           updated_at: string | null
           updated_by: string | null
           website: string | null
+          website_url: string | null
         }
         Insert: {
+          account_number?: string | null
+          auto_invoice?: boolean | null
           balance?: number | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
           billing_city?: string | null
           billing_country?: string | null
+          billing_frequency?: string | null
+          billing_instructions?: string | null
           billing_postal_code?: string | null
           billing_state?: string | null
           company_name?: string | null
+          contact_name?: string | null
+          contact_title?: string | null
           created_at?: string | null
           created_by?: string | null
+          credit_hold?: boolean | null
+          credit_hold_reason?: string | null
           credit_limit?: number | null
+          currency_code?: string | null
           currency_id?: string | null
           custom_fields?: Json | null
+          customer_class_ref?: Json | null
+          customer_notes?: string | null
+          customer_type?: string | null
+          days_past_due?: number | null
           display_name: string
           email?: string | null
           fax?: string | null
+          fax_number?: string | null
           first_name?: string | null
           id?: string
+          internal_notes?: string | null
+          invoice_delivery_method?: string | null
           is_active?: boolean | null
+          is_job?: boolean | null
+          job_type?: string | null
           last_name?: string | null
+          last_payment_amount?: number | null
+          last_payment_date?: string | null
           last_sync_at?: string | null
           mobile?: string | null
+          mobile_phone?: string | null
           notes?: string | null
           organization_id: string
+          overdue_balance?: number | null
+          parent_ref?: Json | null
           payment_terms?: string | null
+          payment_terms_ref?: Json | null
           phone?: string | null
           portal_enabled?: boolean | null
           portal_invitation_sent_at?: string | null
+          preferred_billing_day?: number | null
+          preferred_shipping_method?: string | null
+          price_level_ref?: Json | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          sales_tax_code_ref?: Json | null
           shipping_address_line1?: string | null
           shipping_address_line2?: string | null
           shipping_city?: string | null
@@ -1304,42 +1363,73 @@ export type Database = {
           source_system?: string | null
           sync_status?: string | null
           tax_exempt?: boolean | null
+          tax_exempt_cert_number?: string | null
+          tax_exempt_reason?: string | null
           tax_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
           website?: string | null
+          website_url?: string | null
         }
         Update: {
+          account_number?: string | null
+          auto_invoice?: boolean | null
           balance?: number | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
           billing_city?: string | null
           billing_country?: string | null
+          billing_frequency?: string | null
+          billing_instructions?: string | null
           billing_postal_code?: string | null
           billing_state?: string | null
           company_name?: string | null
+          contact_name?: string | null
+          contact_title?: string | null
           created_at?: string | null
           created_by?: string | null
+          credit_hold?: boolean | null
+          credit_hold_reason?: string | null
           credit_limit?: number | null
+          currency_code?: string | null
           currency_id?: string | null
           custom_fields?: Json | null
+          customer_class_ref?: Json | null
+          customer_notes?: string | null
+          customer_type?: string | null
+          days_past_due?: number | null
           display_name?: string
           email?: string | null
           fax?: string | null
+          fax_number?: string | null
           first_name?: string | null
           id?: string
+          internal_notes?: string | null
+          invoice_delivery_method?: string | null
           is_active?: boolean | null
+          is_job?: boolean | null
+          job_type?: string | null
           last_name?: string | null
+          last_payment_amount?: number | null
+          last_payment_date?: string | null
           last_sync_at?: string | null
           mobile?: string | null
+          mobile_phone?: string | null
           notes?: string | null
           organization_id?: string
+          overdue_balance?: number | null
+          parent_ref?: Json | null
           payment_terms?: string | null
+          payment_terms_ref?: Json | null
           phone?: string | null
           portal_enabled?: boolean | null
           portal_invitation_sent_at?: string | null
+          preferred_billing_day?: number | null
+          preferred_shipping_method?: string | null
+          price_level_ref?: Json | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          sales_tax_code_ref?: Json | null
           shipping_address_line1?: string | null
           shipping_address_line2?: string | null
           shipping_city?: string | null
@@ -1349,10 +1439,13 @@ export type Database = {
           source_system?: string | null
           sync_status?: string | null
           tax_exempt?: boolean | null
+          tax_exempt_cert_number?: string | null
+          tax_exempt_reason?: string | null
           tax_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
           website?: string | null
+          website_url?: string | null
         }
         Relationships: [
           {
@@ -1926,39 +2019,111 @@ export type Database = {
           amount: number
           created_at: string
           created_by: string | null
+          customer_id: string | null
+          deposit_account_ref: Json | null
           id: string
           invoice_id: string
+          last_sync_at: string | null
+          net_amount: number | null
           notes: string | null
           organization_id: string
           payment_date: string
           payment_method: string
+          payment_processor: string | null
+          payment_status: string | null
+          processor_fee: number | null
+          processor_transaction_id: string | null
+          qbo_created_at: string | null
+          qbo_id: string | null
+          qbo_sync_status: string | null
+          qbo_sync_token: number | null
+          qbo_updated_at: string | null
+          receipt_filename: string | null
+          receipt_url: string | null
+          reconciled_at: string | null
+          reconciliation_ref: string | null
+          reconciliation_status: string | null
           reference_number: string | null
+          refund_amount: number | null
+          refund_date: string | null
+          reversal_reason: string | null
+          reverses_payment_id: string | null
+          unapplied: boolean | null
+          unapplied_amount: number | null
           updated_at: string
         }
         Insert: {
           amount: number
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
+          deposit_account_ref?: Json | null
           id?: string
           invoice_id: string
+          last_sync_at?: string | null
+          net_amount?: number | null
           notes?: string | null
           organization_id: string
           payment_date?: string
           payment_method?: string
+          payment_processor?: string | null
+          payment_status?: string | null
+          processor_fee?: number | null
+          processor_transaction_id?: string | null
+          qbo_created_at?: string | null
+          qbo_id?: string | null
+          qbo_sync_status?: string | null
+          qbo_sync_token?: number | null
+          qbo_updated_at?: string | null
+          receipt_filename?: string | null
+          receipt_url?: string | null
+          reconciled_at?: string | null
+          reconciliation_ref?: string | null
+          reconciliation_status?: string | null
           reference_number?: string | null
+          refund_amount?: number | null
+          refund_date?: string | null
+          reversal_reason?: string | null
+          reverses_payment_id?: string | null
+          unapplied?: boolean | null
+          unapplied_amount?: number | null
           updated_at?: string
         }
         Update: {
           amount?: number
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
+          deposit_account_ref?: Json | null
           id?: string
           invoice_id?: string
+          last_sync_at?: string | null
+          net_amount?: number | null
           notes?: string | null
           organization_id?: string
           payment_date?: string
           payment_method?: string
+          payment_processor?: string | null
+          payment_status?: string | null
+          processor_fee?: number | null
+          processor_transaction_id?: string | null
+          qbo_created_at?: string | null
+          qbo_id?: string | null
+          qbo_sync_status?: string | null
+          qbo_sync_token?: number | null
+          qbo_updated_at?: string | null
+          receipt_filename?: string | null
+          receipt_url?: string | null
+          reconciled_at?: string | null
+          reconciliation_ref?: string | null
+          reconciliation_status?: string | null
           reference_number?: string | null
+          refund_amount?: number | null
+          refund_date?: string | null
+          reversal_reason?: string | null
+          reverses_payment_id?: string | null
+          unapplied?: boolean | null
+          unapplied_amount?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -1967,6 +2132,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payment_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profile"
             referencedColumns: ["id"]
           },
           {
@@ -1981,6 +2153,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payment_reverses_payment_id_fkey"
+            columns: ["reverses_payment_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_payment"
             referencedColumns: ["id"]
           },
         ]
@@ -2294,96 +2473,162 @@ export type Database = {
       item_record: {
         Row: {
           asset_account_id: string | null
+          asset_account_ref: Json | null
           created_at: string | null
           custom_fields: Json | null
           description: string | null
           expense_account_id: string | null
+          expense_account_ref: Json | null
+          fully_qualified_name: string | null
           id: string
           income_account_id: string | null
+          income_account_ref: Json | null
+          inv_start_date: string | null
           is_active: boolean | null
           is_taxable: boolean | null
           item_type: string | null
           last_sync_at: string | null
+          level: number | null
+          man_part_num: string | null
           manufacturer: string | null
           manufacturer_part_number: string | null
           name: string
           organization_id: string
+          parent_ref: Json | null
+          pref_vendor_ref: Json | null
           purchase_cost: number | null
+          purchase_desc: string | null
           purchase_description: string | null
+          purchase_tax_code_ref: Json | null
+          qbo_created_at: string | null
           qbo_id: string | null
           qbo_sync_status: string | null
+          qbo_sync_token: number | null
+          qbo_updated_at: string | null
+          quantity_on_hand: number | null
           reorder_point: number | null
+          sales_tax_code_ref: Json | null
+          sales_tax_included: boolean | null
           size: string | null
           size_unit: string | null
           sku: string | null
           source_system: string | null
+          sub_item: boolean | null
           sync_status: string | null
           tax_code: string | null
           tax_rate: number | null
+          taxable: boolean | null
+          track_qty_on_hand: boolean | null
+          unit_price: number | null
+          uom_set_ref: Json | null
           updated_at: string | null
           weight: number | null
           weight_unit: string | null
         }
         Insert: {
           asset_account_id?: string | null
+          asset_account_ref?: Json | null
           created_at?: string | null
           custom_fields?: Json | null
           description?: string | null
           expense_account_id?: string | null
+          expense_account_ref?: Json | null
+          fully_qualified_name?: string | null
           id?: string
           income_account_id?: string | null
+          income_account_ref?: Json | null
+          inv_start_date?: string | null
           is_active?: boolean | null
           is_taxable?: boolean | null
           item_type?: string | null
           last_sync_at?: string | null
+          level?: number | null
+          man_part_num?: string | null
           manufacturer?: string | null
           manufacturer_part_number?: string | null
           name: string
           organization_id: string
+          parent_ref?: Json | null
+          pref_vendor_ref?: Json | null
           purchase_cost?: number | null
+          purchase_desc?: string | null
           purchase_description?: string | null
+          purchase_tax_code_ref?: Json | null
+          qbo_created_at?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          qbo_sync_token?: number | null
+          qbo_updated_at?: string | null
+          quantity_on_hand?: number | null
           reorder_point?: number | null
+          sales_tax_code_ref?: Json | null
+          sales_tax_included?: boolean | null
           size?: string | null
           size_unit?: string | null
           sku?: string | null
           source_system?: string | null
+          sub_item?: boolean | null
           sync_status?: string | null
           tax_code?: string | null
           tax_rate?: number | null
+          taxable?: boolean | null
+          track_qty_on_hand?: boolean | null
+          unit_price?: number | null
+          uom_set_ref?: Json | null
           updated_at?: string | null
           weight?: number | null
           weight_unit?: string | null
         }
         Update: {
           asset_account_id?: string | null
+          asset_account_ref?: Json | null
           created_at?: string | null
           custom_fields?: Json | null
           description?: string | null
           expense_account_id?: string | null
+          expense_account_ref?: Json | null
+          fully_qualified_name?: string | null
           id?: string
           income_account_id?: string | null
+          income_account_ref?: Json | null
+          inv_start_date?: string | null
           is_active?: boolean | null
           is_taxable?: boolean | null
           item_type?: string | null
           last_sync_at?: string | null
+          level?: number | null
+          man_part_num?: string | null
           manufacturer?: string | null
           manufacturer_part_number?: string | null
           name?: string
           organization_id?: string
+          parent_ref?: Json | null
+          pref_vendor_ref?: Json | null
           purchase_cost?: number | null
+          purchase_desc?: string | null
           purchase_description?: string | null
+          purchase_tax_code_ref?: Json | null
+          qbo_created_at?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          qbo_sync_token?: number | null
+          qbo_updated_at?: string | null
+          quantity_on_hand?: number | null
           reorder_point?: number | null
+          sales_tax_code_ref?: Json | null
+          sales_tax_included?: boolean | null
           size?: string | null
           size_unit?: string | null
           sku?: string | null
           source_system?: string | null
+          sub_item?: boolean | null
           sync_status?: string | null
           tax_code?: string | null
           tax_rate?: number | null
+          taxable?: boolean | null
+          track_qty_on_hand?: boolean | null
+          unit_price?: number | null
+          uom_set_ref?: Json | null
           updated_at?: string | null
           weight?: number | null
           weight_unit?: string | null
