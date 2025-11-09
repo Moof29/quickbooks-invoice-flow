@@ -88,12 +88,12 @@ Deno.serve(async (req) => {
         throw invoicePaymentsError;
       }
 
-      // Delete invoices (references customers - SET NULL blocked by trigger)
-      console.log('Deleting invoices...');
+      // Delete ALL invoices for the organization (not just those with customer_ids)
+      // This prevents the trigger from firing on orphaned invoices during customer deletion
+      console.log('Deleting ALL invoices for organization...');
       const { error: invoicesError } = await supabase
         .from('invoice_record')
         .delete()
-        .in('customer_id', customerIds)
         .eq('organization_id', organizationId);
 
       if (invoicesError) {
