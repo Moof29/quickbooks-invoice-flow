@@ -73,7 +73,9 @@ export function ClearDatabaseButton() {
               <ul className="list-disc list-inside mt-2 space-y-1 font-semibold">
                 <li>All products/items</li>
                 <li>All customers and customer templates</li>
-                <li>All invoices associated with these customers</li>
+                <li>All invoices, payments, and related records</li>
+                <li>All estimates, credit memos, and sales receipts</li>
+                <li>All customer messages and payment methods</li>
               </ul>
               <br />
               <strong className="text-destructive">This action cannot be undone.</strong>
