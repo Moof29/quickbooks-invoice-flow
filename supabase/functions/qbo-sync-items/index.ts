@@ -201,7 +201,73 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
           description: qbItem.Description || null,
           item_type: qbItem.Type || null,
           is_active: qbItem.Active !== false,
-          purchase_cost: qbItem.UnitPrice ? parseFloat(qbItem.UnitPrice.toString()) : null,
+
+          // FIX: Correctly map UnitPrice to unit_price (selling price)
+          unit_price: qbItem.UnitPrice ? parseFloat(qbItem.UnitPrice.toString()) : null,
+
+          // Add PurchaseCost as separate field (cost price)
+          purchase_cost: qbItem.PurchaseCost ? parseFloat(qbItem.PurchaseCost.toString()) : null,
+
+          // Add inventory tracking
+          quantity_on_hand: qbItem.QtyOnHand ? parseFloat(qbItem.QtyOnHand.toString()) : null,
+          track_qty_on_hand: qbItem.TrackQtyOnHand || false,
+          reorder_point: qbItem.ReorderPoint ? parseFloat(qbItem.ReorderPoint.toString()) : null,
+          inv_start_date: qbItem.InvStartDate || null,
+
+          // Add account references
+          income_account_ref: qbItem.IncomeAccountRef ? {
+            value: qbItem.IncomeAccountRef.value,
+            name: qbItem.IncomeAccountRef.name
+          } : null,
+          expense_account_ref: qbItem.ExpenseAccountRef ? {
+            value: qbItem.ExpenseAccountRef.value,
+            name: qbItem.ExpenseAccountRef.name
+          } : null,
+          asset_account_ref: qbItem.AssetAccountRef ? {
+            value: qbItem.AssetAccountRef.value,
+            name: qbItem.AssetAccountRef.name
+          } : null,
+
+          // Add tax configuration
+          taxable: qbItem.Taxable !== false,
+          sales_tax_code_ref: qbItem.SalesTaxCodeRef ? {
+            value: qbItem.SalesTaxCodeRef.value,
+            name: qbItem.SalesTaxCodeRef.name
+          } : null,
+          purchase_tax_code_ref: qbItem.PurchaseTaxCodeRef ? {
+            value: qbItem.PurchaseTaxCodeRef.value,
+            name: qbItem.PurchaseTaxCodeRef.name
+          } : null,
+          sales_tax_included: qbItem.SalesTaxIncluded || false,
+
+          // Add item hierarchy
+          parent_ref: qbItem.ParentRef ? {
+            value: qbItem.ParentRef.value,
+            name: qbItem.ParentRef.name
+          } : null,
+          sub_item: qbItem.SubItem || false,
+          level: qbItem.Level || 0,
+          fully_qualified_name: qbItem.FullyQualifiedName || qbItem.Name,
+
+          // Add vendor information
+          pref_vendor_ref: qbItem.PrefVendorRef ? {
+            value: qbItem.PrefVendorRef.value,
+            name: qbItem.PrefVendorRef.name
+          } : null,
+          purchase_desc: qbItem.PurchaseDesc || null,
+          man_part_num: qbItem.ManPartNum || null,
+
+          // Add unit of measure
+          uom_set_ref: qbItem.UOMSetRef ? {
+            value: qbItem.UOMSetRef.value,
+            name: qbItem.UOMSetRef.name
+          } : null,
+
+          // Add sync metadata
+          qbo_sync_token: qbItem.SyncToken ? parseInt(qbItem.SyncToken.toString()) : null,
+          qbo_created_at: qbItem.MetaData?.CreateTime || null,
+          qbo_updated_at: qbItem.MetaData?.LastUpdatedTime || null,
+
           sync_status: 'synced',
           last_sync_at: new Date().toISOString(),
         };
