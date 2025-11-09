@@ -1,0 +1,1108 @@
+# COMPLETE PROMPT FOR LOVABLE - COPY AND PASTE THIS ENTIRE MESSAGE
+
+---
+
+## 🎯 TASK OVERVIEW
+
+You need to implement database schema changes and deploy functions to align Batchly with the QuickBooks Online API. This fixes critical bugs (incorrect price mapping) and adds missing payment tracking functionality.
+
+**CRITICAL FIXES:**
+1. Item table has `UnitPrice` incorrectly mapped to `purchase_cost` - needs to be fixed
+2. Payment sync from QuickBooks is completely missing - needs to be implemented
+3. Many fields needed for order-taking and payment tracking are missing
+
+**YOUR MISSION:**
+1. Apply 3 database migrations in exact order
+2. Deploy 2 edge functions (1 updated, 1 new)
+3. Test everything works
+4. Create a completion report
+
+---
+
+## ⚠️ CRITICAL INSTRUCTIONS
+
+- **Run migrations in EXACT ORDER** (numbered 1, 2, 3 below)
+- **Use Supabase Dashboard SQL Editor** for migrations (copy-paste each entire migration)
+- **Verify each step** before moving to the next
+- **Document any errors** you encounter
+- **Create IMPLEMENTATION_REPORT.md** when done
+
+---
+
+## 📋 STEP-BY-STEP IMPLEMENTATION
+
+---
+
+### STEP 1: Apply First Migration - Fix Item Table
+
+**What this does:**
+- Renames `item_record.purchase_cost` → `item_record.unit_price` (CRITICAL BUG FIX)
+- Adds new `purchase_cost` column for actual cost price
+- Adds 28 new fields for inventory, accounting, tax, hierarchy
+
+**How to do it:**
+1. Open Supabase Dashboard
+2. Go to SQL Editor
+3. Click "New Query"
+4. Copy and paste the ENTIRE SQL below
+5. Click "Run"
+6. Verify you see a success message
+
+**MIGRATION SQL TO RUN:**
+
+```sql
+-- Migration: Align Item table with QuickBooks Online Item API
+-- Purpose: Fix incorrect mappings and add critical fields for order-taking and payment tracking
+-- Date: 2025-11-09
+
+-- ==============================================================================
+-- STEP 1: Fix UnitPrice mapping (CRITICAL BUG FIX)
+-- ==============================================================================
+-- Currently: purchase_cost is incorrectly storing UnitPrice (selling price)
+-- Should be: unit_price stores selling price, purchase_cost stores cost price
+
+-- First, rename the incorrectly named column
+ALTER TABLE item_record
+  RENAME COLUMN purchase_cost TO unit_price;
+
+-- Add the actual purchase_cost column (what we pay to acquire the item)
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS purchase_cost NUMERIC(10,2);
+
+-- ==============================================================================
+-- STEP 2: Add critical inventory tracking fields
+-- ==============================================================================
+
+-- Add quantity_on_hand (currently missing but critical for inventory)
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS quantity_on_hand NUMERIC(10,2) DEFAULT 0;
+
+-- Add flag to indicate if quantity tracking is enabled
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS track_qty_on_hand BOOLEAN DEFAULT false;
+
+-- Add reorder point for inventory management
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS reorder_point NUMERIC(10,2);
+
+-- Add inventory start date for audit trail
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS inv_start_date DATE;
+
+-- ==============================================================================
+-- STEP 3: Add account references for proper accounting
+-- ==============================================================================
+-- Store as JSONB to match QBO structure: {value: "123", name: "Income Account"}
+
+-- Income account for sales
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS income_account_ref JSONB;
+
+-- Expense account for purchases
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS expense_account_ref JSONB;
+
+-- Asset account for inventory items
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS asset_account_ref JSONB;
+
+-- ==============================================================================
+-- STEP 4: Add tax configuration
+-- ==============================================================================
+
+-- Whether the item is taxable
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS taxable BOOLEAN DEFAULT true;
+
+-- Sales tax code reference
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS sales_tax_code_ref JSONB;
+
+-- Purchase tax code reference
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS purchase_tax_code_ref JSONB;
+
+-- Whether tax is included in the unit price
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS sales_tax_included BOOLEAN DEFAULT false;
+
+-- ==============================================================================
+-- STEP 5: Add item hierarchy support
+-- ==============================================================================
+
+-- Parent item reference for sub-items
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS parent_ref JSONB;
+
+-- Flag indicating this is a sub-item
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS sub_item BOOLEAN DEFAULT false;
+
+-- Hierarchy level (0 = top level)
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 0;
+
+-- Fully qualified name including parent hierarchy
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS fully_qualified_name TEXT;
+
+-- ==============================================================================
+-- STEP 6: Add vendor and purchasing fields
+-- ==============================================================================
+
+-- Preferred vendor reference
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS pref_vendor_ref JSONB;
+
+-- Purchase description (may differ from sales description)
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS purchase_desc TEXT;
+
+-- Manufacturer part number (additional to SKU)
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS man_part_num TEXT;
+
+-- ==============================================================================
+-- STEP 7: Add QBO sync metadata
+-- ==============================================================================
+
+-- Sync token for optimistic locking (prevents conflicts)
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS qbo_sync_token INTEGER;
+
+-- QBO creation and update timestamps (separate from our timestamps)
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS qbo_created_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS qbo_updated_at TIMESTAMP WITH TIME ZONE;
+
+-- ==============================================================================
+-- STEP 8: Add unit of measure support
+-- ==============================================================================
+
+-- Unit of measure set reference
+ALTER TABLE item_record
+  ADD COLUMN IF NOT EXISTS uom_set_ref JSONB;
+
+-- ==============================================================================
+-- STEP 9: Create indexes for performance
+-- ==============================================================================
+
+-- Index on account references for reporting
+CREATE INDEX IF NOT EXISTS idx_item_income_account
+  ON item_record USING gin(income_account_ref)
+  WHERE income_account_ref IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_item_expense_account
+  ON item_record USING gin(expense_account_ref)
+  WHERE expense_account_ref IS NOT NULL;
+
+-- Index on taxable items for tax calculations
+CREATE INDEX IF NOT EXISTS idx_item_taxable
+  ON item_record(taxable, organization_id)
+  WHERE is_active = true;
+
+-- Index on inventory tracking
+CREATE INDEX IF NOT EXISTS idx_item_tracked_inventory
+  ON item_record(track_qty_on_hand, organization_id)
+  WHERE track_qty_on_hand = true AND is_active = true;
+
+-- Index on parent reference for hierarchy queries
+CREATE INDEX IF NOT EXISTS idx_item_parent_ref
+  ON item_record USING gin(parent_ref)
+  WHERE parent_ref IS NOT NULL;
+
+-- Index on vendor reference for purchasing
+CREATE INDEX IF NOT EXISTS idx_item_vendor_ref
+  ON item_record USING gin(pref_vendor_ref)
+  WHERE pref_vendor_ref IS NOT NULL;
+
+-- ==============================================================================
+-- STEP 10: Add helpful comments
+-- ==============================================================================
+
+COMMENT ON COLUMN item_record.unit_price IS
+  'Selling price (what customers pay) - maps to QBO UnitPrice field';
+
+COMMENT ON COLUMN item_record.purchase_cost IS
+  'Cost price (what we pay) - maps to QBO PurchaseCost field';
+
+COMMENT ON COLUMN item_record.quantity_on_hand IS
+  'Current inventory quantity - maps to QBO QtyOnHand field';
+
+COMMENT ON COLUMN item_record.qbo_sync_token IS
+  'QBO version number for optimistic locking - prevents sync conflicts';
+
+COMMENT ON COLUMN item_record.income_account_ref IS
+  'Income account reference for sales - format: {"value": "123", "name": "Income"}';
+
+COMMENT ON COLUMN item_record.expense_account_ref IS
+  'Expense account reference for purchases - format: {"value": "123", "name": "COGS"}';
+
+COMMENT ON COLUMN item_record.asset_account_ref IS
+  'Asset account reference for inventory - format: {"value": "123", "name": "Inventory Asset"}';
+```
+
+**VERIFY STEP 1:**
+After running the migration, run this verification query:
+
+```sql
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'item_record'
+  AND column_name IN ('unit_price', 'purchase_cost', 'quantity_on_hand', 'taxable')
+ORDER BY column_name;
+```
+
+**Expected result:** You should see all 4 columns listed.
+
+---
+
+### STEP 2: Apply Second Migration - Payment Tracking
+
+**What this does:**
+- Adds 16 new fields to `invoice_payment` table for QBO sync
+- Adds payment gateway integration fields
+- Adds reconciliation tracking
+- Creates unique constraint and indexes
+
+**How to do it:**
+1. In Supabase Dashboard SQL Editor
+2. Click "New Query"
+3. Copy and paste the ENTIRE SQL below
+4. Click "Run"
+
+**MIGRATION SQL TO RUN:**
+
+```sql
+-- Migration: Enhance Payment tracking for QBO sync and reconciliation
+-- Purpose: Add critical fields for tracking what is paid and synchronizing with QuickBooks
+-- Date: 2025-11-09
+
+-- ==============================================================================
+-- STEP 1: Add QBO sync fields (CRITICAL - currently missing)
+-- ==============================================================================
+
+-- QuickBooks Payment ID
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS qbo_id TEXT;
+
+-- QBO sync status (synced, pending, failed, not_synced)
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS qbo_sync_status TEXT DEFAULT 'not_synced';
+
+-- QBO sync token for optimistic locking
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS qbo_sync_token INTEGER;
+
+-- Last sync timestamp
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMP WITH TIME ZONE;
+
+-- QBO creation and update timestamps
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS qbo_created_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS qbo_updated_at TIMESTAMP WITH TIME ZONE;
+
+-- ==============================================================================
+-- STEP 2: Add deposit account reference
+-- ==============================================================================
+
+-- Deposit account reference (where payment was deposited)
+-- Format: {"value": "123", "name": "Checking Account"}
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS deposit_account_ref JSONB;
+
+-- ==============================================================================
+-- STEP 3: Add payment gateway/processor fields
+-- ==============================================================================
+
+-- Payment processor (stripe, square, paypal, etc.)
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS payment_processor TEXT;
+
+-- Payment processor transaction ID
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS processor_transaction_id TEXT;
+
+-- Payment processor fee
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS processor_fee NUMERIC(10,2);
+
+-- Net amount received (amount - processor_fee)
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS net_amount NUMERIC(10,2);
+
+-- ==============================================================================
+-- STEP 4: Add unapplied payment support
+-- ==============================================================================
+
+-- Flag for unapplied payments (payments not yet linked to invoice)
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS unapplied BOOLEAN DEFAULT false;
+
+-- Original unapplied amount (for tracking partial applications)
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS unapplied_amount NUMERIC(10,2);
+
+-- ==============================================================================
+-- STEP 5: Add payment status tracking
+-- ==============================================================================
+
+-- Payment status (completed, pending, failed, reversed, refunded)
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'completed';
+
+-- Check constraint for payment_status
+ALTER TABLE invoice_payment
+  ADD CONSTRAINT payment_status_check
+  CHECK (payment_status IN ('completed', 'pending', 'failed', 'reversed', 'refunded', 'disputed'));
+
+-- Check constraint for qbo_sync_status
+ALTER TABLE invoice_payment
+  ADD CONSTRAINT qbo_sync_status_check
+  CHECK (qbo_sync_status IN ('synced', 'pending', 'failed', 'not_synced'));
+
+-- ==============================================================================
+-- STEP 6: Add reversal/refund tracking
+-- ==============================================================================
+
+-- If this payment reverses another payment
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS reverses_payment_id UUID REFERENCES invoice_payment(id);
+
+-- Reason for reversal or refund
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS reversal_reason TEXT;
+
+-- Refund amount (if partial refund)
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS refund_amount NUMERIC(10,2);
+
+-- Refund date
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS refund_date DATE;
+
+-- ==============================================================================
+-- STEP 7: Add reconciliation fields
+-- ==============================================================================
+
+-- Bank reconciliation status
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS reconciliation_status TEXT DEFAULT 'unreconciled';
+
+-- Bank reconciliation date
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS reconciled_at TIMESTAMP WITH TIME ZONE;
+
+-- Bank reconciliation reference
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS reconciliation_ref TEXT;
+
+-- Check constraint for reconciliation_status
+ALTER TABLE invoice_payment
+  ADD CONSTRAINT reconciliation_status_check
+  CHECK (reconciliation_status IN ('unreconciled', 'reconciled', 'voided'));
+
+-- ==============================================================================
+-- STEP 8: Add receipt/attachment support
+-- ==============================================================================
+
+-- Receipt file path or URL
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS receipt_url TEXT;
+
+-- Receipt file name
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS receipt_filename TEXT;
+
+-- ==============================================================================
+-- STEP 9: Expand payment method options
+-- ==============================================================================
+
+-- Update default payment_method to be more descriptive
+COMMENT ON COLUMN invoice_payment.payment_method IS
+  'Payment method: cash, check, credit_card, debit_card, ach, wire_transfer, paypal, stripe, other';
+
+-- ==============================================================================
+-- STEP 10: Add customer reference for direct tracking
+-- ==============================================================================
+
+-- Customer reference (useful for unapplied payments)
+ALTER TABLE invoice_payment
+  ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customer_profile(id);
+
+-- ==============================================================================
+-- STEP 11: Create unique constraint for QBO sync
+-- ==============================================================================
+
+-- Ensure we don't duplicate QBO payments
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_payment_org_qbo_unique
+  ON invoice_payment(organization_id, qbo_id)
+  WHERE qbo_id IS NOT NULL;
+
+-- ==============================================================================
+-- STEP 12: Create indexes for performance
+-- ==============================================================================
+
+-- Index for QBO sync operations
+CREATE INDEX IF NOT EXISTS idx_payment_qbo_sync_status
+  ON invoice_payment(organization_id, qbo_sync_status)
+  WHERE qbo_sync_status != 'synced';
+
+-- Index for reconciliation queries
+CREATE INDEX IF NOT EXISTS idx_payment_reconciliation
+  ON invoice_payment(organization_id, reconciliation_status, payment_date)
+  WHERE reconciliation_status = 'unreconciled';
+
+-- Index for payment processor lookups
+CREATE INDEX IF NOT EXISTS idx_payment_processor
+  ON invoice_payment(payment_processor, processor_transaction_id)
+  WHERE payment_processor IS NOT NULL;
+
+-- Index for unapplied payments
+CREATE INDEX IF NOT EXISTS idx_payment_unapplied
+  ON invoice_payment(organization_id, customer_id)
+  WHERE unapplied = true;
+
+-- Index for payment status tracking
+CREATE INDEX IF NOT EXISTS idx_payment_status
+  ON invoice_payment(organization_id, payment_status, payment_date);
+
+-- Index for customer payments
+CREATE INDEX IF NOT EXISTS idx_payment_customer
+  ON invoice_payment(customer_id, payment_date DESC)
+  WHERE customer_id IS NOT NULL;
+
+-- ==============================================================================
+-- STEP 13: Add helpful comments
+-- ==============================================================================
+
+COMMENT ON COLUMN invoice_payment.qbo_id IS
+  'QuickBooks Payment transaction ID';
+
+COMMENT ON COLUMN invoice_payment.deposit_account_ref IS
+  'Account where payment was deposited - format: {"value": "123", "name": "Checking"}';
+
+COMMENT ON COLUMN invoice_payment.unapplied IS
+  'True if payment not yet applied to an invoice (advance payment)';
+
+COMMENT ON COLUMN invoice_payment.payment_status IS
+  'Status: completed, pending, failed, reversed, refunded, disputed';
+
+COMMENT ON COLUMN invoice_payment.reconciliation_status IS
+  'Bank reconciliation status: unreconciled, reconciled, voided';
+
+COMMENT ON COLUMN invoice_payment.processor_fee IS
+  'Payment gateway processing fee';
+
+COMMENT ON COLUMN invoice_payment.net_amount IS
+  'Net amount received after processor fees';
+```
+
+**VERIFY STEP 2:**
+Run this verification query:
+
+```sql
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'invoice_payment'
+  AND column_name IN ('qbo_id', 'qbo_sync_status', 'deposit_account_ref', 'unapplied', 'payment_status')
+ORDER BY column_name;
+```
+
+**Expected result:** All 5 columns should be listed.
+
+---
+
+### STEP 3: Apply Third Migration - Customer Enhancements
+
+**What this does:**
+- Adds 30+ fields to `customer_profile` for credit management
+- Adds separate shipping address
+- Adds tax exemption tracking
+- Adds payment history and recurring billing fields
+
+**How to do it:**
+1. In Supabase Dashboard SQL Editor
+2. Click "New Query"
+3. Copy and paste the ENTIRE SQL below
+4. Click "Run"
+
+**MIGRATION SQL TO RUN:**
+
+```sql
+-- Migration: Enhance Customer table for order-taking and credit management
+-- Purpose: Add critical fields for managing billing, credit terms, and payment tracking
+-- Date: 2025-11-09
+
+-- ==============================================================================
+-- STEP 1: Add payment terms and credit management
+-- ==============================================================================
+
+-- Payment terms (Net 30, Net 15, Due on receipt, etc.)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS payment_terms TEXT;
+
+-- Payment terms reference (QBO format)
+-- Format: {"value": "123", "name": "Net 30"}
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS payment_terms_ref JSONB;
+
+-- Credit limit for the customer
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS credit_limit NUMERIC(12,2);
+
+-- Credit hold flag (stop new orders if true)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS credit_hold BOOLEAN DEFAULT false;
+
+-- Reason for credit hold
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS credit_hold_reason TEXT;
+
+-- ==============================================================================
+-- STEP 2: Add shipping information
+-- ==============================================================================
+
+-- Shipping address (separate from billing)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS shipping_address_line1 VARCHAR(255);
+
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS shipping_address_line2 VARCHAR(255);
+
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS shipping_city VARCHAR(100);
+
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS shipping_state VARCHAR(50);
+
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS shipping_postal_code VARCHAR(20);
+
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS shipping_country VARCHAR(50) DEFAULT 'USA';
+
+-- Preferred shipping method
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS preferred_shipping_method TEXT;
+
+-- ==============================================================================
+-- STEP 3: Add tax configuration
+-- ==============================================================================
+
+-- Tax ID / EIN
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS tax_id VARCHAR(50);
+
+-- Tax exempt flag
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS tax_exempt BOOLEAN DEFAULT false;
+
+-- Tax exemption reason code
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS tax_exempt_reason TEXT;
+
+-- Tax exemption certificate number
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS tax_exempt_cert_number VARCHAR(100);
+
+-- Sales tax code reference
+-- Format: {"value": "123", "name": "CA-TAX"}
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS sales_tax_code_ref JSONB;
+
+-- ==============================================================================
+-- STEP 4: Add customer contact information
+-- ==============================================================================
+
+-- Primary contact person name
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255);
+
+-- Contact title/position
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS contact_title VARCHAR(100);
+
+-- Mobile phone
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS mobile_phone VARCHAR(20);
+
+-- Fax number
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS fax_number VARCHAR(20);
+
+-- Website
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS website_url TEXT;
+
+-- ==============================================================================
+-- STEP 5: Add pricing and billing preferences
+-- ==============================================================================
+
+-- Price level reference (for customer-specific pricing)
+-- Format: {"value": "123", "name": "Wholesale"}
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS price_level_ref JSONB;
+
+-- Preferred delivery method for invoices
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS invoice_delivery_method TEXT DEFAULT 'email';
+
+-- Check constraint for invoice delivery method
+ALTER TABLE customer_profile
+  ADD CONSTRAINT invoice_delivery_check
+  CHECK (invoice_delivery_method IN ('email', 'mail', 'portal', 'none'));
+
+-- Currency preference (for multi-currency support)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS currency_code VARCHAR(3) DEFAULT 'USD';
+
+-- ==============================================================================
+-- STEP 6: Add customer classification
+-- ==============================================================================
+
+-- Customer type/category
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS customer_type TEXT;
+
+-- Customer class reference
+-- Format: {"value": "123", "name": "Wholesale"}
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS customer_class_ref JSONB;
+
+-- Account number (customer's reference number)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS account_number VARCHAR(100);
+
+-- ==============================================================================
+-- STEP 7: Add payment tracking fields
+-- ==============================================================================
+
+-- Last payment date
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS last_payment_date DATE;
+
+-- Last payment amount
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS last_payment_amount NUMERIC(10,2);
+
+-- Total amount overdue
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS overdue_balance NUMERIC(12,2) DEFAULT 0;
+
+-- Days past due (computed or updated by trigger)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS days_past_due INTEGER DEFAULT 0;
+
+-- ==============================================================================
+-- STEP 8: Add notes and internal use fields
+-- ==============================================================================
+
+-- Internal notes (not visible to customer)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS internal_notes TEXT;
+
+-- Customer notes (may be visible on documents)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS customer_notes TEXT;
+
+-- Special billing instructions
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS billing_instructions TEXT;
+
+-- ==============================================================================
+-- STEP 9: Add recurring billing support
+-- ==============================================================================
+
+-- Billing frequency (daily, weekly, monthly, etc.)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS billing_frequency TEXT;
+
+-- Check constraint for billing frequency
+ALTER TABLE customer_profile
+  ADD CONSTRAINT billing_frequency_check
+  CHECK (billing_frequency IN ('daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'annually', 'custom', NULL));
+
+-- Preferred billing day (day of week or day of month)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS preferred_billing_day INTEGER;
+
+-- Auto-generate invoices flag
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS auto_invoice BOOLEAN DEFAULT false;
+
+-- ==============================================================================
+-- STEP 10: Add QBO relationship fields
+-- ==============================================================================
+
+-- Parent customer reference (for hierarchical customers)
+-- Format: {"value": "123", "name": "Parent Company"}
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS parent_ref JSONB;
+
+-- Job flag (customer is a job/sub-customer)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS is_job BOOLEAN DEFAULT false;
+
+-- Job type (if this is a job)
+ALTER TABLE customer_profile
+  ADD COLUMN IF NOT EXISTS job_type TEXT;
+
+-- ==============================================================================
+-- STEP 11: Create indexes for performance
+-- ==============================================================================
+
+-- Index for credit hold customers
+CREATE INDEX IF NOT EXISTS idx_customer_credit_hold
+  ON customer_profile(organization_id, credit_hold)
+  WHERE credit_hold = true AND is_active = true;
+
+-- Index for overdue customers
+CREATE INDEX IF NOT EXISTS idx_customer_overdue
+  ON customer_profile(organization_id, overdue_balance, days_past_due)
+  WHERE overdue_balance > 0 AND is_active = true;
+
+-- Index for tax exempt customers
+CREATE INDEX IF NOT EXISTS idx_customer_tax_exempt
+  ON customer_profile(organization_id, tax_exempt)
+  WHERE tax_exempt = true AND is_active = true;
+
+-- Index for customer type/classification
+CREATE INDEX IF NOT EXISTS idx_customer_type
+  ON customer_profile(organization_id, customer_type)
+  WHERE customer_type IS NOT NULL AND is_active = true;
+
+-- Index for billing frequency
+CREATE INDEX IF NOT EXISTS idx_customer_billing_frequency
+  ON customer_profile(organization_id, billing_frequency)
+  WHERE billing_frequency IS NOT NULL AND auto_invoice = true;
+
+-- Index for account number lookups
+CREATE INDEX IF NOT EXISTS idx_customer_account_number
+  ON customer_profile(organization_id, account_number)
+  WHERE account_number IS NOT NULL;
+
+-- Composite index for shipping address lookups
+CREATE INDEX IF NOT EXISTS idx_customer_shipping_location
+  ON customer_profile(shipping_city, shipping_state)
+  WHERE shipping_city IS NOT NULL AND is_active = true;
+
+-- ==============================================================================
+-- STEP 12: Add helpful comments
+-- ==============================================================================
+
+COMMENT ON COLUMN customer_profile.payment_terms IS
+  'Payment terms: Net 30, Net 15, Due on receipt, 2/10 Net 30, etc.';
+
+COMMENT ON COLUMN customer_profile.credit_limit IS
+  'Maximum credit limit for this customer';
+
+COMMENT ON COLUMN customer_profile.credit_hold IS
+  'If true, prevent new orders until resolved';
+
+COMMENT ON COLUMN customer_profile.tax_exempt IS
+  'If true, customer is exempt from sales tax';
+
+COMMENT ON COLUMN customer_profile.price_level_ref IS
+  'Customer-specific pricing level - format: {"value": "123", "name": "Wholesale"}';
+
+COMMENT ON COLUMN customer_profile.invoice_delivery_method IS
+  'How to deliver invoices: email, mail, portal, none';
+
+COMMENT ON COLUMN customer_profile.billing_frequency IS
+  'How often to bill: daily, weekly, monthly, etc.';
+
+COMMENT ON COLUMN customer_profile.auto_invoice IS
+  'Automatically generate invoices based on billing frequency';
+
+COMMENT ON COLUMN customer_profile.overdue_balance IS
+  'Total amount currently overdue';
+
+COMMENT ON COLUMN customer_profile.days_past_due IS
+  'Number of days the oldest invoice is past due';
+
+COMMENT ON COLUMN customer_profile.internal_notes IS
+  'Internal notes - not visible to customer';
+
+COMMENT ON COLUMN customer_profile.billing_instructions IS
+  'Special instructions for billing this customer';
+```
+
+**VERIFY STEP 3:**
+Run this verification query:
+
+```sql
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'customer_profile'
+  AND column_name IN ('payment_terms', 'credit_limit', 'shipping_address_line1', 'tax_exempt', 'overdue_balance')
+ORDER BY column_name;
+```
+
+**Expected result:** All 5 columns should be listed.
+
+---
+
+### STEP 4: Deploy Edge Functions
+
+**Note:** The function code has already been updated in the repository. You just need to deploy them.
+
+**4A. Deploy Updated Item Sync Function:**
+
+```bash
+cd /home/user/quickbooks-invoice-flow
+supabase functions deploy qbo-sync-items
+```
+
+**Expected output:** "✓ Deployed function qbo-sync-items"
+
+**4B. Deploy New Payment Sync Function:**
+
+```bash
+supabase functions deploy qbo-sync-payments
+```
+
+**Expected output:** "✓ Deployed function qbo-sync-payments"
+
+**VERIFY:**
+- Go to Supabase Dashboard → Edge Functions
+- Confirm both `qbo-sync-items` and `qbo-sync-payments` are listed
+- Check that "Last deployed" timestamps are recent
+
+---
+
+### STEP 5: Test the Implementation
+
+**Test 5A: Test Item Sync**
+
+Trigger an item sync and verify:
+
+```sql
+-- After running item sync, check results
+SELECT
+  id,
+  name,
+  unit_price,        -- Should have selling price
+  purchase_cost,     -- Should have cost price (may be null)
+  quantity_on_hand,  -- Should have inventory qty
+  taxable,           -- Should be true/false
+  last_sync_at       -- Should be recent
+FROM item_record
+ORDER BY last_sync_at DESC NULLS LAST
+LIMIT 10;
+```
+
+**Test 5B: Test Payment Sync**
+
+Trigger a payment sync and verify:
+
+```sql
+-- After running payment sync, check results
+SELECT
+  id,
+  qbo_id,              -- Should have QB payment ID
+  customer_id,         -- Should link to customer
+  invoice_id,          -- Should link to invoice (or null if unapplied)
+  payment_date,
+  amount,
+  payment_method,
+  qbo_sync_status,     -- Should be 'synced'
+  unapplied            -- Should be true/false
+FROM invoice_payment
+WHERE qbo_id IS NOT NULL
+ORDER BY payment_date DESC
+LIMIT 10;
+```
+
+**Test 5C: Verify Invoice Amounts Updated**
+
+```sql
+-- Check that invoice amount_paid was updated automatically
+SELECT
+  invoice_number,
+  total,
+  amount_paid,
+  amount_due,        -- Should be total - amount_paid
+  status             -- Should be 'paid' if amount_due = 0
+FROM invoice_record
+WHERE amount_paid > 0
+ORDER BY invoice_date DESC
+LIMIT 10;
+```
+
+---
+
+### STEP 6: Data Validation Queries
+
+Run these to check for any issues:
+
+```sql
+-- 1. Check for items without price (should be low or 0)
+SELECT COUNT(*) as items_without_price
+FROM item_record
+WHERE is_active = true
+  AND unit_price IS NULL
+  AND item_type IN ('Service', 'NonInventory', 'Inventory');
+
+-- 2. Check for duplicate QBO payment IDs (should be 0)
+SELECT qbo_id, organization_id, COUNT(*) as duplicate_count
+FROM invoice_payment
+WHERE qbo_id IS NOT NULL
+GROUP BY qbo_id, organization_id
+HAVING COUNT(*) > 1;
+
+-- 3. Check invoice payment totals match
+SELECT
+  i.invoice_number,
+  i.amount_paid as invoice_amount_paid,
+  COALESCE(SUM(p.amount), 0) as calculated_payment_total,
+  i.amount_paid - COALESCE(SUM(p.amount), 0) as difference
+FROM invoice_record i
+LEFT JOIN invoice_payment p ON p.invoice_id = i.id
+GROUP BY i.id, i.invoice_number, i.amount_paid
+HAVING ABS(i.amount_paid - COALESCE(SUM(p.amount), 0)) > 0.01
+ORDER BY difference DESC
+LIMIT 10;
+```
+
+---
+
+### STEP 7: Create Implementation Report
+
+Create a new file: **IMPLEMENTATION_REPORT.md**
+
+Use this template:
+
+```markdown
+# Implementation Report: QuickBooks API Alignment
+
+**Date:** [Current Date]
+**Implemented by:** Lovable
+**To be reviewed by:** Claude
+
+## ✅ Completed Tasks
+
+### Database Migrations
+
+**Migration 1: Item Table**
+- Status: ✅ Success / ❌ Failed
+- Notes: [Any issues encountered]
+- Verification query result: [Number of columns found: should be 4]
+
+**Migration 2: Payment Tracking**
+- Status: ✅ Success / ❌ Failed
+- Notes: [Any issues encountered]
+- Verification query result: [Number of columns found: should be 5]
+
+**Migration 3: Customer Enhancements**
+- Status: ✅ Success / ❌ Failed
+- Notes: [Any issues encountered]
+- Verification query result: [Number of columns found: should be 5]
+
+### Function Deployments
+
+**qbo-sync-items (updated)**
+- Deployment status: ✅ Success / ❌ Failed
+- Deployment timestamp: [timestamp]
+- Test sync result: [Success/Error]
+- Number of items synced: [number]
+
+**qbo-sync-payments (new)**
+- Deployment status: ✅ Success / ❌ Failed
+- Deployment timestamp: [timestamp]
+- Test sync result: [Success/Error]
+- Number of payments synced: [number]
+
+### Testing Results
+
+**Item Sync Test:**
+- Status: ✅ PASS / ❌ FAIL
+- Details: [any issues]
+
+**Payment Sync Test:**
+- Status: ✅ PASS / ❌ FAIL
+- Details: [any issues]
+
+**Invoice Amount Update Test:**
+- Status: ✅ PASS / ❌ FAIL
+- Details: [any issues]
+
+### Data Validation
+
+**Items without price:** [count] (should be low)
+**Duplicate payment QBO IDs:** [count] (should be 0)
+**Invoice payment mismatches:** [count] (should be 0 or very low)
+
+## 🐛 Issues Encountered
+
+[List any errors, warnings, or unexpected behavior here]
+
+## 📊 Statistics
+
+- Total items in database: [count]
+- Items with unit_price: [count]
+- Items with quantity_on_hand: [count]
+- Total payments synced from QBO: [count]
+- Total customers with new fields: [count]
+
+## 🔄 Next Steps
+
+[Any recommendations or follow-up actions needed]
+
+## 📎 Error Logs
+
+[Paste any relevant error messages or logs here]
+
+---
+
+**Ready for Claude's review.**
+```
+
+---
+
+## ✅ FINAL CHECKLIST
+
+Before reporting back, confirm:
+
+- [ ] All 3 migrations ran successfully
+- [ ] Both functions deployed successfully
+- [ ] Item sync test passed
+- [ ] Payment sync test passed
+- [ ] Data validation queries run
+- [ ] IMPLEMENTATION_REPORT.md created
+- [ ] All errors documented
+
+---
+
+## 📞 WHAT TO TELL ME WHEN DONE
+
+Reply with:
+
+```
+Claude,
+
+Implementation complete!
+
+✅ STATUS: [All complete / Partial / Blocked]
+
+📊 QUICK STATS:
+- Migrations applied: 3/3
+- Functions deployed: 2/2
+- Items synced: [number]
+- Payments synced: [number]
+
+⚠️ ISSUES: [List any errors or problems]
+
+📎 Full report in IMPLEMENTATION_REPORT.md
+
+Ready for your review.
+```
+
+---
+
+**That's everything! Follow the steps in order and document your results. Good luck!** 🚀
