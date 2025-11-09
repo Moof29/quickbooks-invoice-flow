@@ -30,10 +30,18 @@ import {
   Plus,
   Star,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  SlidersHorizontal,
+  ChevronDown,
+  X,
+  AlertTriangle
 } from "lucide-react";
 import { format } from 'date-fns';
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MobileFAB } from "@/components/MobileFAB";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -80,6 +88,20 @@ export default function Items() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
   
+  // Advanced filters state
+  const [advancedFilters, setAdvancedFilters] = useState({
+    minPrice: '',
+    maxPrice: '',
+    minStock: '',
+    maxStock: '',
+    itemTypes: [] as string[],
+    lowStockOnly: false,
+    outOfStockOnly: false,
+    activeOnly: true,
+    syncedOnly: false,
+  });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -93,13 +115,30 @@ export default function Items() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // Fetch distinct item types for filter dropdown
+  const { data: itemTypes = [] } = useQuery<string[]>({
+    queryKey: ['item-types'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('item_record')
+        .select('item_type')
+        .not('item_type', 'is', null);
+
+      if (error) throw error;
+
+      // Get unique types
+      const uniqueTypes = [...new Set(data.map(item => item.item_type))].filter(Boolean);
+      return uniqueTypes as string[];
+    }
+  });
+
   // Fetch total count for pagination
   const { data: totalCount = 0 } = useQuery<number>({
-    queryKey: ['items-count', debouncedSearch],
+    queryKey: ['items-count', debouncedSearch, advancedFilters],
     queryFn: async () => {
       let query = supabase
         .from('item_record')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true }) as any;
 
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
@@ -117,6 +156,35 @@ export default function Items() {
         }
       }
 
+      // Apply advanced filters
+      if (advancedFilters.activeOnly) {
+        query = query.eq('is_active', true);
+      }
+      if (advancedFilters.minPrice) {
+        query = query.gte('unit_price', parseFloat(advancedFilters.minPrice));
+      }
+      if (advancedFilters.maxPrice) {
+        query = query.lte('unit_price', parseFloat(advancedFilters.maxPrice));
+      }
+      if (advancedFilters.minStock) {
+        query = query.gte('quantity_on_hand', parseInt(advancedFilters.minStock));
+      }
+      if (advancedFilters.maxStock) {
+        query = query.lte('quantity_on_hand', parseInt(advancedFilters.maxStock));
+      }
+      if (advancedFilters.lowStockOnly) {
+        query = query.lt('quantity_on_hand', 10).gt('quantity_on_hand', 0);
+      }
+      if (advancedFilters.outOfStockOnly) {
+        query = query.eq('quantity_on_hand', 0);
+      }
+      if (advancedFilters.itemTypes.length > 0) {
+        query = query.in('item_type', advancedFilters.itemTypes);
+      }
+      if (advancedFilters.syncedOnly) {
+        query = query.eq('sync_status', 'synced').not('qbo_id', 'is', null);
+      }
+
       const { count, error } = await query;
       if (error) throw error;
       return count || 0;
@@ -125,7 +193,7 @@ export default function Items() {
 
   // Fetch paginated items
   const { data: items = [], isLoading, error } = useQuery<Item[]>({
-    queryKey: ['items', currentPage, debouncedSearch],
+    queryKey: ['items', currentPage, debouncedSearch, advancedFilters],
     queryFn: async () => {
       const from = (currentPage - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -134,7 +202,7 @@ export default function Items() {
         .from('item_record')
         .select('*')
         .order('name')
-        .range(from, to);
+        .range(from, to) as any;
 
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
@@ -150,6 +218,35 @@ export default function Items() {
         if (/^[A-Z0-9-]+$/i.test(searchValue)) {
           query = query.or(`sku.eq.${searchValue.toUpperCase()}`);
         }
+      }
+
+      // Apply advanced filters
+      if (advancedFilters.activeOnly) {
+        query = query.eq('is_active', true);
+      }
+      if (advancedFilters.minPrice) {
+        query = query.gte('unit_price', parseFloat(advancedFilters.minPrice));
+      }
+      if (advancedFilters.maxPrice) {
+        query = query.lte('unit_price', parseFloat(advancedFilters.maxPrice));
+      }
+      if (advancedFilters.minStock) {
+        query = query.gte('quantity_on_hand', parseInt(advancedFilters.minStock));
+      }
+      if (advancedFilters.maxStock) {
+        query = query.lte('quantity_on_hand', parseInt(advancedFilters.maxStock));
+      }
+      if (advancedFilters.lowStockOnly) {
+        query = query.lt('quantity_on_hand', 10).gt('quantity_on_hand', 0);
+      }
+      if (advancedFilters.outOfStockOnly) {
+        query = query.eq('quantity_on_hand', 0);
+      }
+      if (advancedFilters.itemTypes.length > 0) {
+        query = query.in('item_type', advancedFilters.itemTypes);
+      }
+      if (advancedFilters.syncedOnly) {
+        query = query.eq('sync_status', 'synced').not('qbo_id', 'is', null);
       }
 
       const { data, error } = await query;
@@ -360,7 +457,374 @@ export default function Items() {
             )}
           </div>
         )}
+
+        {/* Active Filter Chips */}
+        {(advancedFilters.minPrice || advancedFilters.maxPrice || advancedFilters.lowStockOnly ||
+          advancedFilters.outOfStockOnly || advancedFilters.itemTypes.length > 0) && (
+          <div className="flex flex-wrap gap-2">
+            {advancedFilters.minPrice && (
+              <Badge variant="secondary" className="gap-1">
+                Min: ${advancedFilters.minPrice}
+                <button
+                  onClick={() => setAdvancedFilters({ ...advancedFilters, minPrice: '' })}
+                  className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {advancedFilters.maxPrice && (
+              <Badge variant="secondary" className="gap-1">
+                Max: ${advancedFilters.maxPrice}
+                <button
+                  onClick={() => setAdvancedFilters({ ...advancedFilters, maxPrice: '' })}
+                  className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {advancedFilters.lowStockOnly && (
+              <Badge variant="destructive" className="gap-1">
+                Low Stock
+                <button
+                  onClick={() => setAdvancedFilters({ ...advancedFilters, lowStockOnly: false })}
+                  className="ml-1 hover:bg-destructive-foreground/20 rounded-full p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {advancedFilters.outOfStockOnly && (
+              <Badge variant="destructive" className="gap-1">
+                Out of Stock
+                <button
+                  onClick={() => setAdvancedFilters({ ...advancedFilters, outOfStockOnly: false })}
+                  className="ml-1 hover:bg-destructive-foreground/20 rounded-full p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {advancedFilters.itemTypes.map(type => (
+              <Badge key={type} variant="secondary" className="gap-1">
+                {type}
+                <button
+                  onClick={() => setAdvancedFilters({
+                    ...advancedFilters,
+                    itemTypes: advancedFilters.itemTypes.filter(t => t !== type)
+                  })}
+                  className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Advanced Filters */}
+      <Collapsible open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span className="font-semibold">Advanced Filters</span>
+                  {(advancedFilters.minPrice || advancedFilters.maxPrice || advancedFilters.lowStockOnly || advancedFilters.itemTypes.length > 0) && (
+                    <Badge variant="secondary">Active</Badge>
+                  )}
+                </div>
+                <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+          </CardHeader>
+
+          <CollapsibleContent>
+            <CardContent className="space-y-4 pt-0">
+              {/* Price Range */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Price Range</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="min-price" className="text-xs text-muted-foreground">
+                      Min Price ($)
+                    </Label>
+                    <Input
+                      id="min-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={advancedFilters.minPrice}
+                      onChange={(e) => setAdvancedFilters({
+                        ...advancedFilters,
+                        minPrice: e.target.value
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="max-price" className="text-xs text-muted-foreground">
+                      Max Price ($)
+                    </Label>
+                    <Input
+                      id="max-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="1000.00"
+                      value={advancedFilters.maxPrice}
+                      onChange={(e) => setAdvancedFilters({
+                        ...advancedFilters,
+                        maxPrice: e.target.value
+                      })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock Level Range */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Stock Level</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="min-stock" className="text-xs text-muted-foreground">
+                      Min Stock
+                    </Label>
+                    <Input
+                      id="min-stock"
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={advancedFilters.minStock}
+                      onChange={(e) => setAdvancedFilters({
+                        ...advancedFilters,
+                        minStock: e.target.value
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="max-stock" className="text-xs text-muted-foreground">
+                      Max Stock
+                    </Label>
+                    <Input
+                      id="max-stock"
+                      type="number"
+                      min="0"
+                      placeholder="1000"
+                      value={advancedFilters.maxStock}
+                      onChange={(e) => setAdvancedFilters({
+                        ...advancedFilters,
+                        maxStock: e.target.value
+                      })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Item Type Multi-Select */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Item Type</Label>
+                <div className="flex flex-wrap gap-2">
+                  {itemTypes.map(type => (
+                    <Button
+                      key={type}
+                      variant={advancedFilters.itemTypes.includes(type) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setAdvancedFilters({
+                          ...advancedFilters,
+                          itemTypes: advancedFilters.itemTypes.includes(type)
+                            ? advancedFilters.itemTypes.filter(t => t !== type)
+                            : [...advancedFilters.itemTypes, type]
+                        });
+                      }}
+                    >
+                      {type || 'Uncategorized'}
+                    </Button>
+                  ))}
+                </div>
+                {itemTypes.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No item types available</p>
+                )}
+              </div>
+
+              {/* Quick Stock Filters */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Quick Stock Filters</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="low-stock" className="text-sm font-normal">
+                        Low stock items (&lt; 10)
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Show items with stock below 10 units
+                      </p>
+                    </div>
+                    <Switch
+                      id="low-stock"
+                      checked={advancedFilters.lowStockOnly}
+                      onCheckedChange={(checked) =>
+                        setAdvancedFilters({ ...advancedFilters, lowStockOnly: checked, outOfStockOnly: false })
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="out-of-stock" className="text-sm font-normal">
+                        Out of stock items
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Show items with zero stock
+                      </p>
+                    </div>
+                    <Switch
+                      id="out-of-stock"
+                      checked={advancedFilters.outOfStockOnly}
+                      onCheckedChange={(checked) =>
+                        setAdvancedFilters({ ...advancedFilters, outOfStockOnly: checked, lowStockOnly: false })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Filters */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Status Filters</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="active-only" className="text-sm font-normal">
+                      Show active items only
+                    </Label>
+                    <Switch
+                      id="active-only"
+                      checked={advancedFilters.activeOnly}
+                      onCheckedChange={(checked) =>
+                        setAdvancedFilters({ ...advancedFilters, activeOnly: checked })
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="synced-only" className="text-sm font-normal">
+                      Show synced items only
+                    </Label>
+                    <Switch
+                      id="synced-only"
+                      checked={advancedFilters.syncedOnly}
+                      onCheckedChange={(checked) =>
+                        setAdvancedFilters({ ...advancedFilters, syncedOnly: checked })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Price Presets */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Price Presets</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdvancedFilters({
+                      ...advancedFilters,
+                      minPrice: '0',
+                      maxPrice: '50'
+                    })}
+                  >
+                    Under $50
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdvancedFilters({
+                      ...advancedFilters,
+                      minPrice: '50',
+                      maxPrice: '200'
+                    })}
+                  >
+                    $50 - $200
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdvancedFilters({
+                      ...advancedFilters,
+                      minPrice: '200',
+                      maxPrice: '500'
+                    })}
+                  >
+                    $200 - $500
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdvancedFilters({
+                      ...advancedFilters,
+                      minPrice: '500',
+                      maxPrice: ''
+                    })}
+                  >
+                    $500+
+                  </Button>
+                </div>
+              </div>
+
+              {/* Alert for Low Stock */}
+              {lowStockItems > 0 && !advancedFilters.lowStockOnly && (
+                <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900">
+                  <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                  <AlertDescription className="text-orange-800 dark:text-orange-200">
+                    <span className="font-medium">{lowStockItems} items</span> are running low on stock.
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="ml-2 h-auto p-0 text-orange-800 dark:text-orange-200"
+                      onClick={() => setAdvancedFilters({
+                        ...advancedFilters,
+                        lowStockOnly: true
+                      })}
+                    >
+                      View low stock items →
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Clear Advanced Filters */}
+              {(advancedFilters.minPrice || advancedFilters.maxPrice || advancedFilters.minStock ||
+                advancedFilters.maxStock || advancedFilters.lowStockOnly || advancedFilters.outOfStockOnly ||
+                advancedFilters.itemTypes.length > 0 || !advancedFilters.activeOnly || advancedFilters.syncedOnly) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAdvancedFilters({
+                    minPrice: '',
+                    maxPrice: '',
+                    minStock: '',
+                    maxStock: '',
+                    itemTypes: [],
+                    lowStockOnly: false,
+                    outOfStockOnly: false,
+                    activeOnly: true,
+                    syncedOnly: false,
+                  })}
+                  className="w-full"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Reset All Filters
+                </Button>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Products List - Desktop Table / Mobile Cards */}
       {isLoading ? (
