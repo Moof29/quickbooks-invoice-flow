@@ -83,6 +83,30 @@ Deno.serve(async (req) => {
       throw invoicesError;
     }
 
+    // Delete sales order line items
+    console.log('Deleting sales order line items...');
+    const { error: salesOrderLineItemsError } = await supabase
+      .from('sales_order_line_item')
+      .delete()
+      .eq('organization_id', organizationId);
+
+    if (salesOrderLineItemsError) {
+      console.error('Error deleting sales order line items:', salesOrderLineItemsError);
+      throw salesOrderLineItemsError;
+    }
+
+    // Delete sales orders
+    console.log('Deleting ALL sales orders for organization...');
+    const { error: salesOrdersError } = await supabase
+      .from('sales_order')
+      .delete()
+      .eq('organization_id', organizationId);
+
+    if (salesOrdersError) {
+      console.error('Error deleting sales orders:', salesOrdersError);
+      throw salesOrdersError;
+    }
+
     // Step 2: Get all customer IDs for this organization
     const { data: customers, error: customersError } = await supabase
       .from('customer_profile')
