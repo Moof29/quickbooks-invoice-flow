@@ -2,6 +2,7 @@ import { TeamManagement } from '@/components/TeamManagement';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImportCSVDialog } from '@/components/ImportCSVDialog';
+import { ClearDatabaseButton } from '@/components/ClearDatabaseButton';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
 import { useState } from 'react';
@@ -62,6 +63,24 @@ export default function Settings() {
       </Card>
 
       <TeamManagement />
+
+      <Card className="border-0 shadow-sm border-destructive/50">
+        <CardHeader>
+          <CardTitle className="text-lg text-destructive">Danger Zone</CardTitle>
+          <CardDescription>
+            Irreversible actions that permanently delete your data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Clear All Data</p>
+              <p className="text-sm text-muted-foreground">Permanently delete all invoices, items, and customers</p>
+            </div>
+            <ClearDatabaseButton />
+          </div>
+        </CardContent>
+      </Card>
       
       <ImportCSVDialog 
         open={importDialogOpen}
