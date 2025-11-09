@@ -1,6 +1,7 @@
 {
   "name": "Batchly ERP",
   "short_name": "Batchly",
+  "version": "2.0.0",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",

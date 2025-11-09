@@ -45,6 +45,13 @@ export default defineConfig(({ mode }) => ({
         // Increase the maximum file size to allow caching larger bundles
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         
+        // Clean old caches on activation
+        cleanupOutdatedCaches: true,
+        
+        // Skip waiting to activate new service worker immediately
+        skipWaiting: true,
+        clientsClaim: true,
+        
         // Cache-first strategy for static assets
         runtimeCaching: [
           {
