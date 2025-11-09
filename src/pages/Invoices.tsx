@@ -134,34 +134,41 @@ const Invoices = () => {
     setCurrentPage(1);
   }, [filters.dateFrom, filters.dateTo, filters.status, advancedFilters]);
 
-  // Fetch total count for pagination
-  const { data: totalCount = 0 } = useQuery<number>({
-    queryKey: ['invoices-count', debouncedSearch, filters, advancedFilters],
+  // Step 1: Search for matching customers (cached, runs once per search term)
+  const { data: matchingCustomerIds = [] } = useQuery<string[]>({
+    queryKey: ['customer-search-ids', debouncedSearch],
     queryFn: async () => {
-      // Step 1: If searching text, find matching customers first
-      let matchingCustomerIds: string[] = [];
-      
-      if (debouncedSearch && !/^\d+\.?\d*$/.test(debouncedSearch)) {
-        const searchValue = debouncedSearch.trim();
-        const { data: customers } = await supabase
-          .from('customer_profile')
-          .select('id')
-          .or(
-            `display_name.ilike.%${searchValue}%,` +
-            `company_name.ilike.%${searchValue}%,` +
-            `email.ilike.%${searchValue}%`
-          );
-        
-        matchingCustomerIds = customers?.map(c => c.id) || [];
+      // Only search if text and not numeric
+      if (!debouncedSearch || /^\d+\.?\d*$/.test(debouncedSearch)) {
+        return [];
       }
 
-      // Step 2: Query invoices
+      const searchValue = debouncedSearch.trim();
+      const { data: customers } = await supabase
+        .from('customer_profile')
+        .select('id')
+        .or(
+          `display_name.ilike.%${searchValue}%,` +
+          `company_name.ilike.%${searchValue}%,` +
+          `email.ilike.%${searchValue}%`
+        );
+      
+      return customers?.map(c => c.id) || [];
+    },
+    enabled: !!debouncedSearch && !/^\d+\.?\d*$/.test(debouncedSearch),
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
+  // Step 2: Fetch total count for pagination (uses cached customer IDs)
+  const { data: totalCount = 0 } = useQuery<number>({
+    queryKey: ['invoices-count', debouncedSearch, filters, advancedFilters, matchingCustomerIds],
+    queryFn: async () => {
       let query = supabase
         .from('invoice_record')
         .select('*', { count: 'exact', head: true })
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue']);
 
-      // Apply search filter - smart search across invoice fields AND customers
+      // Apply search filter - uses pre-fetched customer IDs
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         const isNumeric = /^\d+\.?\d*$/.test(searchValue);
@@ -225,28 +232,10 @@ const Invoices = () => {
     }
   });
 
-  // Fetch paginated invoices
+  // Step 3: Fetch paginated invoices (uses cached customer IDs)
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
-    queryKey: ['invoices', currentPage, debouncedSearch, sortField, sortOrder, filters, advancedFilters],
+    queryKey: ['invoices', currentPage, debouncedSearch, sortField, sortOrder, filters, advancedFilters, matchingCustomerIds],
     queryFn: async () => {
-      // Step 1: If searching text, find matching customers first
-      let matchingCustomerIds: string[] = [];
-      
-      if (debouncedSearch && !/^\d+\.?\d*$/.test(debouncedSearch)) {
-        const searchValue = debouncedSearch.trim();
-        const { data: customers } = await supabase
-          .from('customer_profile')
-          .select('id')
-          .or(
-            `display_name.ilike.%${searchValue}%,` +
-            `company_name.ilike.%${searchValue}%,` +
-            `email.ilike.%${searchValue}%`
-          );
-        
-        matchingCustomerIds = customers?.map(c => c.id) || [];
-      }
-
-      // Step 2: Query invoices with pagination
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
@@ -271,7 +260,7 @@ const Invoices = () => {
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue'])
         .range(from, to);
 
-      // Apply search filter - smart search across invoice fields AND customers
+      // Apply search filter - uses pre-fetched customer IDs
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         const isNumeric = /^\d+\.?\d*$/.test(searchValue);
