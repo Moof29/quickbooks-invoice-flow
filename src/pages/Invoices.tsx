@@ -138,12 +138,30 @@ const Invoices = () => {
   const { data: totalCount = 0 } = useQuery<number>({
     queryKey: ['invoices-count', debouncedSearch, filters, advancedFilters],
     queryFn: async () => {
+      // Step 1: If searching text, find matching customers first
+      let matchingCustomerIds: string[] = [];
+      
+      if (debouncedSearch && !/^\d+\.?\d*$/.test(debouncedSearch)) {
+        const searchValue = debouncedSearch.trim();
+        const { data: customers } = await supabase
+          .from('customer_profile')
+          .select('id')
+          .or(
+            `display_name.ilike.%${searchValue}%,` +
+            `company_name.ilike.%${searchValue}%,` +
+            `email.ilike.%${searchValue}%`
+          );
+        
+        matchingCustomerIds = customers?.map(c => c.id) || [];
+      }
+
+      // Step 2: Query invoices
       let query = supabase
         .from('invoice_record')
         .select('*', { count: 'exact', head: true })
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue']);
 
-      // Apply search filter - fast search on indexed fields only
+      // Apply search filter - smart search across invoice fields AND customers
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         const isNumeric = /^\d+\.?\d*$/.test(searchValue);
@@ -157,11 +175,20 @@ const Invoices = () => {
             `amount_due.eq.${numericValue}`
           );
         } else {
-          // Text search: invoice number and memo (uses GIN trigram indexes)
-          query = query.or(
-            `invoice_number.ilike.%${searchValue}%,` +
-            `memo.ilike.%${searchValue}%`
-          );
+          // Text search: invoice number, memo, OR customer IDs
+          if (matchingCustomerIds.length > 0) {
+            query = query.or(
+              `invoice_number.ilike.%${searchValue}%,` +
+              `memo.ilike.%${searchValue}%,` +
+              `customer_id.in.(${matchingCustomerIds.join(',')})`
+            );
+          } else {
+            // No customers found, just search invoice fields
+            query = query.or(
+              `invoice_number.ilike.%${searchValue}%,` +
+              `memo.ilike.%${searchValue}%`
+            );
+          }
         }
       }
 
@@ -202,6 +229,24 @@ const Invoices = () => {
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ['invoices', currentPage, debouncedSearch, sortField, sortOrder, filters, advancedFilters],
     queryFn: async () => {
+      // Step 1: If searching text, find matching customers first
+      let matchingCustomerIds: string[] = [];
+      
+      if (debouncedSearch && !/^\d+\.?\d*$/.test(debouncedSearch)) {
+        const searchValue = debouncedSearch.trim();
+        const { data: customers } = await supabase
+          .from('customer_profile')
+          .select('id')
+          .or(
+            `display_name.ilike.%${searchValue}%,` +
+            `company_name.ilike.%${searchValue}%,` +
+            `email.ilike.%${searchValue}%`
+          );
+        
+        matchingCustomerIds = customers?.map(c => c.id) || [];
+      }
+
+      // Step 2: Query invoices with pagination
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
@@ -226,7 +271,7 @@ const Invoices = () => {
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue'])
         .range(from, to);
 
-      // Apply search filter - fast search on indexed fields only
+      // Apply search filter - smart search across invoice fields AND customers
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         const isNumeric = /^\d+\.?\d*$/.test(searchValue);
@@ -240,11 +285,20 @@ const Invoices = () => {
             `amount_due.eq.${numericValue}`
           );
         } else {
-          // Text search: invoice number and memo (uses GIN trigram indexes)
-          query = query.or(
-            `invoice_number.ilike.%${searchValue}%,` +
-            `memo.ilike.%${searchValue}%`
-          );
+          // Text search: invoice number, memo, OR customer IDs
+          if (matchingCustomerIds.length > 0) {
+            query = query.or(
+              `invoice_number.ilike.%${searchValue}%,` +
+              `memo.ilike.%${searchValue}%,` +
+              `customer_id.in.(${matchingCustomerIds.join(',')})`
+            );
+          } else {
+            // No customers found, just search invoice fields
+            query = query.or(
+              `invoice_number.ilike.%${searchValue}%,` +
+              `memo.ilike.%${searchValue}%`
+            );
+          }
         }
       }
 
@@ -480,7 +534,7 @@ const Invoices = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by invoice # or memo..."
+                    placeholder="Search by customer name, invoice #, or memo..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -490,7 +544,7 @@ const Invoices = () => {
                   <p className="text-xs text-muted-foreground">
                     {/^\d+\.?\d*$/.test(searchTerm)
                       ? `Searching for invoice #${searchTerm} or amounts of $${searchTerm}`
-                      : `Searching invoice numbers and memos. Use the customer filter below to search by customer.`
+                      : `Searching customer names, invoice numbers, and memos`
                     }
                   </p>
                 )}
