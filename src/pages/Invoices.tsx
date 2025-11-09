@@ -68,11 +68,36 @@ interface Invoice {
   amount_paid?: number;
   amount_due?: number;
   status: string;
+  memo?: string;
   customer_profile?: {
     display_name: string;
     company_name: string;
     email: string;
   };
+}
+
+// Helper function to filter invoices by customer name (client-side)
+function filterInvoicesByCustomerName(invoices: Invoice[], searchTerm: string): Invoice[] {
+  if (!searchTerm || searchTerm.trim() === '') return invoices;
+
+  const search = searchTerm.toLowerCase().trim();
+
+  // Check if search term is numeric (skip customer filter for numeric)
+  if (/^\d+\.?\d*$/.test(search)) return invoices;
+
+  return invoices.filter(invoice => {
+    const displayName = invoice.customer_profile?.display_name?.toLowerCase() || '';
+    const companyName = invoice.customer_profile?.company_name?.toLowerCase() || '';
+    const invoiceNumber = invoice.invoice_number?.toLowerCase() || '';
+    const memo = invoice.memo?.toLowerCase() || '';
+
+    return (
+      displayName.includes(search) ||
+      companyName.includes(search) ||
+      invoiceNumber.includes(search) ||
+      memo.includes(search)
+    );
+  });
 }
 
 const Invoices = () => {
@@ -120,9 +145,26 @@ const Invoices = () => {
         .select('*', { count: 'exact', head: true })
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue']);
 
-      // Apply search filter
+      // Apply search filter - enhanced with numeric detection
       if (debouncedSearch) {
-        query = query.or(`invoice_number.ilike.%${debouncedSearch}%`);
+        const searchValue = debouncedSearch.trim();
+        const isNumeric = /^\d+\.?\d*$/.test(searchValue);
+
+        if (isNumeric) {
+          // Numeric search: search invoice number OR amounts
+          const numericValue = parseFloat(searchValue);
+          query = query.or(
+            `invoice_number.ilike.%${searchValue}%,` +
+            `total.eq.${numericValue},` +
+            `amount_due.eq.${numericValue}`
+          );
+        } else {
+          // Text search: invoice number and memo
+          query = query.or(
+            `invoice_number.ilike.%${searchValue}%,` +
+            `memo.ilike.%${searchValue}%`
+          );
+        }
       }
 
       // Apply status filter
@@ -162,6 +204,7 @@ const Invoices = () => {
           amount_paid,
           amount_due,
           status,
+          memo,
           customer_profile:customer_id (
             display_name,
             company_name,
@@ -171,9 +214,26 @@ const Invoices = () => {
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue'])
         .range(from, to);
 
-      // Apply search filter
+      // Apply search filter - enhanced with numeric detection
       if (debouncedSearch) {
-        query = query.or(`invoice_number.ilike.%${debouncedSearch}%`);
+        const searchValue = debouncedSearch.trim();
+        const isNumeric = /^\d+\.?\d*$/.test(searchValue);
+
+        if (isNumeric) {
+          // Numeric search: search invoice number OR amounts
+          const numericValue = parseFloat(searchValue);
+          query = query.or(
+            `invoice_number.ilike.%${searchValue}%,` +
+            `total.eq.${numericValue},` +
+            `amount_due.eq.${numericValue}`
+          );
+        } else {
+          // Text search: invoice number and memo
+          query = query.or(
+            `invoice_number.ilike.%${searchValue}%,` +
+            `memo.ilike.%${searchValue}%`
+          );
+        }
       }
 
       // Apply status filter
@@ -213,7 +273,10 @@ const Invoices = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+
+      // Apply client-side customer name filtering
+      const filtered = filterInvoicesByCustomerName(data || [], debouncedSearch);
+      return filtered;
     }
   });
 
@@ -394,12 +457,20 @@ const Invoices = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Invoice number, customer..."
+                    placeholder="Search by invoice #, customer name, amount, or memo..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
                   />
                 </div>
+                {searchTerm && (
+                  <p className="text-xs text-muted-foreground">
+                    {/^\d+\.?\d*$/.test(searchTerm)
+                      ? `Searching for invoice #${searchTerm} or amounts of $${searchTerm}`
+                      : `Searching across invoice #, customer names, and memos`
+                    }
+                  </p>
+                )}
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
