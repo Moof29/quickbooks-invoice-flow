@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
 
     console.log('Starting customer deletion for organization:', organizationId);
 
-    // Step 1: Delete invoice line items first (invoices reference customers)
+    // Step 1: Delete invoice line items first
     console.log('Deleting invoice line items...');
     const { error: invoiceLineItemsError } = await supabase
       .from('invoice_line_item')
@@ -59,19 +59,7 @@ Deno.serve(async (req) => {
       throw invoiceLineItemsError;
     }
 
-    // Step 2: Delete sales order invoice links (must be deleted before invoices or sales orders)
-    console.log('Deleting sales order invoice links...');
-    const { error: linksError } = await supabase
-      .from('sales_order_invoice_link')
-      .delete()
-      .eq('organization_id', organizationId);
-
-    if (linksError) {
-      console.error('Error deleting sales order invoice links:', linksError);
-      throw linksError;
-    }
-
-    // Step 3: Delete invoices (reference customers)
+    // Step 2: Delete invoices (reference customers)
     console.log('Deleting invoices...');
     const { error: invoicesError } = await supabase
       .from('invoice_record')
@@ -83,7 +71,7 @@ Deno.serve(async (req) => {
       throw invoicesError;
     }
 
-    // Step 4: Delete sales order line items
+    // Step 3: Delete sales order line items
     console.log('Deleting sales order line items...');
     const { error: soLineItemsError } = await supabase
       .from('sales_order_line_item')
@@ -95,7 +83,7 @@ Deno.serve(async (req) => {
       throw soLineItemsError;
     }
 
-    // Step 5: Delete sales orders (reference customers)
+    // Step 4: Delete sales orders (reference customers)
     console.log('Deleting sales orders...');
     const { error: salesOrdersError } = await supabase
       .from('sales_order')
@@ -107,7 +95,7 @@ Deno.serve(async (req) => {
       throw salesOrdersError;
     }
 
-    // Step 6: Delete customer template items
+    // Step 5: Delete customer template items
     console.log('Deleting customer template items...');
     const { error: templateItemsError } = await supabase
       .from('customer_template_items')
@@ -119,7 +107,7 @@ Deno.serve(async (req) => {
       throw templateItemsError;
     }
 
-    // Step 7: Delete customer templates
+    // Step 6: Delete customer templates
     console.log('Deleting customer templates...');
     const { error: templatesError } = await supabase
       .from('customer_templates')
@@ -131,7 +119,7 @@ Deno.serve(async (req) => {
       throw templatesError;
     }
 
-    // Step 8: Delete all customers for this organization in batches
+    // Step 7: Delete all customers for this organization in batches
     let totalDeleted = 0;
     const batchSize = 500;
 
