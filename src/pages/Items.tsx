@@ -53,6 +53,26 @@ interface Item {
   updated_at?: string;
 }
 
+// Helper function to highlight search terms in results
+function highlightSearchTerm(text: string, search: string): React.ReactNode {
+  if (!search || !text) return text;
+
+  const parts = text.split(new RegExp(`(${search})`, 'gi'));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === search.toLowerCase() ? (
+          <mark key={i} className="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
 export default function Items() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -82,7 +102,19 @@ export default function Items() {
         .select('*', { count: 'exact', head: true });
 
       if (debouncedSearch) {
-        query = query.or(`name.ilike.%${debouncedSearch}%,sku.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
+        const searchValue = debouncedSearch.trim();
+        
+        // Use combined GIN index for better performance
+        query = query.or(
+          `name.ilike.%${searchValue}%,` +
+          `sku.ilike.%${searchValue}%,` +
+          `description.ilike.%${searchValue}%`
+        );
+        
+        // Add exact SKU match priority for alphanumeric patterns
+        if (/^[A-Z0-9-]+$/i.test(searchValue)) {
+          query = query.or(`sku.eq.${searchValue.toUpperCase()}`);
+        }
       }
 
       const { count, error } = await query;
@@ -105,7 +137,19 @@ export default function Items() {
         .range(from, to);
 
       if (debouncedSearch) {
-        query = query.or(`name.ilike.%${debouncedSearch}%,sku.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
+        const searchValue = debouncedSearch.trim();
+        
+        // Use combined GIN index for better performance
+        query = query.or(
+          `name.ilike.%${searchValue}%,` +
+          `sku.ilike.%${searchValue}%,` +
+          `description.ilike.%${searchValue}%`
+        );
+        
+        // Add exact SKU match priority for alphanumeric patterns
+        if (/^[A-Z0-9-]+$/i.test(searchValue)) {
+          query = query.or(`sku.eq.${searchValue.toUpperCase()}`);
+        }
       }
 
       const { data, error } = await query;
@@ -287,14 +331,35 @@ export default function Items() {
       </div>
 
       {/* Search */}
-      <div className="relative w-full">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Search products..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 h-10 md:h-auto"
-        />
+      <div className="relative w-full space-y-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search by name, SKU, or description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 h-10 md:h-auto"
+          />
+        </div>
+        
+        {/* Search Stats */}
+        {debouncedSearch && !isLoading && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>
+              Found {totalCount} {totalCount === 1 ? 'item' : 'items'} matching "{debouncedSearch}"
+            </span>
+            {totalCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearchTerm('')}
+                className="h-auto py-1 text-xs"
+              >
+                Clear search
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Products List - Desktop Table / Mobile Cards */}
@@ -320,20 +385,29 @@ export default function Items() {
               <h3 className="text-lg font-medium text-foreground mb-2">No products found</h3>
               <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
                 {searchTerm
-                  ? 'Try adjusting your search criteria'
+                  ? `No items match "${searchTerm}". Try searching by name, SKU, or description.`
                   : 'Sync with QuickBooks to load your inventory'}
               </p>
-              <Button 
-                onClick={() => syncMutation.mutate()}
-                disabled={syncMutation.isPending}
-              >
-                {syncMutation.isPending ? (
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="mr-2 h-4 w-4" />
-                )}
-                Sync from QuickBooks
-              </Button>
+              {searchTerm ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setSearchTerm('')}
+                >
+                  Clear Search
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => syncMutation.mutate()}
+                  disabled={syncMutation.isPending}
+                >
+                  {syncMutation.isPending ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Sync from QuickBooks
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -378,9 +452,11 @@ export default function Items() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium">{item.name}</div>
+                            <div className="font-medium">
+                              {highlightSearchTerm(item.name, searchTerm)}
+                            </div>
                             <div className="text-sm text-muted-foreground line-clamp-1">
-                              {item.description || 'No description'}
+                              {item.description ? highlightSearchTerm(item.description, searchTerm) : 'No description'}
                             </div>
                           </div>
                         </div>
@@ -403,7 +479,7 @@ export default function Items() {
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {item.sku || '-'}
+                        {item.sku ? highlightSearchTerm(item.sku, searchTerm) : '-'}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center">
@@ -461,13 +537,15 @@ export default function Items() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm truncate">{item.name}</h3>
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {item.description || 'No description'}
-                          </p>
-                        </div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-sm truncate">
+                              {highlightSearchTerm(item.name, searchTerm)}
+                            </h3>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {item.description ? highlightSearchTerm(item.description, searchTerm) : 'No description'}
+                            </p>
+                          </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
@@ -510,7 +588,9 @@ export default function Items() {
                         </div>
                         <div className="col-span-2">
                           <span className="text-muted-foreground">SKU:</span>
-                          <span className="ml-1 font-mono">{item.sku || '-'}</span>
+                          <span className="ml-1 font-mono">
+                            {item.sku ? highlightSearchTerm(item.sku, searchTerm) : '-'}
+                          </span>
                         </div>
                       </div>
                       
