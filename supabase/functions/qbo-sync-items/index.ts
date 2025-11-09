@@ -254,8 +254,167 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
 }
 
 async function pushItemsToQB(supabase: any, connection: any): Promise<number> {
-  console.log("Push to QuickBooks not yet implemented for items");
-  return 0;
+  console.log("Pushing items to QuickBooks...");
+
+  // Use sandbox URL for testing, production for live
+  const baseUrl = connection.environment === 'sandbox'
+    ? 'https://sandbox-quickbooks.api.intuit.com'
+    : 'https://quickbooks-api.intuit.com';
+
+  // Find items that need to be pushed (new items without qbo_id or updated items)
+  const { data: itemsToPush, error: fetchError } = await supabase
+    .from('item_record')
+    .select('*')
+    .eq('organization_id', connection.organization_id)
+    .eq('is_active', true)
+    .or('qbo_id.is.null,last_sync_at.is.null,updated_at.gt.last_sync_at');
+
+  if (fetchError) {
+    console.error("Error fetching items to push:", fetchError);
+    throw new Error(`Failed to fetch items to push: ${fetchError.message}`);
+  }
+
+  if (!itemsToPush || itemsToPush.length === 0) {
+    console.log("No items need to be pushed to QuickBooks");
+    return 0;
+  }
+
+  console.log(`Found ${itemsToPush.length} items to push to QuickBooks`);
+
+  let pushedCount = 0;
+
+  for (const item of itemsToPush) {
+    try {
+      // Validate required fields
+      if (!item.name) {
+        console.warn(`Item ${item.id} has no name, skipping`);
+        continue;
+      }
+
+      // Build QuickBooks Item object
+      const qbItemPayload: any = {
+        Name: item.name,
+        Type: item.item_type || 'NonInventory', // Default to NonInventory if not specified
+        Active: item.is_active !== false,
+      };
+
+      // Add optional fields
+      if (item.sku) qbItemPayload.Sku = item.sku;
+      if (item.description) qbItemPayload.Description = item.description;
+
+      // Add pricing - CRITICAL: UnitPrice is selling price
+      if (item.unit_price !== null && item.unit_price !== undefined) {
+        qbItemPayload.UnitPrice = item.unit_price;
+      }
+
+      // Add purchase cost
+      if (item.purchase_cost !== null && item.purchase_cost !== undefined) {
+        qbItemPayload.PurchaseCost = item.purchase_cost;
+      }
+
+      // Add tax information
+      if (item.taxable !== null) {
+        qbItemPayload.Taxable = item.taxable;
+      }
+
+      // Add tax code reference
+      if (item.sales_tax_code_ref) {
+        qbItemPayload.SalesTaxCodeRef = item.sales_tax_code_ref;
+      }
+
+      // Add account references
+      if (item.income_account_ref) {
+        qbItemPayload.IncomeAccountRef = item.income_account_ref;
+      }
+      if (item.expense_account_ref) {
+        qbItemPayload.ExpenseAccountRef = item.expense_account_ref;
+      }
+      if (item.asset_account_ref) {
+        qbItemPayload.AssetAccountRef = item.asset_account_ref;
+      }
+
+      // Add inventory tracking
+      if (item.track_qty_on_hand) {
+        qbItemPayload.TrackQtyOnHand = true;
+        if (item.quantity_on_hand !== null) {
+          qbItemPayload.QtyOnHand = item.quantity_on_hand;
+        }
+      }
+
+      // For updates: Include Id and SyncToken
+      if (item.qbo_id && item.qbo_sync_token) {
+        qbItemPayload.Id = item.qbo_id;
+        qbItemPayload.SyncToken = item.qbo_sync_token.toString();
+        qbItemPayload.sparse = true; // Sparse update - only update provided fields
+      }
+
+      // Determine if this is a create or update
+      const isUpdate = !!item.qbo_id;
+      const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/item`;
+
+      console.log(`${isUpdate ? 'Updating' : 'Creating'} item "${item.name}" in QuickBooks...`);
+      console.log('Payload:', JSON.stringify(qbItemPayload, null, 2));
+
+      const response = await fetch(qbApiUrl, {
+        method: 'POST', // Both create and update use POST in QBO API
+        headers: {
+          'Authorization': `Bearer ${connection.qbo_access_token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'Batchly-Sync/1.0',
+        },
+        body: JSON.stringify(qbItemPayload),
+      });
+
+      console.log(`QuickBooks API response status for ${item.name}:`, response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`QuickBooks API error for item ${item.name}:`, response.status, errorText);
+
+        // Check for common errors
+        if (errorText.includes('Duplicate Name Exists Error')) {
+          console.warn(`Item ${item.name} already exists in QuickBooks with a different ID. Consider manual reconciliation.`);
+        } else if (errorText.includes('Stale Object Error')) {
+          console.warn(`Item ${item.name} has been modified in QuickBooks. Pull latest version and retry.`);
+        }
+
+        continue; // Skip this item and continue with others
+      }
+
+      const qbResult = await response.json();
+      const qbItem = qbResult.Item;
+
+      console.log(`Successfully ${isUpdate ? 'updated' : 'created'} item ${item.name} in QuickBooks`);
+
+      // Update local item with QBO ID and sync metadata
+      const updateData = {
+        qbo_id: qbItem.Id.toString(),
+        qbo_sync_token: qbItem.SyncToken ? parseInt(qbItem.SyncToken) : null,
+        qbo_created_at: qbItem.MetaData?.CreateTime || null,
+        qbo_updated_at: qbItem.MetaData?.LastUpdatedTime || null,
+        sync_status: 'synced',
+        last_sync_at: new Date().toISOString(),
+      };
+
+      const { error: updateError } = await supabase
+        .from('item_record')
+        .update(updateData)
+        .eq('id', item.id);
+
+      if (updateError) {
+        console.error(`Error updating item ${item.name} after push:`, updateError);
+      } else {
+        pushedCount++;
+      }
+
+    } catch (itemError: any) {
+      console.error(`Error pushing item ${item.name}:`, itemError);
+    }
+  }
+
+  console.log(`Successfully pushed ${pushedCount} items to QuickBooks`);
+  return pushedCount;
 }
 
 serve(handler);
