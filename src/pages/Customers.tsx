@@ -90,8 +90,15 @@ const Customers = () => {
         .select('*', { count: 'exact', head: true })
         .eq('is_active', true);
 
+      // Search across name, company, email, and phone using GIN index
       if (debouncedSearch) {
-        query = query.or(`display_name.ilike.%${debouncedSearch}%,company_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+        const searchValue = debouncedSearch.trim();
+        query = query.or(
+          `display_name.ilike.%${searchValue}%,` +
+          `company_name.ilike.%${searchValue}%,` +
+          `email.ilike.%${searchValue}%,` +
+          `phone.ilike.%${searchValue}%`
+        );
       }
 
       const { count, error } = await query;
@@ -114,8 +121,15 @@ const Customers = () => {
         .order('created_at', { ascending: false })
         .range(from, to);
 
+      // Search across name, company, email, and phone using GIN index
       if (debouncedSearch) {
-        query = query.or(`display_name.ilike.%${debouncedSearch}%,company_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+        const searchValue = debouncedSearch.trim();
+        query = query.or(
+          `display_name.ilike.%${searchValue}%,` +
+          `company_name.ilike.%${searchValue}%,` +
+          `email.ilike.%${searchValue}%,` +
+          `phone.ilike.%${searchValue}%`
+        );
       }
 
       const { data, error } = await query;

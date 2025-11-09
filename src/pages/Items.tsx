@@ -140,20 +140,16 @@ export default function Items() {
         .from('item_record')
         .select('*', { count: 'exact', head: true }) as any;
 
+      // Search across name, SKU, and description using combined GIN index
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         
-        // Use combined GIN index for better performance
+        // Use combined GIN index for comprehensive search
         query = query.or(
           `name.ilike.%${searchValue}%,` +
           `sku.ilike.%${searchValue}%,` +
           `description.ilike.%${searchValue}%`
         );
-        
-        // Add exact SKU match priority for alphanumeric patterns
-        if (/^[A-Z0-9-]+$/i.test(searchValue)) {
-          query = query.or(`sku.eq.${searchValue.toUpperCase()}`);
-        }
       }
 
       // Apply advanced filters
@@ -204,20 +200,16 @@ export default function Items() {
         .order('name')
         .range(from, to) as any;
 
+      // Search across name, SKU, and description using combined GIN index
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         
-        // Use combined GIN index for better performance
+        // Use combined GIN index for comprehensive search
         query = query.or(
           `name.ilike.%${searchValue}%,` +
           `sku.ilike.%${searchValue}%,` +
           `description.ilike.%${searchValue}%`
         );
-        
-        // Add exact SKU match priority for alphanumeric patterns
-        if (/^[A-Z0-9-]+$/i.test(searchValue)) {
-          query = query.or(`sku.eq.${searchValue.toUpperCase()}`);
-        }
       }
 
       // Apply advanced filters
