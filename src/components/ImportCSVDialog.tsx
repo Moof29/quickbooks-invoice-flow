@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, AlertCircle, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Loader2, CheckCircle2, XCircle, Download } from 'lucide-react';
+import { downloadCSVTemplate } from '@/lib/csv-templates';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
@@ -484,6 +485,18 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
                   <FileText className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-medium">Items CSV</h3>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => downloadCSVTemplate('items', 'items_template.csv')}
+                  className="w-full"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Template
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Download a sample CSV template with proper formatting
+                </p>
                 <input
                   type="file"
                   accept=".csv"
@@ -506,6 +519,18 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
                   <FileText className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-medium">Customers CSV</h3>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => downloadCSVTemplate('customers', 'customers_template.csv')}
+                  className="w-full"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Template
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Download a sample CSV template with proper formatting
+                </p>
                 <input
                   type="file"
                   accept=".csv"
@@ -528,6 +553,18 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
                   <FileText className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-medium">Invoices CSV</h3>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => downloadCSVTemplate('invoices', 'invoices_template.csv')}
+                  className="w-full"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Template
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Download a sample CSV template with proper formatting
+                </p>
                 <input
                   type="file"
                   accept=".csv"
@@ -550,6 +587,18 @@ export function ImportCSVDialog({ open, onOpenChange }: ImportCSVDialogProps) {
                   <FileText className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-medium">Invoice Line Items CSV</h3>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => downloadCSVTemplate('invoice_line_items', 'invoice_line_items_template.csv')}
+                  className="w-full"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Template
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Download a sample CSV template with proper formatting
+                </p>
                 <input
                   type="file"
                   accept=".csv"
