@@ -157,11 +157,13 @@ const Invoices = () => {
     },
     enabled: !!debouncedSearch && !/^\d+\.?\d*$/.test(debouncedSearch),
     staleTime: 30000, // Cache for 30 seconds
+    placeholderData: (previousData) => previousData, // Keep previous data while loading
   });
 
   // Step 2: Fetch total count for pagination (uses cached customer IDs)
   const { data: totalCount = 0 } = useQuery<number>({
     queryKey: ['invoices-count', debouncedSearch, filters, advancedFilters, matchingCustomerIds],
+    placeholderData: (previousData) => previousData, // Keep previous count while loading
     queryFn: async () => {
       let query = supabase
         .from('invoice_record')
@@ -233,8 +235,9 @@ const Invoices = () => {
   });
 
   // Step 3: Fetch paginated invoices (uses cached customer IDs)
-  const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
+  const { data: invoices = [], isLoading, isFetching } = useQuery<Invoice[]>({
     queryKey: ['invoices', currentPage, debouncedSearch, sortField, sortOrder, filters, advancedFilters, matchingCustomerIds],
+    placeholderData: (previousData) => previousData, // Keep previous invoices while loading for smooth UX
     queryFn: async () => {
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
@@ -486,7 +489,12 @@ const Invoices = () => {
         <>
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Invoices</h2>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+                Invoices
+                {isFetching && !isLoading && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground/60 align-middle">(updating...)</span>
+                )}
+              </h2>
               <p className="text-sm md:text-base text-muted-foreground">
                 Manage and track your invoices
               </p>
