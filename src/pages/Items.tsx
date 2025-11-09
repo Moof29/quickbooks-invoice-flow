@@ -106,12 +106,12 @@ export default function Items() {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
 
-  // Debounce search term
+  // Debounce search with longer delay for smoother typing experience
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
       setCurrentPage(1); // Reset to first page on new search
-    }, 300);
+    }, 600);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
@@ -135,6 +135,7 @@ export default function Items() {
   // Fetch total count for pagination
   const { data: totalCount = 0 } = useQuery<number>({
     queryKey: ['items-count', debouncedSearch, advancedFilters],
+    placeholderData: (previousData) => previousData, // Keep previous count while loading
     queryFn: async () => {
       let query = supabase
         .from('item_record')
@@ -188,8 +189,9 @@ export default function Items() {
   });
 
   // Fetch paginated items
-  const { data: items = [], isLoading, error } = useQuery<Item[]>({
+  const { data: items = [], isLoading, isFetching, error } = useQuery<Item[]>({
     queryKey: ['items', currentPage, debouncedSearch, advancedFilters],
+    placeholderData: (previousData) => previousData, // Keep previous items while loading for smooth UX
     queryFn: async () => {
       const from = (currentPage - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -319,7 +321,12 @@ export default function Items() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Products</h2>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+            Products
+            {isFetching && !isLoading && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground/60 align-middle">(updating...)</span>
+            )}
+          </h2>
           <p className="text-sm md:text-base text-muted-foreground">Manage your inventory and product catalog</p>
         </div>
         <div className="flex items-center gap-2">

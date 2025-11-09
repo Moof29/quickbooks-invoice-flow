@@ -72,18 +72,19 @@ const Customers = () => {
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
-  // Debounce search term
+  // Debounce search with longer delay for smoother typing experience
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
       setCurrentPage(1); // Reset to first page on new search
-    }, 300);
+    }, 600);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
   // Fetch total count for pagination
   const { data: totalCount = 0 } = useQuery<number>({
     queryKey: ['customers-count', debouncedSearch],
+    placeholderData: (previousData) => previousData, // Keep previous count while loading
     queryFn: async () => {
       let query = supabase
         .from('customer_profile')
@@ -108,8 +109,9 @@ const Customers = () => {
   });
 
   // Fetch paginated customers
-  const { data: customers = [], isLoading } = useQuery<Customer[]>({
+  const { data: customers = [], isLoading, isFetching } = useQuery<Customer[]>({
     queryKey: ['customers', currentPage, debouncedSearch],
+    placeholderData: (previousData) => previousData, // Keep previous customers while loading for smooth UX
     queryFn: async () => {
       const from = (currentPage - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -269,7 +271,12 @@ const Customers = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Customers</h2>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+            Customers
+            {isFetching && !isLoading && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground/60 align-middle">(updating...)</span>
+            )}
+          </h2>
           <p className="text-sm md:text-base text-muted-foreground">Manage your customer relationships</p>
         </div>
         <Button onClick={() => setShowCustomerDialog(true)} className="hidden md:flex">
