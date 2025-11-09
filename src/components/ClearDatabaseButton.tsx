@@ -28,17 +28,12 @@ export function ClearDatabaseButton() {
         customers: 0,
       };
 
-      // Clear invoices
-      const { data: invoiceData, error: invoiceError } = await supabase.functions.invoke('clear-invoices');
-      if (invoiceError) throw new Error(`Failed to clear invoices: ${invoiceError.message}`);
-      results.invoices = invoiceData?.deleted_count || 0;
-
-      // Clear items
+      // Clear items first (no dependencies)
       const { data: itemData, error: itemError } = await supabase.functions.invoke('clear-items');
       if (itemError) throw new Error(`Failed to clear items: ${itemError.message}`);
       results.items = itemData?.deleted_count || 0;
 
-      // Clear customers
+      // Clear customers (this will also clear invoices and sales orders due to foreign keys)
       const { data: customerData, error: customerError } = await supabase.functions.invoke('clear-customers');
       if (customerError) throw new Error(`Failed to clear customers: ${customerError.message}`);
       results.customers = customerData?.deleted_count || 0;
@@ -51,7 +46,7 @@ export function ClearDatabaseButton() {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       toast.success(
-        `Database cleared: ${data.invoices} invoices, ${data.items} items, ${data.customers} customers deleted`
+        `Database cleared: ${data.items} items, ${data.customers} customers (and all related data) deleted`
       );
       setOpen(false);
     },
@@ -75,9 +70,10 @@ export function ClearDatabaseButton() {
           <AlertDialogDescription>
             This will permanently delete ALL of the following from your organization:
             <ul className="list-disc list-inside mt-2 space-y-1 font-semibold">
-              <li>All invoices and invoice line items</li>
               <li>All products/items</li>
               <li>All customers and customer templates</li>
+              <li>All sales orders and line items</li>
+              <li>All invoices and invoice line items</li>
             </ul>
             <br />
             <strong className="text-destructive">This action cannot be undone.</strong>
