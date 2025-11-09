@@ -143,7 +143,7 @@ const Invoices = () => {
         .select('*', { count: 'exact', head: true })
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue']);
 
-      // Apply search filter - enhanced with numeric detection and customer search
+      // Apply search filter - fast search on indexed fields only
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         const isNumeric = /^\d+\.?\d*$/.test(searchValue);
@@ -157,12 +157,10 @@ const Invoices = () => {
             `amount_due.eq.${numericValue}`
           );
         } else {
-          // Text search: invoice number, memo, and customer names (server-side)
+          // Text search: invoice number and memo (uses GIN trigram indexes)
           query = query.or(
             `invoice_number.ilike.%${searchValue}%,` +
-            `memo.ilike.%${searchValue}%,` +
-            `customer_profile.display_name.ilike.%${searchValue}%,` +
-            `customer_profile.company_name.ilike.%${searchValue}%`
+            `memo.ilike.%${searchValue}%`
           );
         }
       }
@@ -228,7 +226,7 @@ const Invoices = () => {
         .in('status', ['invoiced', 'sent', 'paid', 'cancelled', 'confirmed', 'delivered', 'overdue'])
         .range(from, to);
 
-      // Apply search filter - enhanced with numeric detection and customer search
+      // Apply search filter - fast search on indexed fields only
       if (debouncedSearch) {
         const searchValue = debouncedSearch.trim();
         const isNumeric = /^\d+\.?\d*$/.test(searchValue);
@@ -242,12 +240,10 @@ const Invoices = () => {
             `amount_due.eq.${numericValue}`
           );
         } else {
-          // Text search: invoice number, memo, and customer names (server-side)
+          // Text search: invoice number and memo (uses GIN trigram indexes)
           query = query.or(
             `invoice_number.ilike.%${searchValue}%,` +
-            `memo.ilike.%${searchValue}%,` +
-            `customer_profile.display_name.ilike.%${searchValue}%,` +
-            `customer_profile.company_name.ilike.%${searchValue}%`
+            `memo.ilike.%${searchValue}%`
           );
         }
       }
@@ -484,7 +480,7 @@ const Invoices = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by invoice #, customer name, amount, or memo..."
+                    placeholder="Search by invoice # or memo..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -494,7 +490,7 @@ const Invoices = () => {
                   <p className="text-xs text-muted-foreground">
                     {/^\d+\.?\d*$/.test(searchTerm)
                       ? `Searching for invoice #${searchTerm} or amounts of $${searchTerm}`
-                      : `Searching across invoice #, customer names, and memos`
+                      : `Searching invoice numbers and memos. Use the customer filter below to search by customer.`
                     }
                   </p>
                 )}
