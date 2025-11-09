@@ -16,6 +16,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Switch } from '@/components/ui/switch';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -52,6 +58,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  SlidersHorizontal,
+  X,
+  ChevronDown,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -117,6 +126,17 @@ const Invoices = () => {
     status: [] as string[],
     customer: [] as string[],
   });
+  
+  // Advanced filters state
+  const [advancedFilters, setAdvancedFilters] = useState({
+    minAmount: '',
+    maxAmount: '',
+    amountDueOnly: false,
+    includePartiallyPaid: true,
+    customerIds: [] as string[],
+  });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<string | null>(null);
   const { toast } = useToast();
@@ -134,11 +154,11 @@ const Invoices = () => {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filters.dateFrom, filters.dateTo, filters.status]);
+  }, [filters.dateFrom, filters.dateTo, filters.status, advancedFilters]);
 
   // Fetch total count for pagination
   const { data: totalCount = 0 } = useQuery<number>({
-    queryKey: ['invoices-count', debouncedSearch, filters],
+    queryKey: ['invoices-count', debouncedSearch, filters, advancedFilters],
     queryFn: async () => {
       let query = supabase
         .from('invoice_record')
@@ -180,6 +200,20 @@ const Invoices = () => {
         query = query.lte('invoice_date', filters.dateTo);
       }
 
+      // Apply advanced filters
+      if (advancedFilters.minAmount) {
+        query = query.gte('total', parseFloat(advancedFilters.minAmount));
+      }
+      if (advancedFilters.maxAmount) {
+        query = query.lte('total', parseFloat(advancedFilters.maxAmount));
+      }
+      if (advancedFilters.amountDueOnly) {
+        query = query.gt('amount_due', 0);
+      }
+      if (advancedFilters.customerIds.length > 0) {
+        query = query.in('customer_id', advancedFilters.customerIds);
+      }
+
       const { count, error } = await query;
       if (error) throw error;
       return count || 0;
@@ -188,7 +222,7 @@ const Invoices = () => {
 
   // Fetch paginated invoices
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
-    queryKey: ['invoices', currentPage, debouncedSearch, sortField, sortOrder, filters],
+    queryKey: ['invoices', currentPage, debouncedSearch, sortField, sortOrder, filters, advancedFilters],
     queryFn: async () => {
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
@@ -247,6 +281,20 @@ const Invoices = () => {
       }
       if (filters.dateTo) {
         query = query.lte('invoice_date', filters.dateTo);
+      }
+
+      // Apply advanced filters
+      if (advancedFilters.minAmount) {
+        query = query.gte('total', parseFloat(advancedFilters.minAmount));
+      }
+      if (advancedFilters.maxAmount) {
+        query = query.lte('total', parseFloat(advancedFilters.maxAmount));
+      }
+      if (advancedFilters.amountDueOnly) {
+        query = query.gt('amount_due', 0);
+      }
+      if (advancedFilters.customerIds.length > 0) {
+        query = query.in('customer_id', advancedFilters.customerIds);
       }
 
       // Apply sorting
@@ -521,21 +569,251 @@ const Invoices = () => {
               </div>
 
               {/* Reset Filters Button */}
-              {(searchTerm || filters.dateFrom || filters.dateTo || filters.status.length > 0) && (
+              {(searchTerm || filters.dateFrom || filters.dateTo || filters.status.length > 0 ||
+                advancedFilters.minAmount || advancedFilters.maxAmount || advancedFilters.amountDueOnly) && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
                     setSearchTerm('');
                     setFilters({ dateFrom: '', dateTo: '', status: [], customer: [] });
+                    setAdvancedFilters({
+                      minAmount: '',
+                      maxAmount: '',
+                      amountDueOnly: false,
+                      includePartiallyPaid: true,
+                      customerIds: []
+                    });
                   }}
                   className="w-full"
                 >
-                  Clear Filters
+                  Clear All Filters
                 </Button>
               )}
             </CardContent>
           </Card>
+
+          {/* Active Filter Chips */}
+          {(advancedFilters.minAmount || advancedFilters.maxAmount || advancedFilters.amountDueOnly) && (
+            <div className="flex flex-wrap gap-2">
+              {advancedFilters.minAmount && (
+                <Badge variant="secondary" className="gap-1">
+                  Min: ${advancedFilters.minAmount}
+                  <button
+                    onClick={() => setAdvancedFilters({ ...advancedFilters, minAmount: '' })}
+                    className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {advancedFilters.maxAmount && (
+                <Badge variant="secondary" className="gap-1">
+                  Max: ${advancedFilters.maxAmount}
+                  <button
+                    onClick={() => setAdvancedFilters({ ...advancedFilters, maxAmount: '' })}
+                    className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {advancedFilters.amountDueOnly && (
+                <Badge variant="secondary" className="gap-1">
+                  Unpaid only
+                  <button
+                    onClick={() => setAdvancedFilters({ ...advancedFilters, amountDueOnly: false })}
+                    className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Advanced Filters */}
+          <Collapsible open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent">
+                    <div className="flex items-center gap-2">
+                      <SlidersHorizontal className="h-4 w-4" />
+                      <span className="font-semibold">Advanced Filters</span>
+                      {(advancedFilters.minAmount || advancedFilters.maxAmount || advancedFilters.amountDueOnly || advancedFilters.customerIds.length > 0) && (
+                        <Badge variant="secondary" className="ml-2">
+                          {[
+                            advancedFilters.minAmount && 'Min',
+                            advancedFilters.maxAmount && 'Max',
+                            advancedFilters.amountDueOnly && 'Unpaid',
+                            advancedFilters.customerIds.length > 0 && `${advancedFilters.customerIds.length} customers`
+                          ].filter(Boolean).length} active
+                        </Badge>
+                      )}
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+              </CardHeader>
+
+              <CollapsibleContent>
+                <CardContent className="space-y-4 pt-0">
+                  {/* Amount Range */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Amount Range</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="min-amount" className="text-xs text-muted-foreground">
+                          Minimum ($)
+                        </Label>
+                        <Input
+                          id="min-amount"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={advancedFilters.minAmount}
+                          onChange={(e) => setAdvancedFilters({
+                            ...advancedFilters,
+                            minAmount: e.target.value
+                          })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="max-amount" className="text-xs text-muted-foreground">
+                          Maximum ($)
+                        </Label>
+                        <Input
+                          id="max-amount"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="10000.00"
+                          value={advancedFilters.maxAmount}
+                          onChange={(e) => setAdvancedFilters({
+                            ...advancedFilters,
+                            maxAmount: e.target.value
+                          })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Status Filters */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Payment Status</Label>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="amount-due-only" className="text-sm font-normal">
+                          Show only invoices with balance due
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Excludes fully paid invoices
+                        </p>
+                      </div>
+                      <Switch
+                        id="amount-due-only"
+                        checked={advancedFilters.amountDueOnly}
+                        onCheckedChange={(checked) =>
+                          setAdvancedFilters({ ...advancedFilters, amountDueOnly: checked })
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="include-partial" className="text-sm font-normal">
+                          Include partially paid invoices
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Show invoices with partial payments
+                        </p>
+                      </div>
+                      <Switch
+                        id="include-partial"
+                        checked={advancedFilters.includePartiallyPaid}
+                        onCheckedChange={(checked) =>
+                          setAdvancedFilters({ ...advancedFilters, includePartiallyPaid: checked })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Amount Presets */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Quick Filters</Label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAdvancedFilters({
+                          ...advancedFilters,
+                          minAmount: '0',
+                          maxAmount: '100'
+                        })}
+                      >
+                        $0 - $100
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAdvancedFilters({
+                          ...advancedFilters,
+                          minAmount: '100',
+                          maxAmount: '1000'
+                        })}
+                      >
+                        $100 - $1,000
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAdvancedFilters({
+                          ...advancedFilters,
+                          minAmount: '1000',
+                          maxAmount: '10000'
+                        })}
+                      >
+                        $1,000 - $10,000
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAdvancedFilters({
+                          ...advancedFilters,
+                          minAmount: '10000',
+                          maxAmount: ''
+                        })}
+                      >
+                        $10,000+
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Clear Advanced Filters */}
+                  {(advancedFilters.minAmount || advancedFilters.maxAmount || advancedFilters.amountDueOnly || advancedFilters.customerIds.length > 0) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAdvancedFilters({
+                        minAmount: '',
+                        maxAmount: '',
+                        amountDueOnly: false,
+                        includePartiallyPaid: true,
+                        customerIds: []
+                      })}
+                      className="w-full"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Clear Advanced Filters
+                    </Button>
+                  )}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
 
           {/* Desktop & Tablet Table View */}
           <Card className="border-0 shadow-sm hidden sm:block">
