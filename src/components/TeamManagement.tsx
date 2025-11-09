@@ -59,32 +59,50 @@ export function TeamManagement() {
     try {
       setLoading(true);
       
-      // Fetch team members
-      const { data: members, error: membersError } = await supabase
+      // Fetch team members from profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, role, created_at')
+        .select('id, first_name, last_name, created_at')
         .eq('organization_id', organization!.id)
         .order('created_at', { ascending: false });
 
-      if (membersError) throw membersError;
-      setTeamMembers(members || []);
+      if (profilesError) throw profilesError;
 
-      // Fetch pending invitations
-      const { data: invites, error: invitesError } = await supabase
-        .from('organization_invitations')
-        .select('*')
-        .eq('organization_id', organization!.id)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+      // Fetch roles for each team member
+      if (profiles && profiles.length > 0) {
+        const userIds = profiles.map(p => p.id);
+        const { data: rolesData, error: rolesError } = await supabase
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', userIds);
 
-      if (invitesError) throw invitesError;
-      setInvitations(invites || []);
+        if (rolesError) {
+          console.error('Error fetching roles:', rolesError);
+        }
+
+        // Combine profiles with their roles
+        const membersWithRoles = profiles.map(profile => {
+          const userRole = rolesData?.find(r => r.user_id === profile.id);
+          return {
+            ...profile,
+            role: userRole?.role || 'customer_service' // Default role
+          };
+        });
+
+        setTeamMembers(membersWithRoles);
+      } else {
+        setTeamMembers([]);
+      }
+
+      // Note: organization_invitations table doesn't exist yet
+      // Leaving empty for now - you can add this feature later
+      setInvitations([]);
     } catch (error) {
       console.error('Error fetching team data:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to load team data"
+        description: "Failed to load team data. Please check your permissions."
       });
     } finally {
       setLoading(false);
@@ -104,23 +122,14 @@ export function TeamManagement() {
     try {
       setInviting(true);
       
-      const { data, error } = await supabase.rpc('invite_user_to_organization', {
-        p_email: inviteEmail,
-        p_role: inviteRole as 'admin' | 'sales_manager' | 'warehouse_staff' | 'delivery_driver' | 'customer_service' | 'customer',
-        p_organization_id: organization!.id
-      });
-
-      if (error) throw error;
-
       toast({
-        title: "Invitation sent",
-        description: `Successfully invited ${inviteEmail} to join your organization`
+        title: "Feature Coming Soon",
+        description: "Team invitations will be available in a future update. For now, have users sign up directly and contact an admin to assign roles."
       });
 
       setInviteEmail('');
       setInviteRole('');
       setInviteDialogOpen(false);
-      fetchTeamData();
     } catch (error: any) {
       console.error('Error inviting user:', error);
       toast({
@@ -134,28 +143,11 @@ export function TeamManagement() {
   };
 
   const cancelInvitation = async (invitationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('organization_invitations')
-        .update({ status: 'cancelled' })
-        .eq('id', invitationId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Invitation cancelled",
-        description: "The invitation has been cancelled"
-      });
-
-      fetchTeamData();
-    } catch (error) {
-      console.error('Error cancelling invitation:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to cancel invitation"
-      });
-    }
+    // This will be implemented when invitation system is added
+    toast({
+      title: "Feature Coming Soon",
+      description: "Invitation management will be available in a future update"
+    });
   };
 
   if (!isAdmin) {
