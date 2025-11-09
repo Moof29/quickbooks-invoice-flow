@@ -164,29 +164,33 @@ const QuickBooksIntegration = () => {
   };
 
   const handleDisconnect = async () => {
-    if (!confirm('Are you sure you want to disconnect from QuickBooks?')) return;
+    if (!confirm('Are you sure you want to disconnect from QuickBooks? This will stop all automatic syncing.')) return;
 
+    setLoading(true);
     try {
-      // Note: This will fail due to RLS - only service role can modify qbo_connection
-      // Need to create an edge function for disconnect operation
-      toast({
-        title: "Notice",
-        description: "Disconnect feature requires admin approval. Please contact support.",
-        variant: "default",
+      const { data, error } = await supabase.functions.invoke('qbo-disconnect', {
+        body: { organizationId: profile?.organization_id }
       });
-      
-      // TODO: Create edge function for disconnect operation
-      // const { error } = await supabase.functions.invoke('qbo-disconnect', {
-      //   body: { organizationId: profile?.organization_id }
-      // });
 
-    } catch (error) {
+      if (error) throw error;
+
+      toast({
+        title: "Disconnected Successfully",
+        description: "Your QuickBooks Online connection has been deactivated.",
+      });
+
+      // Reload connection status
+      await loadConnectionStatus();
+      await loadSyncHistory();
+    } catch (error: any) {
       console.error('Error disconnecting:', error);
       toast({
         title: "Error",
-        description: "Failed to disconnect from QuickBooks",
+        description: error.message || "Failed to disconnect from QuickBooks",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 

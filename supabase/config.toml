@@ -28,6 +28,9 @@ verify_jwt = false
 [functions.qbo-oauth-callback]
 verify_jwt = false
 
+[functions.qbo-disconnect]
+verify_jwt = true
+
 [functions.generate-template-test-data]
 verify_jwt = true
 
