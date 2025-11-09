@@ -132,6 +132,49 @@ const QuickBooksIntegration = () => {
     }
   };
 
+  const handleReactivate = async () => {
+    if (!profile?.organization_id) {
+      toast({
+        title: "Error",
+        description: "Organization not found.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('reactivate_qbo_connection', {
+        p_organization_id: profile.organization_id
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        toast({
+          title: "Success",
+          description: "QuickBooks connection reactivated successfully.",
+        });
+        await loadConnectionStatus();
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to reactivate connection. Token may be expired.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error reactivating connection:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reactivate connection",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleConnect = async () => {
     console.log('Connect button clicked, profile:', profile);
     
@@ -306,6 +349,21 @@ const QuickBooksIntegration = () => {
                     {syncing ? 'Syncing...' : 'Sync Now'}
                   </Button>
                   <Button onClick={handleDisconnect} variant="destructive" className="w-full sm:w-auto">
+                    Disconnect
+                  </Button>
+                </>
+              ) : connection && (connection as any).has_access_token ? (
+                <>
+                  <Button 
+                    onClick={handleReactivate} 
+                    disabled={loading}
+                    variant="default"
+                    className="w-full sm:w-auto"
+                  >
+                    <Zap className="w-4 h-4 mr-2" />
+                    {loading ? 'Reactivating...' : 'Reactivate Connection'}
+                  </Button>
+                  <Button onClick={handleDisconnect} variant="outline" className="w-full sm:w-auto">
                     Disconnect
                   </Button>
                 </>

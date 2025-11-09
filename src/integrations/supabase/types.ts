@@ -5324,6 +5324,10 @@ export type Database = {
         }
         Returns: string
       }
+      reactivate_qbo_connection: {
+        Args: { p_organization_id: string }
+        Returns: boolean
+      }
       setup_table_rls: { Args: { table_name: string }; Returns: undefined }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
