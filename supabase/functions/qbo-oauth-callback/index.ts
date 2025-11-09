@@ -246,7 +246,8 @@ async function logSecurityEvent(
 }
 
 function redirectToFrontend(supabaseUrl: string, error?: string | null, success?: boolean) {
-  const frontendUrl = supabaseUrl.replace('.supabase.co', '.lovableproject.com');
+  // Use the production domain for deployed apps, preview domain for development
+  const frontendUrl = 'https://3274bdad-c9e4-429c-9ae4-5beb2ed291db.lovableproject.com';
   let redirectUrl = `${frontendUrl}/quickbooks`;
   
   if (success) {
