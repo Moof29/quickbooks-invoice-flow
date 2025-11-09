@@ -353,7 +353,7 @@ export default function Items() {
       </div>
 
       {/* Metrics */}
-      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-3">
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
@@ -365,10 +365,7 @@ export default function Items() {
                 <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
               </div>
             </div>
-            <div className="mt-2 flex items-center text-xs md:text-sm">
-              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+20.1%</span>
-            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Current inventory value</p>
           </CardContent>
         </Card>
 
@@ -376,17 +373,14 @@ export default function Items() {
           <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Products</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Total Products</p>
                 <p className="text-lg md:text-2xl font-bold">{totalItems}</p>
               </div>
               <div className="h-10 w-10 md:h-12 md:w-12 bg-purple-100 rounded-lg flex items-center justify-center">
                 <Box className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
               </div>
             </div>
-            <div className="mt-2 flex items-center text-xs md:text-sm">
-              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+5.02</span>
-            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Active items in catalog</p>
           </CardContent>
         </Card>
 
@@ -394,34 +388,14 @@ export default function Items() {
           <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Orders</p>
-                <p className="text-lg md:text-2xl font-bold">$4,530</p>
-              </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <ShoppingCart className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-center text-xs md:text-sm">
-              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+33%</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Low Stock</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Low Stock Items</p>
                 <p className="text-lg md:text-2xl font-bold">{lowStockItems}</p>
               </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <Package className="h-5 w-5 md:h-6 md:w-6 text-red-600" />
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Package className="h-5 w-5 md:h-6 md:w-6 text-orange-600" />
               </div>
             </div>
-            <div className="mt-2 flex items-center text-xs md:text-sm">
-              <span className="text-red-600 font-medium">-3.58%</span>
-            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Items with stock {"<"} 10</p>
           </CardContent>
         </Card>
       </div>

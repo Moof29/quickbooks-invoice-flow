@@ -286,7 +286,7 @@ const Customers = () => {
       </div>
 
       {/* Metrics */}
-      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:gap-4 grid-cols-2">
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
@@ -298,10 +298,6 @@ const Customers = () => {
                 <Users className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
               </div>
             </div>
-            <div className="mt-2 flex items-center text-xs md:text-sm">
-              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+12%</span>
-            </div>
           </CardContent>
         </Card>
 
@@ -309,52 +305,12 @@ const Customers = () => {
           <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Active</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Active Customers</p>
                 <p className="text-lg md:text-2xl font-bold">{activeCustomers}</p>
               </div>
               <div className="h-10 w-10 md:h-12 md:w-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <ShoppingBag className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
               </div>
-            </div>
-            <div className="mt-2 flex items-center text-xs md:text-sm">
-              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+8%</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Total Revenue</p>
-                <p className="text-lg md:text-2xl font-bold">$45,230</p>
-              </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-center text-xs md:text-sm">
-              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+23%</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground">Avg Order Value</p>
-                <p className="text-lg md:text-2xl font-bold">$2,350</p>
-              </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 md:h-6 md:w-6 text-orange-600" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-center text-xs md:text-sm">
-              <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+5%</span>
             </div>
           </CardContent>
         </Card>
