@@ -1,5 +1,20 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
+import QBRateLimiter from "../_shared/qb-rate-limiter.ts";
+import { retryableQBApiCall, parseQBError } from "../_shared/qb-api-helper.ts";
+import {
+  initPagination,
+  updatePagination,
+  buildQBQuery,
+  logProgress,
+  batchUpsert,
+  formatQBTimestamp,
+  parseQBAmount,
+  parseQBInt,
+  getQBApiBaseUrl,
+  createSupabaseClient,
+  createLookupMap
+} from "../_shared/sync-helpers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,10 +122,17 @@ const handler = async (req: Request): Promise<Response> => {
 async function refreshTokenIfNeeded(supabase: any, connection: any) {
   const expiresAt = new Date(connection.qbo_token_expires_at);
   const now = new Date();
-  const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // FIXED: Changed from 5 minutes to 1 hour
 
-  if (expiresAt <= fiveMinutesFromNow) {
-    console.log("Token expired, refreshing...");
+  console.log("Token check:", {
+    expiresAt: expiresAt.toISOString(),
+    now: now.toISOString(),
+    oneHourFromNow: oneHourFromNow.toISOString(),
+    needsRefresh: expiresAt <= oneHourFromNow
+  });
+
+  if (expiresAt <= oneHourFromNow) {
+    console.log("Token expiring soon, refreshing...");
     
     const { data: refreshData, error: refreshError } = await supabase.functions.invoke('qbo-token-refresh', {
       body: {
@@ -119,9 +141,12 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
     });
 
     if (refreshError) {
+      console.error("Token refresh error:", refreshError);
       throw new Error(`Failed to refresh token: ${refreshError.message}`);
     }
-    
+
+    console.log("Token refreshed successfully");
+
     // Get the updated connection after refresh
     const { data: updatedConnection } = await supabase
       .from("qbo_connection")
@@ -129,186 +154,196 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
       .eq("organization_id", connection.organization_id)
       .eq("is_active", true)
       .single();
-    
+
     if (updatedConnection) {
       connection.qbo_access_token = updatedConnection.qbo_access_token;
       connection.qbo_token_expires_at = updatedConnection.qbo_token_expires_at;
+      console.log("Updated connection with new token");
     }
   }
 }
 
 async function pullPaymentsFromQB(supabase: any, connection: any): Promise<number> {
   console.log("Pulling payments from QuickBooks...");
-  console.log("Connection details:", {
-    environment: connection.environment,
-    realm_id: connection.qbo_realm_id,
-    has_token: !!connection.qbo_access_token,
-  });
-  
-  // Use sandbox URL for testing, production for live
-  const baseUrl = connection.environment === 'sandbox' 
-    ? 'https://sandbox-quickbooks.api.intuit.com' 
-    : 'https://quickbooks-api.intuit.com';
+
+  // CRITICAL FIX (Task 1.14): Create lookup maps to eliminate N+1 queries
+  console.log("Creating lookup maps for customers and invoices...");
+  const customerLookup = await createLookupMap(
+    supabase,
+    'customer_profile',
+    connection.organization_id,
+    'qbo_id',
+    'id'
+  );
+  const invoiceLookup = await createLookupMap(
+    supabase,
+    'invoice_record',
+    connection.organization_id,
+    'qbo_id',
+    'id'
+  );
+  console.log(`✓ Created lookup maps: ${customerLookup.size} customers, ${invoiceLookup.size} invoices`);
+
+  const baseUrl = getQBApiBaseUrl(connection.environment);
   const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/query`;
-  const query = "SELECT * FROM Payment MAXRESULTS 1000";
 
-  console.log("Making request to:", qbApiUrl);
-  console.log("Query:", query);
+  let pagination = initPagination(1000);
+  let allPayments: any[] = [];
 
-  try {
-    const response = await fetch(`${qbApiUrl}?query=${encodeURIComponent(query)}`, {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${connection.qbo_access_token}`,
-        "Accept": "application/json",
-        "User-Agent": "Batchly-Sync/1.0",
-      },
-    });
+  // Paginated fetch from QB
+  while (pagination.hasMore) {
+    try {
+      // Rate limiting
+      await QBRateLimiter.checkLimit(connection.organization_id);
 
-    console.log("QuickBooks API response status:", response.status);
+      const query = buildQBQuery("Payment", "", pagination);
+      console.log("QB Query:", query);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("QuickBooks API error response:", response.status, errorText);
-      throw new Error(`QuickBooks API error (${response.status}): ${errorText}`);
+      // Retry logic with exponential backoff
+      const response = await retryableQBApiCall(async () => {
+        return fetch(`${qbApiUrl}?query=${encodeURIComponent(query)}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${connection.qbo_access_token}`,
+            "Accept": "application/json",
+            "User-Agent": "Batchly-Sync/1.0",
+          },
+        });
+      });
+
+      if (!response.ok) {
+        const errorText = await parseQBError(response);
+        throw new Error(`QuickBooks API error (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json();
+      const payments = data.QueryResponse?.Payment || [];
+
+      allPayments = allPayments.concat(payments);
+
+      // Update pagination state
+      pagination = updatePagination(pagination, data);
+
+      // Log progress
+      logProgress("Payment", allPayments.length, pagination.totalCount, payments.length);
+
+      // Break if no more records
+      if (payments.length === 0 || !pagination.hasMore) {
+        break;
+      }
+
+    } catch (error: any) {
+      console.error("Error fetching payment page:", error.message);
+      throw error;
     }
+  }
 
-    const data = await response.json();
-    console.log("QuickBooks API response received");
-    
-    // Check if QueryResponse exists
-    if (!data.QueryResponse) {
-      console.log("No QueryResponse in API response");
-      return 0;
-    }
-    
-    const payments = data.QueryResponse?.Payment || [];
-    
-    console.log(`Found ${payments.length} payments in QuickBooks`);
+  console.log(`Fetched ${allPayments.length} payments from QuickBooks`);
 
-    // Save payments to database
-    let savedCount = 0;
-    for (const qbPayment of payments) {
-      try {
-        console.log(`Processing payment ${qbPayment.Id}...`);
-        
-        // Get customer ID from customer reference
-        let customerId = null;
-        if (qbPayment.CustomerRef) {
-          const { data: customer } = await supabase
-            .from('customer_profile')
-            .select('id')
-            .eq('organization_id', connection.organization_id)
-            .eq('qbo_id', qbPayment.CustomerRef.value)
-            .single();
-          
-          customerId = customer?.id || null;
-        }
+  // CRITICAL FIX: Map QB payments to Batchly schema using lookup maps (no N+1 queries!)
+  const mappedPayments = allPayments.map(qbPayment =>
+    mapQBPaymentToBatchly(qbPayment, connection.organization_id, customerLookup, invoiceLookup)
+  );
 
-        // Get invoice ID from line items (if payment is applied to an invoice)
-        let invoiceId = null;
-        let unapplied = true;
-        
-        if (qbPayment.Line && qbPayment.Line.length > 0) {
-          // Find the line with a LinkedTxn that points to an invoice
-          for (const line of qbPayment.Line) {
-            if (line.LinkedTxn && line.LinkedTxn.length > 0) {
-              for (const linkedTxn of line.LinkedTxn) {
-                if (linkedTxn.TxnType === 'Invoice') {
-                  // Look up the invoice by QBO ID
-                  const { data: invoice } = await supabase
-                    .from('invoice_record')
-                    .select('id')
-                    .eq('organization_id', connection.organization_id)
-                    .eq('qbo_id', linkedTxn.TxnId)
-                    .single();
-                  
-                  if (invoice) {
-                    invoiceId = invoice.id;
-                    unapplied = false;
-                    break;
-                  }
-                }
-              }
+  // CRITICAL FIX: Batch upsert to database
+  const savedCount = await batchUpsert(
+    supabase,
+    'invoice_payment',
+    mappedPayments,
+    'organization_id,qbo_id',
+    500
+  );
+
+  console.log(`✓ Successfully saved ${savedCount} payments to database`);
+  return savedCount;
+}
+
+/**
+ * Map QuickBooks Payment to Batchly invoice_payment schema
+ * Uses lookup maps to avoid N+1 queries (Task 1.14)
+ */
+function mapQBPaymentToBatchly(
+  qbPayment: any,
+  organizationId: string,
+  customerLookup: Map<string, string>,
+  invoiceLookup: Map<string, string>
+): any {
+  // Resolve customer ID using lookup map (no DB query!)
+  const customerId = qbPayment.CustomerRef
+    ? customerLookup.get(qbPayment.CustomerRef.value.toString()) || null
+    : null;
+
+  // Resolve invoice ID from line items using lookup map (no DB query!)
+  let invoiceId = null;
+  let unapplied = true;
+
+  if (qbPayment.Line && qbPayment.Line.length > 0) {
+    for (const line of qbPayment.Line) {
+      if (line.LinkedTxn && line.LinkedTxn.length > 0) {
+        for (const linkedTxn of line.LinkedTxn) {
+          if (linkedTxn.TxnType === 'Invoice') {
+            invoiceId = invoiceLookup.get(linkedTxn.TxnId.toString()) || null;
+            if (invoiceId) {
+              unapplied = false;
+              break;
             }
-            if (invoiceId) break;
           }
         }
-
-        // Check if payment is unapplied
-        if (qbPayment.Unapplied !== undefined) {
-          unapplied = qbPayment.Unapplied;
-        }
-
-        // Map payment method
-        let paymentMethod = 'other';
-        if (qbPayment.PaymentMethodRef) {
-          const methodName = qbPayment.PaymentMethodRef.name?.toLowerCase() || '';
-          if (methodName.includes('cash')) paymentMethod = 'cash';
-          else if (methodName.includes('check')) paymentMethod = 'check';
-          else if (methodName.includes('credit') || methodName.includes('card')) paymentMethod = 'credit_card';
-          else if (methodName.includes('ach') || methodName.includes('bank')) paymentMethod = 'ach';
-          else paymentMethod = 'other';
-        }
-
-        // Map QB payment to our database structure
-        const paymentData = {
-          organization_id: connection.organization_id,
-          qbo_id: qbPayment.Id.toString(),
-          customer_id: customerId,
-          invoice_id: invoiceId,
-          payment_date: qbPayment.TxnDate || new Date().toISOString().split('T')[0],
-          amount: qbPayment.TotalAmt ? parseFloat(qbPayment.TotalAmt.toString()) : 0,
-          payment_method: paymentMethod,
-          reference_number: qbPayment.PaymentRefNum || null,
-          notes: qbPayment.PrivateNote || null,
-          // QBO sync fields
-          qbo_sync_status: 'synced',
-          qbo_sync_token: qbPayment.SyncToken ? parseInt(qbPayment.SyncToken) : null,
-          qbo_created_at: qbPayment.MetaData?.CreateTime || null,
-          qbo_updated_at: qbPayment.MetaData?.LastUpdatedTime || null,
-          last_sync_at: new Date().toISOString(),
-          // Deposit account reference (JSONB)
-          deposit_account_ref: qbPayment.DepositToAccountRef || null,
-          // Unapplied payment flag
-          unapplied: unapplied,
-          unapplied_amount: unapplied ? parseFloat(qbPayment.TotalAmt?.toString() || '0') : null,
-          // Payment status
-          payment_status: 'completed',
-          // Reconciliation
-          reconciliation_status: 'unreconciled',
-        };
-
-        // Insert or update payment
-        const { error } = await supabase
-          .from('invoice_payment')
-          .upsert(paymentData, {
-            onConflict: 'organization_id,qbo_id',
-            ignoreDuplicates: false
-          });
-
-        if (error) {
-          console.error(`Failed to save payment ${qbPayment.Id}:`, error);
-        } else {
-          savedCount++;
-          console.log(`✓ Saved payment ${qbPayment.Id}`);
-        }
-      } catch (paymentError: any) {
-        console.error(`Error processing payment ${qbPayment.Id}:`, paymentError);
       }
+      if (invoiceId) break;
     }
-
-    console.log(`Successfully saved ${savedCount} payments to database`);
-    return savedCount;
-
-  } catch (error: any) {
-    console.error("Detailed error calling QuickBooks API:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-    throw new Error(`Network error: ${error.message}`);
   }
+
+  // Override with QB's Unapplied flag if present
+  if (qbPayment.Unapplied !== undefined) {
+    unapplied = qbPayment.Unapplied;
+  }
+
+  // Map payment method
+  let paymentMethod = 'other';
+  if (qbPayment.PaymentMethodRef) {
+    const methodName = qbPayment.PaymentMethodRef.name?.toLowerCase() || '';
+    if (methodName.includes('cash')) paymentMethod = 'cash';
+    else if (methodName.includes('check')) paymentMethod = 'check';
+    else if (methodName.includes('credit') || methodName.includes('card')) paymentMethod = 'credit_card';
+    else if (methodName.includes('ach') || methodName.includes('bank')) paymentMethod = 'ach';
+    else paymentMethod = 'other';
+  }
+
+  return {
+    organization_id: organizationId,
+    qbo_id: qbPayment.Id.toString(),
+    customer_id: customerId,
+    invoice_id: invoiceId,
+    payment_date: qbPayment.TxnDate || new Date().toISOString().split('T')[0],
+    amount: parseQBAmount(qbPayment.TotalAmt) || 0,
+    payment_method: paymentMethod,
+    reference_number: qbPayment.PaymentRefNum || null,
+    notes: qbPayment.PrivateNote || null,
+
+    // QB Sync Metadata
+    qbo_sync_status: 'synced',
+    qbo_sync_token: parseQBInt(qbPayment.SyncToken),
+    qbo_created_at: formatQBTimestamp(qbPayment.MetaData?.CreateTime),
+    qbo_updated_at: formatQBTimestamp(qbPayment.MetaData?.LastUpdatedTime),
+    last_sync_at: new Date().toISOString(),
+
+    // Deposit Account (JSONB)
+    deposit_account_ref: qbPayment.DepositToAccountRef ? {
+      value: qbPayment.DepositToAccountRef.value,
+      name: qbPayment.DepositToAccountRef.name
+    } : null,
+
+    // Unapplied Payment Tracking
+    unapplied: unapplied,
+    unapplied_amount: unapplied ? parseQBAmount(qbPayment.TotalAmt) : null,
+
+    // Payment Status
+    payment_status: 'completed',
+
+    // Reconciliation
+    reconciliation_status: 'unreconciled',
+  };
 }
 
 serve(handler);

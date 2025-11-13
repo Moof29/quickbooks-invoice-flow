@@ -1,5 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
+import QBRateLimiter from "../_shared/qb-rate-limiter.ts";
+import { retryableQBApiCall, parseQBError } from "../_shared/qb-api-helper.ts";
+import {
+  initPagination,
+  updatePagination,
+  buildQBQuery,
+  logProgress,
+  batchUpsert,
+  formatQBTimestamp,
+  parseQBAmount,
+  parseQBInt,
+  getQBApiBaseUrl,
+  createSupabaseClient
+} from "../_shared/sync-helpers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,10 +117,17 @@ const handler = async (req: Request): Promise<Response> => {
 async function refreshTokenIfNeeded(supabase: any, connection: any) {
   const expiresAt = new Date(connection.qbo_token_expires_at);
   const now = new Date();
-  const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // FIXED: Changed from 5 minutes to 1 hour
 
-  if (expiresAt <= fiveMinutesFromNow) {
-    console.log("Token expired, refreshing...");
+  console.log("Token check:", {
+    expiresAt: expiresAt.toISOString(),
+    now: now.toISOString(),
+    oneHourFromNow: oneHourFromNow.toISOString(),
+    needsRefresh: expiresAt <= oneHourFromNow
+  });
+
+  if (expiresAt <= oneHourFromNow) {
+    console.log("Token expiring soon, refreshing...");
     
     const { data: refreshData, error: refreshError } = await supabase.functions.invoke('qbo-token-refresh', {
       body: {
@@ -115,9 +136,12 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
     });
 
     if (refreshError) {
+      console.error("Token refresh error:", refreshError);
       throw new Error(`Failed to refresh token: ${refreshError.message}`);
     }
-    
+
+    console.log("Token refreshed successfully");
+
     // Get the updated connection after refresh
     const { data: updatedConnection } = await supabase
       .from("qbo_connection")
@@ -125,132 +149,172 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
       .eq("organization_id", connection.organization_id)
       .eq("is_active", true)
       .single();
-    
+
     if (updatedConnection) {
       connection.qbo_access_token = updatedConnection.qbo_access_token;
       connection.qbo_token_expires_at = updatedConnection.qbo_token_expires_at;
+      console.log("Updated connection with new token");
     }
   }
 }
 
 async function pullItemsFromQB(supabase: any, connection: any): Promise<number> {
   console.log("Pulling items from QuickBooks...");
-  console.log("Connection details:", {
-    environment: connection.environment,
-    realm_id: connection.qbo_realm_id,
-    has_token: !!connection.qbo_access_token,
-    token_preview: connection.qbo_access_token?.substring(0, 10) + "..."
-  });
-  
-  // Use sandbox URL for testing, production for live
-  const baseUrl = connection.environment === 'sandbox' 
-    ? 'https://sandbox-quickbooks.api.intuit.com' 
-    : 'https://quickbooks-api.intuit.com';
+
+  const baseUrl = getQBApiBaseUrl(connection.environment);
   const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/query`;
-  const query = "SELECT * FROM Item MAXRESULTS 1000";
 
-  console.log("Making request to:", qbApiUrl);
-  console.log("Query:", query);
+  let pagination = initPagination(1000);
+  let allItems: any[] = [];
 
-  try {
-    const response = await fetch(`${qbApiUrl}?query=${encodeURIComponent(query)}`, {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${connection.qbo_access_token}`,
-        "Accept": "application/json",
-        "User-Agent": "Batchly-Sync/1.0",
-      },
-    });
+  // Paginated fetch from QB
+  while (pagination.hasMore) {
+    try {
+      // Rate limiting
+      await QBRateLimiter.checkLimit(connection.organization_id);
 
-    console.log("QuickBooks API response status:", response.status);
+      const query = buildQBQuery("Item", "Active IN (true, false)", pagination);
+      console.log("QB Query:", query);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("QuickBooks API error response:", response.status, errorText);
-      throw new Error(`QuickBooks API error (${response.status}): ${errorText}`);
-    }
+      // Retry logic with exponential backoff
+      const response = await retryableQBApiCall(async () => {
+        return fetch(`${qbApiUrl}?query=${encodeURIComponent(query)}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${connection.qbo_access_token}`,
+            "Accept": "application/json",
+            "User-Agent": "Batchly-Sync/1.0",
+          },
+        });
+      });
 
-    const data = await response.json();
-    console.log("QuickBooks API full response:", JSON.stringify(data, null, 2));
-    
-    // Check if QueryResponse exists
-    if (!data.QueryResponse) {
-      console.log("No QueryResponse in API response");
-      return 0;
-    }
-    
-    const items = data.QueryResponse?.Item || [];
-    
-    console.log(`Found ${items.length} items in QuickBooks`);
-    
-    // If no items, let's also check what's in the QueryResponse
-    if (items.length === 0) {
-      console.log("QueryResponse content:", JSON.stringify(data.QueryResponse, null, 2));
-    }
-
-    // Save items to database
-    let savedCount = 0;
-    for (const qbItem of items) {
-      try {
-        // Map QB item to our database structure - FIXED PRICING BUG
-        const itemData = {
-          organization_id: connection.organization_id,
-          qbo_id: qbItem.Id.toString(),
-          name: qbItem.Name,
-          sku: qbItem.Sku || null,
-          description: qbItem.Description || null,
-          item_type: qbItem.Type || null,
-          is_active: qbItem.Active !== false,
-          // CRITICAL FIX: UnitPrice is selling price, not cost price
-          unit_price: qbItem.UnitPrice ? parseFloat(qbItem.UnitPrice.toString()) : null,
-          purchase_cost: qbItem.PurchaseCost ? parseFloat(qbItem.PurchaseCost.toString()) : null,
-          // Inventory tracking
-          quantity_on_hand: qbItem.QtyOnHand ? parseFloat(qbItem.QtyOnHand.toString()) : null,
-          track_qty_on_hand: qbItem.TrackQtyOnHand || false,
-          // Tax configuration
-          taxable: qbItem.Taxable !== false,
-          sales_tax_code_ref: qbItem.SalesTaxCodeRef ? qbItem.SalesTaxCodeRef : null,
-          // Account references (stored as JSONB)
-          income_account_ref: qbItem.IncomeAccountRef ? qbItem.IncomeAccountRef : null,
-          expense_account_ref: qbItem.ExpenseAccountRef ? qbItem.ExpenseAccountRef : null,
-          asset_account_ref: qbItem.AssetAccountRef ? qbItem.AssetAccountRef : null,
-          // Sync metadata
-          qbo_sync_token: qbItem.SyncToken ? parseInt(qbItem.SyncToken) : null,
-          qbo_created_at: qbItem.MetaData?.CreateTime || null,
-          qbo_updated_at: qbItem.MetaData?.LastUpdatedTime || null,
-          sync_status: 'synced',
-          last_sync_at: new Date().toISOString(),
-        };
-
-        // Insert or update item - try insert first, then update if exists
-        const { error } = await supabase
-          .from('item_record')
-          .upsert(itemData, {
-            onConflict: 'organization_id,qbo_id',
-            ignoreDuplicates: false
-          });
-
-        if (error) {
-          console.error(`Failed to save item ${qbItem.Name}:`, error);
-        } else {
-          savedCount++;
-        }
-      } catch (itemError: any) {
-        console.error(`Error processing item ${qbItem.Name}:`, itemError);
+      if (!response.ok) {
+        const errorText = await parseQBError(response);
+        throw new Error(`QuickBooks API error (${response.status}): ${errorText}`);
       }
+
+      const data = await response.json();
+      const items = data.QueryResponse?.Item || [];
+
+      allItems = allItems.concat(items);
+
+      // Update pagination state
+      pagination = updatePagination(pagination, data);
+
+      // Log progress
+      logProgress("Item", allItems.length, pagination.totalCount, items.length);
+
+      // Break if no more records
+      if (items.length === 0 || !pagination.hasMore) {
+        break;
+      }
+
+    } catch (error: any) {
+      console.error("Error fetching item page:", error.message);
+      throw error;
     }
-
-    console.log(`Successfully saved ${savedCount} items to database`);
-    return savedCount;
-
-  } catch (error: any) {
-    console.error("Detailed error calling QuickBooks API:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-    throw new Error(`Network error: ${error.message}`);
   }
+
+  console.log(`Fetched ${allItems.length} items from QuickBooks`);
+
+  // CRITICAL FIX: Map QB items to Batchly schema
+  const mappedItems = allItems.map(qbItem => mapQBItemToBatchly(qbItem, connection.organization_id));
+
+  // CRITICAL FIX: Batch upsert to database
+  const savedCount = await batchUpsert(
+    supabase,
+    'item_record',
+    mappedItems,
+    'organization_id,qbo_id',
+    500
+  );
+
+  console.log(`✓ Successfully saved ${savedCount} items to database`);
+  return savedCount;
+}
+
+/**
+ * Map QuickBooks Item to Batchly item_record schema
+ * Complete field mapping per QB Item API specification
+ */
+function mapQBItemToBatchly(qbItem: any, organizationId: string): any {
+  return {
+    organization_id: organizationId,
+    qbo_id: qbItem.Id.toString(),
+
+    // Basic Info
+    name: qbItem.Name || null,
+    sku: qbItem.Sku || null,
+    description: qbItem.Description || null,
+    item_type: qbItem.Type || null,
+    is_active: qbItem.Active !== false,
+
+    // Pricing (CRITICAL: UnitPrice is selling price, not cost)
+    unit_price: parseQBAmount(qbItem.UnitPrice),
+    purchase_cost: parseQBAmount(qbItem.PurchaseCost),
+
+    // Inventory Tracking
+    quantity_on_hand: parseQBAmount(qbItem.QtyOnHand),
+    track_qty_on_hand: qbItem.TrackQtyOnHand || false,
+    reorder_point: parseQBAmount(qbItem.ReorderPoint),
+    inv_start_date: qbItem.InvStartDate || null,
+
+    // Account References (stored as JSONB)
+    income_account_ref: qbItem.IncomeAccountRef ? {
+      value: qbItem.IncomeAccountRef.value,
+      name: qbItem.IncomeAccountRef.name
+    } : null,
+    expense_account_ref: qbItem.ExpenseAccountRef ? {
+      value: qbItem.ExpenseAccountRef.value,
+      name: qbItem.ExpenseAccountRef.name
+    } : null,
+    asset_account_ref: qbItem.AssetAccountRef ? {
+      value: qbItem.AssetAccountRef.value,
+      name: qbItem.AssetAccountRef.name
+    } : null,
+
+    // Tax Configuration
+    taxable: qbItem.Taxable !== false,
+    sales_tax_code_ref: qbItem.SalesTaxCodeRef ? {
+      value: qbItem.SalesTaxCodeRef.value,
+      name: qbItem.SalesTaxCodeRef.name
+    } : null,
+    purchase_tax_code_ref: qbItem.PurchaseTaxCodeRef ? {
+      value: qbItem.PurchaseTaxCodeRef.value,
+      name: qbItem.PurchaseTaxCodeRef.name
+    } : null,
+    sales_tax_included: qbItem.SalesTaxIncluded || false,
+
+    // Item Hierarchy
+    parent_ref: qbItem.ParentRef ? {
+      value: qbItem.ParentRef.value,
+      name: qbItem.ParentRef.name
+    } : null,
+    sub_item: qbItem.SubItem || false,
+    level: parseQBInt(qbItem.Level) || 0,
+    fully_qualified_name: qbItem.FullyQualifiedName || qbItem.Name || null,
+
+    // Vendor and Purchasing
+    pref_vendor_ref: qbItem.PrefVendorRef ? {
+      value: qbItem.PrefVendorRef.value,
+      name: qbItem.PrefVendorRef.name
+    } : null,
+    purchase_desc: qbItem.PurchaseDesc || null,
+    man_part_num: qbItem.ManPartNum || null,
+
+    // Unit of Measure
+    uom_set_ref: qbItem.UOMSetRef ? {
+      value: qbItem.UOMSetRef.value,
+      name: qbItem.UOMSetRef.name
+    } : null,
+
+    // QB Sync Metadata
+    qbo_sync_token: parseQBInt(qbItem.SyncToken),
+    sync_status: 'synced',
+    last_sync_at: new Date().toISOString(),
+    qbo_created_at: formatQBTimestamp(qbItem.MetaData?.CreateTime),
+    qbo_updated_at: formatQBTimestamp(qbItem.MetaData?.LastUpdatedTime),
+  };
 }
 
 async function pushItemsToQB(supabase: any, connection: any): Promise<number> {
