@@ -20,7 +20,6 @@ port = 54324
 
 [edge_runtime]
 enabled = true
-port = 54329
 
 [functions.qbo-oauth-initiate]
 verify_jwt = false
