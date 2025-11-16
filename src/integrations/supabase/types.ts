@@ -3294,6 +3294,9 @@ export type Database = {
       qbo_connection: {
         Row: {
           created_at: string | null
+          encrypted_access_token: string | null
+          encrypted_refresh_token: string | null
+          encryption_key_id: string | null
           environment: string
           id: string
           is_active: boolean | null
@@ -3309,6 +3312,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          encrypted_access_token?: string | null
+          encrypted_refresh_token?: string | null
+          encryption_key_id?: string | null
           environment?: string
           id?: string
           is_active?: boolean | null
@@ -3324,6 +3330,9 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          encrypted_access_token?: string | null
+          encrypted_refresh_token?: string | null
+          encryption_key_id?: string | null
           environment?: string
           id?: string
           is_active?: boolean | null
@@ -5150,6 +5159,11 @@ export type Database = {
         }
         Returns: string
       }
+      decrypt_qbo_token: {
+        Args: { p_encrypted_token: string; p_key_id: string }
+        Returns: string
+      }
+      encrypt_qbo_token: { Args: { p_token: string }; Returns: string }
       enqueue_batch_job: {
         Args: {
           p_job_type: string
@@ -5258,6 +5272,13 @@ export type Database = {
           qbo_realm_id: string
         }[]
       }
+      get_qbo_tokens_decrypted: {
+        Args: { p_organization_id: string }
+        Returns: {
+          access_token: string
+          refresh_token: string
+        }[]
+      }
       get_template_item_quantity_for_date: {
         Args: {
           friday_qty: number
@@ -5288,6 +5309,7 @@ export type Database = {
         Returns: string
       }
       is_admin_user: { Args: { user_id: string }; Returns: boolean }
+      migrate_tokens_to_encrypted: { Args: never; Returns: undefined }
       needs_qb_sync: {
         Args: {
           p_entity_id: string
