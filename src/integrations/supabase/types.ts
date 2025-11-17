@@ -5383,16 +5383,6 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
-      get_qb_sync_status: {
-        Args: { p_entity_id: string; p_entity_type: string }
-        Returns: {
-          is_synced: boolean
-          last_sync_at: string
-          needs_sync: boolean
-          qb_id: string
-          sync_errors: string
-        }[]
-      }
       get_qbo_connection_for_sync: {
         Args: { org_id: string }
         Returns: {
@@ -5456,14 +5446,6 @@ export type Database = {
       }
       is_admin_user: { Args: { user_id: string }; Returns: boolean }
       migrate_tokens_to_encrypted: { Args: never; Returns: undefined }
-      needs_qb_sync: {
-        Args: {
-          p_entity_id: string
-          p_entity_type: string
-          p_organization_id: string
-        }
-        Returns: boolean
-      }
       process_all_pending_batches: { Args: never; Returns: Json }
       process_bulk_invoice_job_sql: {
         Args: { p_job_id: string }
@@ -5478,16 +5460,6 @@ export type Database = {
           p_operation_type: string
           p_organization_id: string
           p_payload?: Json
-          p_priority?: number
-        }
-        Returns: string
-      }
-      queue_qb_sync: {
-        Args: {
-          p_entity_id: string
-          p_entity_type: string
-          p_operation?: string
-          p_organization_id: string
           p_priority?: number
         }
         Returns: string
@@ -5516,16 +5488,6 @@ export type Database = {
           p_entity_type: string
           p_organization_id: string
           p_timestamp: string
-        }
-        Returns: undefined
-      }
-      update_qb_mapping: {
-        Args: {
-          p_entity_id: string
-          p_entity_type: string
-          p_organization_id: string
-          p_qb_id: string
-          p_sync_token?: string
         }
         Returns: undefined
       }
