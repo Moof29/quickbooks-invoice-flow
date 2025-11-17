@@ -178,20 +178,22 @@ async function pullPaymentsFromQB(supabase: any, connection: any): Promise<numbe
 
   // CRITICAL FIX (Task 1.14): Create lookup maps to eliminate N+1 queries
   console.log("Creating lookup maps for customers and invoices...");
-  const customerLookup = await createLookupMap(
-    supabase,
-    'customer_profile',
-    connection.organization_id,
-    'qbo_id',
-    'id'
-  );
-  const invoiceLookup = await createLookupMap(
-    supabase,
-    'invoice_record',
-    connection.organization_id,
-    'qbo_id',
-    'id'
-  );
+  
+  const { data: customers } = await supabase
+    .from('customer_profile')
+    .select('id, qbo_id')
+    .eq('organization_id', connection.organization_id)
+    .not('qbo_id', 'is', null);
+  
+  const { data: invoices } = await supabase
+    .from('invoice_record')
+    .select('id, qbo_id')
+    .eq('organization_id', connection.organization_id)
+    .not('qbo_id', 'is', null);
+
+  const customerLookup = new Map(customers?.map(c => [c.qbo_id!, c]) || []);
+  const invoiceLookup = new Map(invoices?.map(i => [i.qbo_id!, i]) || []);
+  
   console.log(`✓ Created lookup maps: ${customerLookup.size} customers, ${invoiceLookup.size} invoices`);
 
   const baseUrl = getQBApiBaseUrl(connection.environment);
@@ -275,13 +277,14 @@ async function pullPaymentsFromQB(supabase: any, connection: any): Promise<numbe
 function mapQBPaymentToBatchly(
   qbPayment: any,
   organizationId: string,
-  customerLookup: Map<string, string>,
-  invoiceLookup: Map<string, string>
+  customerLookup: Map<string, any>,
+  invoiceLookup: Map<string, any>
 ): any {
   // Resolve customer ID using lookup map (no DB query!)
-  const customerId = qbPayment.CustomerRef
-    ? customerLookup.get(qbPayment.CustomerRef.value.toString()) || null
+  const customerRecord = qbPayment.CustomerRef
+    ? customerLookup.get(qbPayment.CustomerRef.value.toString())
     : null;
+  const customerId = customerRecord?.id || null;
 
   // Resolve invoice ID from line items using lookup map (no DB query!)
   let invoiceId = null;
@@ -292,7 +295,8 @@ function mapQBPaymentToBatchly(
       if (line.LinkedTxn && line.LinkedTxn.length > 0) {
         for (const linkedTxn of line.LinkedTxn) {
           if (linkedTxn.TxnType === 'Invoice') {
-            invoiceId = invoiceLookup.get(linkedTxn.TxnId.toString()) || null;
+            const invoiceRecord = invoiceLookup.get(linkedTxn.TxnId.toString());
+            invoiceId = invoiceRecord?.id || null;
             if (invoiceId) {
               unapplied = false;
               break;
@@ -393,7 +397,7 @@ async function pushPaymentsToQB(supabase: any, connection: any): Promise<number>
 
   for (const payment of payments) {
     try {
-      await rateLimiter.waitIfNeeded();
+      await QBRateLimiter.checkLimit(connection.organization_id);
 
       // Validate required QB references
       if (!payment.customer?.qbo_id) {

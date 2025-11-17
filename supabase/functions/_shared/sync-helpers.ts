@@ -25,7 +25,7 @@ export interface PaginationState {
  */
 export interface QBQueryResponse<T> {
   QueryResponse: {
-    [key: string]: T[];
+    [key: string]: T[] | number | undefined;
     startPosition?: number;
     maxResults?: number;
     totalCount?: number;
@@ -194,9 +194,11 @@ export async function createLookupMap<T extends { qbo_id: string; id: string }>(
   }
 
   const map = new Map<string, T>();
-  data?.forEach((record: T) => {
-    map.set(record.qbo_id, record);
-  });
+  if (data) {
+    data.forEach((record: any) => {
+      map.set(record.qbo_id, record as T);
+    });
+  }
 
   console.log(`[Lookup Map] Created map for ${tableName}: ${map.size} records`);
   return map;

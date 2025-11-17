@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
 
     // Start background task for clearing invoices
     console.log('Starting background clear task...');
-    EdgeRuntime.waitUntil(clearInvoicesInBackground(organizationId));
+    clearInvoicesInBackground(organizationId).catch(err => console.error('Background clearing error:', err));
 
     // Return immediately
     return new Response(

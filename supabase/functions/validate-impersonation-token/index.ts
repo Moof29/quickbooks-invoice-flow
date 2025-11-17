@@ -41,7 +41,7 @@ serve(async (req) => {
       );
     }
     
-    console.log('Token record found:', tokenData.id);
+    console.log('Token record found');
 
     // Check if token is expired or revoked
     const now = new Date();

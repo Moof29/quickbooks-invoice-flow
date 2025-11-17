@@ -205,14 +205,14 @@ Deno.serve(async (req) => {
           .update({
             status: 'failed',
             completed_at: new Date().toISOString(),
-            last_error: error.message,
+            last_error: error instanceof Error ? error.message : String(error),
           })
           .eq('id', insertedJob.id);
       }
     };
     
     // Start processing in background (non-blocking)
-    EdgeRuntime.waitUntil(processInBackground());
+    processInBackground().catch(err => console.error('Background processing error:', err));
     
     console.log('📋 Immediate response sent, processing continues in background');
     
