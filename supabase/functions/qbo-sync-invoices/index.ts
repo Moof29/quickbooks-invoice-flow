@@ -1,0 +1,391 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
+import QBRateLimiter from "../_shared/qb-rate-limiter.ts";
+import { retryableQBApiCall, parseQBError } from "../_shared/qb-api-helper.ts";
+import {
+  initPagination,
+  updatePagination,
+  buildQBQuery,
+  logProgress,
+  batchUpsert,
+  formatQBTimestamp,
+  parseQBAmount,
+  parseQBInt,
+  getQBApiBaseUrl,
+  createSupabaseClient,
+  createLookupMap
+} from "../_shared/sync-helpers.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface SyncRequest {
+  organizationId: string;
+  sessionId?: string;
+  offset?: number;
+  direction?: "push" | "pull" | "both";
+  batchSize?: number;
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabase = createSupabaseClient();
+    const { 
+      organizationId, 
+      sessionId,
+      offset = 0,
+      direction = "pull",
+      batchSize = 50 // Smaller batches for invoices (larger objects)
+    }: SyncRequest = await req.json();
+
+    console.log("=== Starting Invoice Sync ===");
+    console.log("Organization ID:", organizationId);
+    console.log("Direction:", direction);
+    console.log("Session ID:", sessionId);
+    console.log("Offset:", offset);
+    console.log("Batch Size:", batchSize);
+
+    // Get QuickBooks connection
+    const { data: connections, error: connectionError } = await supabase
+      .rpc("get_qbo_connection_for_sync", { p_organization_id: organizationId });
+
+    if (connectionError || !connections || connections.length === 0) {
+      console.error("Connection fetch error:", connectionError);
+      throw new Error("Active QuickBooks connection not found");
+    }
+
+    const connection = connections[0];
+
+    // Refresh token if needed
+    await refreshTokenIfNeeded(supabase, connection);
+
+    let syncResults = {
+      pulled: 0,
+      pushed: 0,
+      errors: [] as string[]
+    };
+
+    // Pull invoices from QuickBooks
+    if (direction === "pull" || direction === "both") {
+      try {
+        const pullResult = await pullInvoicesFromQB(
+          supabase, 
+          connection, 
+          sessionId || null,
+          offset,
+          batchSize
+        );
+        syncResults.pulled = pullResult;
+      } catch (error: any) {
+        console.error("Pull error:", error);
+        syncResults.errors.push(`Pull error: ${error.message}`);
+      }
+    }
+
+    // Push invoices to QuickBooks (create/update invoices in QB)
+    if (direction === "push" || direction === "both") {
+      try {
+        const pushResult = await pushInvoicesToQB(supabase, connection);
+        syncResults.pushed = pushResult;
+      } catch (error: any) {
+        console.error("Push error:", error);
+        syncResults.errors.push(`Push error: ${error.message}`);
+      }
+    }
+
+    // Log sync history
+    await supabase.from("qbo_sync_history").insert({
+      organization_id: organizationId,
+      sync_type: sessionId ? "chunked" : "manual",
+      entity_types: ["invoice"],
+      status: syncResults.errors.length > 0 ? "partial_success" : "completed",
+      entity_count: syncResults.pulled + syncResults.pushed,
+      success_count: syncResults.pulled + syncResults.pushed,
+      failure_count: syncResults.errors.length,
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+      error_summary: syncResults.errors.length > 0 ? syncResults.errors.join("; ") : null,
+    });
+
+    console.log("=== Invoice Sync Complete ===");
+    console.log("Results:", syncResults);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        results: syncResults
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+
+  } catch (error: any) {
+    console.error("Invoice sync error:", error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+};
+
+async function refreshTokenIfNeeded(supabase: any, connection: any): Promise<void> {
+  const expiresAt = new Date(connection.qbo_token_expires_at);
+  const now = new Date();
+  const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+
+  if (expiresAt <= fiveMinutesFromNow) {
+    console.log("Token expires soon, refreshing...");
+    const { error } = await supabase.functions.invoke("qbo-token-refresh", {
+      body: { organizationId: connection.organization_id }
+    });
+    if (error) {
+      console.error("Token refresh failed:", error);
+      throw new Error("Token refresh failed");
+    }
+  }
+}
+
+async function pullInvoicesFromQB(
+  supabase: any,
+  connection: any,
+  sessionId: string | null,
+  startOffset: number,
+  batchSize: number
+): Promise<number> {
+  console.log("Pulling invoices from QuickBooks...");
+  
+  const rateLimiter = new QBRateLimiter();
+  const baseUrl = getQBApiBaseUrl(connection.environment);
+  let totalPulled = 0;
+  let currentOffset = startOffset;
+  let hasMore = true;
+
+  // Get or create session
+  let session = null;
+  if (sessionId) {
+    const { data } = await supabase
+      .from('qbo_sync_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .single();
+    session = data;
+  }
+
+  // Build customer and item lookups for foreign key mapping
+  const customerMap = await createLookupMap(supabase, 'customer_profile', 'qbo_id', connection.organization_id);
+  const itemMap = await createLookupMap(supabase, 'item_record', 'qbo_id', connection.organization_id);
+
+  while (hasMore) {
+    await rateLimiter.waitIfNeeded();
+
+    // Build query with pagination
+    const query = `SELECT * FROM Invoice STARTPOSITION ${currentOffset + 1} MAXRESULTS ${batchSize}`;
+    
+    console.log(`Fetching invoices: offset=${currentOffset}, batch=${batchSize}`);
+
+    try {
+      const response = await retryableQBApiCall(async () => {
+        return await fetch(
+          `${baseUrl}/v3/company/${connection.qbo_realm_id}/query?query=${encodeURIComponent(query)}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${connection.qbo_access_token}`,
+              "Accept": "application/json"
+            }
+          }
+        );
+      });
+
+      if (!response.ok) {
+        const error = await parseQBError(response);
+        throw new Error(`QuickBooks API error: ${error.message}`);
+      }
+
+      const data = await response.json();
+      const invoices = data.QueryResponse?.Invoice || [];
+      
+      console.log(`Received ${invoices.length} invoices`);
+
+      if (invoices.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      // Transform and prepare invoices for upsert
+      const invoiceRecords = [];
+      const lineItemRecords = [];
+
+      for (const qbInvoice of invoices) {
+        // Map customer
+        const customerBatchlyId = customerMap.get(qbInvoice.CustomerRef?.value);
+        if (!customerBatchlyId) {
+          console.warn(`Customer not found for QB ID: ${qbInvoice.CustomerRef?.value}, skipping invoice ${qbInvoice.Id}`);
+          continue;
+        }
+
+        // Prepare invoice record
+        const invoiceRecord = {
+          organization_id: connection.organization_id,
+          qbo_id: qbInvoice.Id,
+          invoice_number: qbInvoice.DocNumber || `INV-${qbInvoice.Id}`,
+          invoice_date: qbInvoice.TxnDate || new Date().toISOString().split('T')[0],
+          due_date: qbInvoice.DueDate,
+          customer_id: customerBatchlyId,
+          subtotal: parseQBAmount(qbInvoice.TotalAmt) || 0,
+          tax_total: parseQBAmount(qbInvoice.TxnTaxDetail?.TaxLine[0]?.TaxLineDetail?.TaxPercent) || 0,
+          total: parseQBAmount(qbInvoice.TotalAmt) || 0,
+          balance_due: parseQBAmount(qbInvoice.Balance) || 0,
+          status: parseQBAmount(qbInvoice.Balance) === 0 ? 'paid' : 'open',
+          memo: qbInvoice.CustomerMemo?.value,
+          qbo_sync_token: qbInvoice.SyncToken,
+          qbo_sync_status: 'synced',
+          source_system: 'QBO',
+          last_sync_at: new Date().toISOString()
+        };
+
+        invoiceRecords.push(invoiceRecord);
+
+        // Prepare line items
+        const lines = qbInvoice.Line || [];
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.DetailType !== 'SalesItemLineDetail') continue;
+
+          const detail = line.SalesItemLineDetail;
+          const itemBatchlyId = itemMap.get(detail.ItemRef?.value);
+          
+          if (!itemBatchlyId) {
+            console.warn(`Item not found for QB ID: ${detail.ItemRef?.value}, skipping line item`);
+            continue;
+          }
+
+          lineItemRecords.push({
+            organization_id: connection.organization_id,
+            // invoice_id will be set after invoice upsert
+            invoice_qbo_id: qbInvoice.Id, // Temporary field for mapping
+            item_id: itemBatchlyId,
+            description: line.Description,
+            quantity: parseQBAmount(detail.Qty) || 1,
+            unit_price: parseQBAmount(detail.UnitPrice) || 0,
+            amount: parseQBAmount(line.Amount) || 0,
+            position: i + 1,
+            tax_rate: detail.TaxCodeRef?.value === 'TAX' ? 10 : 0, // Simplified
+            last_sync_at: new Date().toISOString()
+          });
+        }
+      }
+
+      // Upsert invoices
+      if (invoiceRecords.length > 0) {
+        const { data: upsertedInvoices, error: invoiceError } = await supabase
+          .from('invoice_record')
+          .upsert(invoiceRecords, { 
+            onConflict: 'organization_id,qbo_id',
+            ignoreDuplicates: false 
+          })
+          .select('id, qbo_id');
+
+        if (invoiceError) {
+          console.error("Invoice upsert error:", invoiceError);
+          throw invoiceError;
+        }
+
+        console.log(`✓ Upserted ${upsertedInvoices.length} invoices`);
+
+        // Create mapping of qbo_id to Batchly invoice_id
+        const invoiceIdMap = new Map(
+          upsertedInvoices.map((inv: any) => [inv.qbo_id, inv.id])
+        );
+
+        // Map line items to actual invoice IDs
+        const mappedLineItems = lineItemRecords.map(item => ({
+          ...item,
+          invoice_id: invoiceIdMap.get(item.invoice_qbo_id),
+          invoice_qbo_id: undefined // Remove temporary field
+        })).filter(item => item.invoice_id); // Only items with valid invoice_id
+
+        // Delete existing line items for these invoices
+        const invoiceIds = Array.from(invoiceIdMap.values());
+        if (invoiceIds.length > 0) {
+          await supabase
+            .from('invoice_line_item')
+            .delete()
+            .in('invoice_id', invoiceIds);
+        }
+
+        // Insert new line items
+        if (mappedLineItems.length > 0) {
+          const { error: lineError } = await supabase
+            .from('invoice_line_item')
+            .insert(mappedLineItems);
+
+          if (lineError) {
+            console.error("Line item insert error:", lineError);
+            throw lineError;
+          }
+
+          console.log(`✓ Inserted ${mappedLineItems.length} line items`);
+        }
+
+        totalPulled += upsertedInvoices.length;
+      }
+
+      // Update session if exists
+      if (session) {
+        await supabase
+          .from('qbo_sync_sessions')
+          .update({
+            total_processed: session.total_processed + invoices.length,
+            current_offset: currentOffset + invoices.length,
+            last_chunk_at: new Date().toISOString()
+          })
+          .eq('id', session.id);
+      }
+
+      currentOffset += invoices.length;
+
+      // Check if we should continue
+      if (invoices.length < batchSize) {
+        hasMore = false;
+      }
+
+      // Rate limiting pause between batches
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+    } catch (error: any) {
+      console.error("Error fetching invoices:", error);
+      throw error;
+    }
+  }
+
+  console.log(`✓ Total invoices pulled: ${totalPulled}`);
+  return totalPulled;
+}
+
+async function pushInvoicesToQB(supabase: any, connection: any): Promise<number> {
+  console.log("Pushing invoices to QuickBooks...");
+  console.log("⚠️  Invoice push not yet implemented");
+  console.log("This requires:");
+  console.log("  1. Mapping Batchly invoices to QB Invoice API format");
+  console.log("  2. Handling QB customer/item references");
+  console.log("  3. Managing SyncToken for updates");
+  console.log("  4. Error handling for validation failures");
+  
+  return 0;
+}
+
+serve(handler);
