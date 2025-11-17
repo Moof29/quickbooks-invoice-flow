@@ -121,9 +121,15 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 async function refreshTokenIfNeeded(supabase: any, connection: any) {
-  const expiresAt = new Date(connection.qbo_token_expires_at);
+  // Use the correct field name from RPC response
+  if (!connection.token_expires_at) {
+    console.log("No token expiration date found, skipping refresh check");
+    return;
+  }
+
+  const expiresAt = new Date(connection.token_expires_at);
   const now = new Date();
-  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // FIXED: Changed from 5 minutes to 1 hour
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
   console.log("Token check:", {
     expiresAt: expiresAt.toISOString(),
@@ -157,8 +163,8 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
       .single();
 
     if (updatedConnection) {
-      connection.qbo_access_token = updatedConnection.qbo_access_token;
-      connection.qbo_token_expires_at = updatedConnection.qbo_token_expires_at;
+      connection.access_token = updatedConnection.access_token;
+      connection.token_expires_at = updatedConnection.token_expires_at;
       console.log("Updated connection with new token");
     }
   }
