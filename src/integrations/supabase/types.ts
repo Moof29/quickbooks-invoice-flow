@@ -3294,10 +3294,17 @@ export type Database = {
       qbo_connection: {
         Row: {
           created_at: string | null
+          encrypted_access_token: string | null
+          encrypted_refresh_token: string | null
+          encryption_key_id: string | null
           environment: string
           id: string
           is_active: boolean | null
           last_connected_at: string | null
+          last_customer_sync_at: string | null
+          last_invoice_sync_at: string | null
+          last_item_sync_at: string | null
+          last_payment_sync_at: string | null
           last_sync_at: string | null
           organization_id: string
           qbo_access_token: string | null
@@ -3309,10 +3316,17 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          encrypted_access_token?: string | null
+          encrypted_refresh_token?: string | null
+          encryption_key_id?: string | null
           environment?: string
           id?: string
           is_active?: boolean | null
           last_connected_at?: string | null
+          last_customer_sync_at?: string | null
+          last_invoice_sync_at?: string | null
+          last_item_sync_at?: string | null
+          last_payment_sync_at?: string | null
           last_sync_at?: string | null
           organization_id: string
           qbo_access_token?: string | null
@@ -3324,10 +3338,17 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          encrypted_access_token?: string | null
+          encrypted_refresh_token?: string | null
+          encryption_key_id?: string | null
           environment?: string
           id?: string
           is_active?: boolean | null
           last_connected_at?: string | null
+          last_customer_sync_at?: string | null
+          last_invoice_sync_at?: string | null
+          last_item_sync_at?: string | null
+          last_payment_sync_at?: string | null
           last_sync_at?: string | null
           organization_id?: string
           qbo_access_token?: string | null
@@ -4359,6 +4380,33 @@ export type Database = {
           },
         ]
       }
+      system_settings: {
+        Row: {
+          created_at: string | null
+          encrypted: boolean | null
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted?: boolean | null
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          encrypted?: boolean | null
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       tags: {
         Row: {
           color: string | null
@@ -4991,6 +5039,44 @@ export type Database = {
       }
     }
     Views: {
+      delta_sync_status: {
+        Row: {
+          last_customer_sync_at: string | null
+          last_invoice_sync_at: string | null
+          last_item_sync_at: string | null
+          last_payment_sync_at: string | null
+          most_recent_sync: string | null
+          organization_id: string | null
+          time_since_last_sync: unknown
+        }
+        Insert: {
+          last_customer_sync_at?: string | null
+          last_invoice_sync_at?: string | null
+          last_item_sync_at?: string | null
+          last_payment_sync_at?: string | null
+          most_recent_sync?: never
+          organization_id?: string | null
+          time_since_last_sync?: never
+        }
+        Update: {
+          last_customer_sync_at?: string | null
+          last_invoice_sync_at?: string | null
+          last_item_sync_at?: string | null
+          last_payment_sync_at?: string | null
+          most_recent_sync?: never
+          organization_id?: string | null
+          time_since_last_sync?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qbo_connection_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qbo_connection_safe: {
         Row: {
           created_at: string | null
@@ -5150,6 +5236,11 @@ export type Database = {
         }
         Returns: string
       }
+      decrypt_qbo_token: {
+        Args: { p_encrypted_token: string; p_key_id: string }
+        Returns: string
+      }
+      encrypt_qbo_token: { Args: { p_token: string }; Returns: string }
       enqueue_batch_job: {
         Args: {
           p_job_type: string
@@ -5198,6 +5289,10 @@ export type Database = {
       get_customer_portal_status: {
         Args: { p_customer_id: string }
         Returns: Json
+      }
+      get_delta_sync_timestamp: {
+        Args: { p_entity_type: string; p_organization_id: string }
+        Returns: string
       }
       get_next_batch_job: {
         Args: never
@@ -5258,6 +5353,14 @@ export type Database = {
           qbo_realm_id: string
         }[]
       }
+      get_qbo_tokens_decrypted: {
+        Args: { p_organization_id: string }
+        Returns: {
+          access_token: string
+          refresh_token: string
+        }[]
+      }
+      get_system_setting: { Args: { p_key: string }; Returns: string }
       get_template_item_quantity_for_date: {
         Args: {
           friday_qty: number
@@ -5288,6 +5391,7 @@ export type Database = {
         Returns: string
       }
       is_admin_user: { Args: { user_id: string }; Returns: boolean }
+      migrate_tokens_to_encrypted: { Args: never; Returns: undefined }
       needs_qb_sync: {
         Args: {
           p_entity_id: string
@@ -5340,6 +5444,14 @@ export type Database = {
           p_job_id: string
           p_processed: number
           p_successful: number
+        }
+        Returns: undefined
+      }
+      update_delta_sync_timestamp: {
+        Args: {
+          p_entity_type: string
+          p_organization_id: string
+          p_timestamp: string
         }
         Returns: undefined
       }
