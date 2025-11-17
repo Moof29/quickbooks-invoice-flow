@@ -1,5 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
+/**
+ * PRODUCTION SAFEGUARD: Clear Customers
+ * 
+ * Deletes all customers and related data for an organization.
+ * 
+ * Security Requirements:
+ * 1. User must be authenticated
+ * 2. User must have admin role
+ * 3. Must provide confirmation parameter
+ * 4. Environment check (warning for production)
+ */
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
@@ -20,7 +32,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify user is authenticated
+    // 1. Verify user is authenticated
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -29,10 +41,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get user's organization
+    // 2. Get user's profile and organization
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, role')
       .eq('id', user.id)
       .single();
 
@@ -43,9 +55,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    const organizationId = profile.organization_id;
+    // 3. Check admin role
+    if (profile.role !== 'admin') {
+      console.warn(`Non-admin user ${user.id} attempted to clear customers`);
+      return new Response(JSON.stringify({ error: 'Admin role required' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    console.log('Starting customer deletion for organization:', organizationId);
+    // 4. Check confirmation parameter
+    const url = new URL(req.url);
+    const confirmed = url.searchParams.get('confirm') === 'DELETE_CUSTOMERS';
+    
+    if (!confirmed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Confirmation required',
+          message: 'Add ?confirm=DELETE_CUSTOMERS to the request to proceed'
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 5. Environment warning
+    const environment = Deno.env.get('ENVIRONMENT') || 'development';
+    if (environment === 'production') {
+      console.warn(`⚠️ PRODUCTION CUSTOMER DELETION - Organization: ${profile.organization_id}, User: ${user.email}`);
+    }
+
+    const organizationId = profile.organization_id;
+    console.log(`🗑️ Clearing customers for organization: ${organizationId}`);
+    console.log(`Environment: ${environment}`);
+    console.log(`Initiated by: ${user.email}`);
 
     // With CASCADE foreign key, invoices are automatically deleted when customers are deleted
     // We only need to delete customer-related data that won't cascade
