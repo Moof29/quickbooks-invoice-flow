@@ -5384,7 +5384,7 @@ export type Database = {
         Returns: string
       }
       get_qbo_connection_for_sync: {
-        Args: { org_id: string }
+        Args: { p_organization_id: string }
         Returns: {
           access_token: string
           environment: string
