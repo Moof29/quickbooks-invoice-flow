@@ -3901,6 +3901,74 @@ export type Database = {
           },
         ]
       }
+      qbo_sync_sessions: {
+        Row: {
+          batch_size: number
+          completed_at: string | null
+          created_at: string
+          current_offset: number
+          entity_type: string
+          error_message: string | null
+          id: string
+          last_chunk_at: string
+          metadata: Json | null
+          organization_id: string
+          started_at: string
+          status: string
+          sync_mode: string
+          sync_type: string
+          total_expected: number | null
+          total_processed: number
+          updated_at: string
+        }
+        Insert: {
+          batch_size?: number
+          completed_at?: string | null
+          created_at?: string
+          current_offset?: number
+          entity_type: string
+          error_message?: string | null
+          id?: string
+          last_chunk_at?: string
+          metadata?: Json | null
+          organization_id: string
+          started_at?: string
+          status?: string
+          sync_mode?: string
+          sync_type: string
+          total_expected?: number | null
+          total_processed?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_size?: number
+          completed_at?: string | null
+          created_at?: string
+          current_offset?: number
+          entity_type?: string
+          error_message?: string | null
+          id?: string
+          last_chunk_at?: string
+          metadata?: Json | null
+          organization_id?: string
+          started_at?: string
+          status?: string
+          sync_mode?: string
+          sync_type?: string
+          total_expected?: number | null
+          total_processed?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qbo_sync_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qbo_webhook_events: {
         Row: {
           created_at: string | null
