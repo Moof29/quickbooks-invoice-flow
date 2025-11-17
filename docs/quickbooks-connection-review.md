@@ -1,0 +1,35 @@
+# QuickBooks Connection & Sync Review
+
+This document highlights opportunities to harden the QuickBooks OAuth connection and sync flows.
+
+## Can the current setup establish a reliable QBO connection?
+**Mostly, but several gaps could undermine reliability in production**:
+- ✅ **OAuth handshake succeeds end to end today**: the initiate function issues a QuickBooks auth URL with an `offline` scope and random state, and the callback exchanges the code for tokens, upserts the connection row, and redirects with a success flag (triggering initial sync for new orgs).【F:supabase/functions/qbo-oauth-initiate/index.ts†L10-L60】【F:supabase/functions/qbo-oauth-callback/index.ts†L61-L145】
+- ⚠️ **State/nonce not persisted or validated**: the callback only splits the `state` parameter and checks its UUID length; it never compares against a stored nonce or PKCE verifier. A spoofed state would still exchange codes, so CSRF/replay could hijack connections and degrade reliability during attack windows.【F:supabase/functions/qbo-oauth-initiate/index.ts†L32-L58】【F:supabase/functions/qbo-oauth-callback/index.ts†L92-L128】
+- ⚠️ **Redirect/open-origin risk**: the callback allows any origin in non-prod and constructs redirects directly from `FRONTEND_URL` without an allowlist. A malicious redirect could appear “successful” but strand the user or leak tokens, creating support churn.【F:supabase/functions/qbo-oauth-callback/index.ts†L5-L18】【F:supabase/functions/qbo-oauth-callback/index.ts†L214-L233】
+- ✅ **Token persistence and refresh are wired**: on successful exchange, tokens are stored via `update_qbo_connection_tokens`/`insert`; refresh calls reuse the secure RPC and mark connections inactive on failure, preventing repeated 401s (though without alerting).【F:supabase/functions/qbo-oauth-callback/index.ts†L117-L196】【F:supabase/functions/qbo-token-refresh/index.ts†L43-L130】
+- ⚠️ **Refresh resiliency is partial**: refresh overwrites tokens immediately and deactivates on failure without retry/backoff or last-good-token fallback, so a transient error could disable an otherwise healthy connection until a user reconnects.【F:supabase/functions/qbo-token-refresh/index.ts†L65-L118】
+- ⚠️ **Rate limiting is in-memory**: the callback caps requests per IP with an in-memory map, so a cold start wipes counters and distributed instances don’t coordinate, leaving a window for bursts to slip through or for legitimate retries to be blocked unevenly.【F:supabase/functions/qbo-oauth-callback/index.ts†L14-L55】
+
+Overall, the current flow will usually connect to QBO, but hardening state validation, redirect allowlists, token-refresh durability, and centralized rate limiting will make the connection trustworthy for production traffic.
+
+## Connection lifecycle
+- **State validation & CSRF**: The OAuth callback currently splits the `state` value without verifying the state token or matching it against a server-side nonce/PKCE verifier. Persist the issued state token and compare it in the callback before processing to prevent replay/CSRF attacks. Add early rejection logging before token exchange. (See `supabase/functions/qbo-oauth-callback/index.ts`.)
+- **Trusted origins & redirects**: The callback uses a permissive `Access-Control-Allow-Origin` wildcard for non-production and builds redirect URLs from environment variables without additional validation. Consider maintaining an allowlist of redirect hosts and rejecting unexpected origins to reduce open-redirect risk. (See `supabase/functions/qbo-oauth-callback/index.ts`.)
+- **Secret usage**: Tokens and client credentials are handled with service-role privileges. Ensure sensitive logs exclude raw tokens and consider moving credential lookups into a dedicated secret manager to avoid accidental leakage. (See `supabase/functions/qbo-oauth-callback/index.ts`.)
+- **Refresh-token rotation**: When refreshing tokens, the code immediately overwrites the refresh token. Add logic to fall back to the previous refresh token if the new one fails on the next call, and persist the last-known-good token/version to avoid bricking the connection. (See `supabase/functions/qbo-token-refresh/index.ts`.)
+- **Activation rules**: On refresh failure the connection is deactivated, but there is no alerting. Emit structured audit events or notifications when deactivation occurs so operators can prompt the user to reconnect. (See `supabase/functions/qbo-token-refresh/index.ts`.)
+
+## Sync behavior
+- **Token freshness at sync start**: Sync handlers refresh tokens only if expiration is within an hour, but they continue using a potentially stale in-memory `connection` object. Reload the connection after refresh (including the new access token) before performing any API calls to avoid 401s mid-sync. (See `supabase/functions/qbo-sync-customers/index.ts`.)
+- **Concurrency guards**: There is no lock preventing concurrent syncs for the same org, which can lead to duplicate pushes or rate-limit spikes. Introduce a per-org mutex/`qbo_sync_sessions` lock row before running pull/push operations and release it on completion or timeout. (See `supabase/functions/qbo-sync-customers/index.ts`.)
+- **Incremental sync checkpoints**: Customer sync always pulls active customers from the top. Persist last-updated timestamps (e.g., `MetaData.LastUpdatedTime`) and query incrementally, coupled with reconciliation for hard deletes. This reduces QB API usage and aligns with rate limits. (See `supabase/functions/qbo-sync-customers/index.ts`.)
+- **Error categorization**: Pull/push errors are aggregated as strings, losing actionable context. Capture error codes, entity IDs, and retry counts separately so the UI can present clear remediation steps and allow targeted retries. (See `supabase/functions/qbo-sync-customers/index.ts`.)
+- **Batch size tuning**: Pull requests fetch up to 1,000 customers per page, risking large payloads/timeouts. Consider adaptive page sizing based on recent latency or HTTP 413 responses, and ensure `maxResults` obeys Intuit limits. (See `supabase/functions/qbo-sync-customers/index.ts`.)
+- **Audit trails**: Sync history logging writes a single row after completion. Append per-entity audit entries (success/failure) and correlate them with `qbo_api_log` so support can trace specific failures. (See `supabase/functions/qbo-sync-customers/index.ts`.)
+
+## Resilience & observability
+- **Backoff strategy reuse**: Retry logic is implemented but sync code sometimes calls `fetch` directly or repeats delay calculations. Centralize API invocation through `qbApiCallWithRetry` and include rate-limit wait times and response headers in logs for better SRE visibility. (See `supabase/functions/_shared/qb-api-helper.ts`.)
+- **Webhook reconciliation**: The webhook handler is present but sync flows do not reference webhook timestamps to skip redundant pulls. Store the last webhook event time per entity and combine it with incremental sync windows to avoid unnecessary work after webhooks fire. (See `supabase/functions/qbo-sync-customers/index.ts`.)
+
+Implementing these improvements will strengthen security, reduce sync latency, and make operational support easier.

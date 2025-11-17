@@ -107,10 +107,10 @@ const QuickBooksIntegration = () => {
       const { data, error } = await supabase.functions.invoke('qbo-oauth-initiate', {
         body: { organizationId: profile?.organization_id, checkOnly: true }
       });
-      
-      if (!error && data) {
-        setCredentialsConfigured(true);
-      }
+
+      if (error) throw error;
+
+      setCredentialsConfigured(Boolean((data as any)?.configured));
     } catch (error) {
       console.log('Credentials not yet configured');
     }
@@ -281,7 +281,7 @@ const QuickBooksIntegration = () => {
     try {
       console.log('Calling qbo-oauth-initiate with organizationId:', profile.organization_id);
       const response = await supabase.functions.invoke('qbo-oauth-initiate', {
-        body: { organizationId: profile.organization_id }
+        body: { organizationId: profile.organization_id, userId: profile.id }
       });
 
       console.log('OAuth initiate response:', response);
