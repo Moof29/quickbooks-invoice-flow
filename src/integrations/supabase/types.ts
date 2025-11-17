@@ -4380,6 +4380,33 @@ export type Database = {
           },
         ]
       }
+      system_settings: {
+        Row: {
+          created_at: string | null
+          encrypted: boolean | null
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted?: boolean | null
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          encrypted?: boolean | null
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       tags: {
         Row: {
           color: string | null
@@ -5333,6 +5360,7 @@ export type Database = {
           refresh_token: string
         }[]
       }
+      get_system_setting: { Args: { p_key: string }; Returns: string }
       get_template_item_quantity_for_date: {
         Args: {
           friday_qty: number
