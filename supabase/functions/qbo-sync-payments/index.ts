@@ -73,10 +73,15 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Push payments to QuickBooks (for future implementation)
+    // Push payments to QuickBooks
     if (direction === "push" || direction === "both") {
-      console.log("Push to QuickBooks not yet implemented for payments");
-      syncResults.pushed = 0;
+      try {
+        const pushResult = await pushPaymentsToQB(supabase, connection);
+        syncResults.pushed = pushResult;
+      } catch (error: any) {
+        console.error("Push error:", error);
+        syncResults.errors.push(`Push error: ${error.message}`);
+      }
     }
 
     // Log sync history
@@ -344,6 +349,152 @@ function mapQBPaymentToBatchly(
     // Reconciliation
     reconciliation_status: 'unreconciled',
   };
+}
+
+/**
+ * Push Payments to QuickBooks
+ * 
+ * IMPORTANT: In QuickBooks, payments are tied to specific invoices.
+ * You cannot create a "standalone" payment - it must reference an invoice.
+ * 
+ * This function pushes payments from Batchly to QB by creating Payment objects
+ * that link to existing QB invoices.
+ */
+async function pushPaymentsToQB(supabase: any, connection: any): Promise<number> {
+  console.log("Pushing payments to QuickBooks...");
+
+  // Get payments that need to be pushed
+  const { data: payments, error } = await supabase
+    .from("invoice_payment")
+    .select(`
+      *,
+      customer:customer_profile!inner(qbo_id, display_name),
+      invoice:invoice_record!inner(qbo_id, invoice_number)
+    `)
+    .eq("organization_id", connection.organization_id)
+    .or("qbo_id.is.null,qbo_sync_status.eq.pending")
+    .not("invoice_id", "is", null) // Must have invoice
+    .limit(100);
+
+  if (error) {
+    throw new Error(`Failed to fetch payments: ${error.message}`);
+  }
+
+  console.log(`Found ${payments.length} payments to push to QuickBooks`);
+
+  let syncedCount = 0;
+  const baseUrl = getQBApiBaseUrl(connection.environment);
+  const rateLimiter = new QBRateLimiter();
+
+  for (const payment of payments) {
+    try {
+      await rateLimiter.waitIfNeeded();
+
+      // Validate required QB references
+      if (!payment.customer?.qbo_id) {
+        console.error(`Payment ${payment.id} missing customer QB ID, skipping`);
+        continue;
+      }
+
+      if (!payment.invoice?.qbo_id) {
+        console.error(`Payment ${payment.id} missing invoice QB ID, skipping`);
+        continue;
+      }
+
+      // Build QB Payment object
+      const qbPaymentData: any = {
+        CustomerRef: {
+          value: payment.customer.qbo_id
+        },
+        TotalAmt: payment.payment_amount,
+        TxnDate: payment.payment_date || new Date().toISOString().split('T')[0],
+      };
+
+      // Link payment to invoice
+      qbPaymentData.Line = [{
+        Amount: payment.payment_amount,
+        LinkedTxn: [{
+          TxnId: payment.invoice.qbo_id,
+          TxnType: "Invoice"
+        }]
+      }];
+
+      // Add payment method if available
+      const paymentMethodMap: Record<string, string> = {
+        'cash': 'Cash',
+        'check': 'Check',
+        'credit_card': 'CreditCard',
+        'ach': 'ACH',
+      };
+
+      if (payment.payment_method && paymentMethodMap[payment.payment_method]) {
+        // Note: PaymentMethodRef requires the QB ID of the payment method
+        // This would need to be looked up or mapped separately
+        console.log(`Payment method: ${payment.payment_method} (mapping to QB required)`);
+      }
+
+      // Add reference number if available
+      if (payment.reference_number) {
+        qbPaymentData.PaymentRefNum = payment.reference_number;
+      }
+
+      // Add notes if available
+      if (payment.notes) {
+        qbPaymentData.PrivateNote = payment.notes;
+      }
+
+      const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/payment`;
+
+      // If payment has qbo_id, update instead of create
+      if (payment.qbo_id && payment.qbo_sync_token) {
+        qbPaymentData.Id = payment.qbo_id;
+        qbPaymentData.SyncToken = payment.qbo_sync_token;
+        qbPaymentData.sparse = true;
+      }
+
+      const response = await retryableQBApiCall(async () => {
+        return fetch(qbApiUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${connection.qbo_access_token}`,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(qbPaymentData),
+        });
+      });
+
+      if (!response.ok) {
+        const error = await parseQBError(response);
+        console.error(`Failed to push payment ${payment.id}:`, error);
+        continue;
+      }
+
+      const responseData = await response.json();
+      const qbPayment = responseData.Payment;
+
+      if (qbPayment) {
+        // Update payment with QB data
+        await supabase
+          .from("invoice_payment")
+          .update({
+            qbo_id: qbPayment.Id.toString(),
+            qbo_sync_token: parseQBInt(qbPayment.SyncToken),
+            qbo_sync_status: 'synced',
+            last_sync_at: new Date().toISOString(),
+          })
+          .eq("id", payment.id);
+
+        syncedCount++;
+        console.log(`✓ Pushed payment for invoice ${payment.invoice.invoice_number}`);
+      }
+    } catch (error: any) {
+      console.error(`Failed to push payment ${payment.id}:`, error.message);
+    }
+  }
+
+  console.log(`Successfully pushed ${syncedCount} payments to QuickBooks`);
+  return syncedCount;
 }
 
 serve(handler);

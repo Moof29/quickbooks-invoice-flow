@@ -318,8 +318,108 @@ function mapQBItemToBatchly(qbItem: any, organizationId: string): any {
 }
 
 async function pushItemsToQB(supabase: any, connection: any): Promise<number> {
-  console.log("Push to QuickBooks not yet implemented for items");
-  return 0;
+  console.log("Pushing items to QuickBooks...");
+
+  // Get items that need to be pushed (no qbo_id or sync_status = pending)
+  const { data: items, error } = await supabase
+    .from("item_record")
+    .select("*")
+    .eq("organization_id", connection.organization_id)
+    .eq("is_active", true)
+    .or("qbo_id.is.null,sync_status.eq.pending")
+    .limit(100); // Process in batches
+
+  if (error) {
+    throw new Error(`Failed to fetch items: ${error.message}`);
+  }
+
+  console.log(`Found ${items.length} items to push to QuickBooks`);
+
+  let syncedCount = 0;
+  const baseUrl = getQBApiBaseUrl(connection.environment);
+  const rateLimiter = new QBRateLimiter();
+
+  for (const item of items) {
+    try {
+      await rateLimiter.waitIfNeeded();
+
+      // Map Batchly item to QB Item format
+      const qbItemData: any = {
+        Name: item.name,
+        Type: item.item_type || "NonInventory", // Default to NonInventory if not specified
+        Active: item.is_active,
+      };
+
+      // Optional fields
+      if (item.sku) qbItemData.Sku = item.sku;
+      if (item.description) qbItemData.Description = item.description;
+      if (item.unit_price !== null) qbItemData.UnitPrice = item.unit_price;
+      if (item.purchase_cost !== null) qbItemData.PurchaseCost = item.purchase_cost;
+      if (item.track_qty_on_hand) qbItemData.TrackQtyOnHand = item.track_qty_on_hand;
+      if (item.quantity_on_hand !== null) qbItemData.QtyOnHand = item.quantity_on_hand;
+      if (item.reorder_point !== null) qbItemData.ReorderPoint = item.reorder_point;
+      if (item.taxable !== null) qbItemData.Taxable = item.taxable;
+
+      // Reference fields (if they exist in Batchly)
+      if (item.income_account_ref) qbItemData.IncomeAccountRef = item.income_account_ref;
+      if (item.expense_account_ref) qbItemData.ExpenseAccountRef = item.expense_account_ref;
+      if (item.asset_account_ref) qbItemData.AssetAccountRef = item.asset_account_ref;
+      if (item.sales_tax_code_ref) qbItemData.SalesTaxCodeRef = item.sales_tax_code_ref;
+
+      const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/item`;
+
+      // If item has qbo_id, update instead of create
+      if (item.qbo_id && item.qbo_sync_token) {
+        qbItemData.Id = item.qbo_id;
+        qbItemData.SyncToken = item.qbo_sync_token;
+        qbItemData.sparse = true;
+      }
+
+      const response = await retryableQBApiCall(async () => {
+        return fetch(qbApiUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${connection.qbo_access_token}`,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(qbItemData),
+        });
+      });
+
+      if (!response.ok) {
+        const error = await parseQBError(response);
+        console.error(`Failed to push item ${item.id}:`, error);
+        continue;
+      }
+
+      const responseData = await response.json();
+      const qbItem = responseData.Item;
+
+      if (qbItem) {
+        // Update item with QB data
+        await supabase
+          .from("item_record")
+          .update({
+            qbo_id: qbItem.Id.toString(),
+            qbo_sync_token: parseQBInt(qbItem.SyncToken),
+            sync_status: 'synced',
+            last_sync_at: new Date().toISOString(),
+            qbo_created_at: formatQBTimestamp(qbItem.MetaData?.CreateTime),
+            qbo_updated_at: formatQBTimestamp(qbItem.MetaData?.LastUpdatedTime),
+          })
+          .eq("id", item.id);
+
+        syncedCount++;
+        console.log(`✓ Pushed item ${item.name}`);
+      }
+    } catch (error: any) {
+      console.error(`Failed to push item ${item.id}:`, error.message);
+    }
+  }
+
+  console.log(`Successfully pushed ${syncedCount} items to QuickBooks`);
+  return syncedCount;
 }
 
 serve(handler);
