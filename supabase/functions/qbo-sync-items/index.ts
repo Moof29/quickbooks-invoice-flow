@@ -115,9 +115,14 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 async function refreshTokenIfNeeded(supabase: any, connection: any) {
+  if (!connection.qbo_token_expires_at) {
+    console.log("No token expiration date found, skipping refresh check");
+    return;
+  }
+
   const expiresAt = new Date(connection.qbo_token_expires_at);
   const now = new Date();
-  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // FIXED: Changed from 5 minutes to 1 hour
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
   console.log("Token check:", {
     expiresAt: expiresAt.toISOString(),
@@ -145,7 +150,7 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
     // Get the updated connection after refresh
     const { data: updatedConnection } = await supabase
       .from("qbo_connection")
-      .select("*")
+      .select("qbo_access_token, qbo_token_expires_at")
       .eq("organization_id", connection.organization_id)
       .eq("is_active", true)
       .single();

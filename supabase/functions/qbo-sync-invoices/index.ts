@@ -143,18 +143,50 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 async function refreshTokenIfNeeded(supabase: any, connection: any): Promise<void> {
+  if (!connection.qbo_token_expires_at) {
+    console.log("No token expiration date found, skipping refresh check");
+    return;
+  }
+
   const expiresAt = new Date(connection.qbo_token_expires_at);
   const now = new Date();
-  const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
-  if (expiresAt <= fiveMinutesFromNow) {
-    console.log("Token expires soon, refreshing...");
-    const { error } = await supabase.functions.invoke("qbo-token-refresh", {
-      body: { organizationId: connection.organization_id }
+  console.log("Token check:", {
+    expiresAt: expiresAt.toISOString(),
+    now: now.toISOString(),
+    oneHourFromNow: oneHourFromNow.toISOString(),
+    needsRefresh: expiresAt <= oneHourFromNow
+  });
+
+  if (expiresAt <= oneHourFromNow) {
+    console.log("Token expiring soon, refreshing...");
+
+    const { data: refreshData, error: refreshError } = await supabase.functions.invoke('qbo-token-refresh', {
+      body: {
+        organizationId: connection.organization_id
+      }
     });
-    if (error) {
-      console.error("Token refresh failed:", error);
-      throw new Error("Token refresh failed");
+
+    if (refreshError) {
+      console.error("Token refresh error:", refreshError);
+      throw new Error(`Failed to refresh token: ${refreshError.message}`);
+    }
+
+    console.log("Token refreshed successfully");
+
+    // Get the updated connection after refresh
+    const { data: updatedConnection } = await supabase
+      .from("qbo_connection")
+      .select("qbo_access_token, qbo_token_expires_at")
+      .eq("organization_id", connection.organization_id)
+      .eq("is_active", true)
+      .single();
+
+    if (updatedConnection) {
+      connection.qbo_access_token = updatedConnection.qbo_access_token;
+      connection.qbo_token_expires_at = updatedConnection.qbo_token_expires_at;
+      console.log("Updated connection with new token");
     }
   }
 }
