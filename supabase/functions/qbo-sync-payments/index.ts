@@ -120,9 +120,22 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 async function refreshTokenIfNeeded(supabase: any, connection: any) {
+  // ✅ FIX: Check for null/undefined token expiration
+  if (!connection.qbo_token_expires_at) {
+    console.log("No token expiration date found, skipping refresh check");
+    return;
+  }
+
   const expiresAt = new Date(connection.qbo_token_expires_at);
+
+  // ✅ FIX: Validate the date is valid
+  if (isNaN(expiresAt.getTime())) {
+    console.error("Invalid token expiration date:", connection.qbo_token_expires_at);
+    return;
+  }
+
   const now = new Date();
-  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // FIXED: Changed from 5 minutes to 1 hour
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
   console.log("Token check:", {
     expiresAt: expiresAt.toISOString(),

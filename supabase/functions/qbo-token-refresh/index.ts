@@ -38,23 +38,33 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Check if token needs refresh (refresh if expires within 10 minutes)
-    const expiresAt = new Date(connection.qbo_token_expires_at);
-    const now = new Date();
-    const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000);
+    // ✅ FIX: Check for null/undefined token expiration
+    if (!connection.qbo_token_expires_at) {
+      console.log("No token expiration date found, forcing refresh");
+      // Continue to refresh instead of throwing error
+    } else {
+      const expiresAt = new Date(connection.qbo_token_expires_at);
 
-    if (expiresAt > tenMinutesFromNow) {
-      console.log("Token is still valid, no refresh needed");
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: "Token is still valid",
-          expiresAt: expiresAt.toISOString()
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
+      // ✅ FIX: Validate the date is valid
+      if (!isNaN(expiresAt.getTime())) {
+        const now = new Date();
+        const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000);
+
+        if (expiresAt > tenMinutesFromNow) {
+          console.log("Token is still valid, no refresh needed");
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: "Token is still valid",
+              expiresAt: expiresAt.toISOString()
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
         }
-      );
+      }
     }
 
     console.log("Refreshing QuickBooks token for organization:", organizationId);
