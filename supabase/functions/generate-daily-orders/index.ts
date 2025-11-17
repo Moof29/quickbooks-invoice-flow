@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to generate orders: ${rpcError.message}`);
     }
 
-    const result: BatchGenerationResult = data;
+    const result = data as BatchGenerationResult;
     console.log('=== Generation Complete ===');
     console.log(`Orders created: ${result.orders_created}`);
     console.log(`Dates processed: ${result.dates_processed}`);
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Fatal error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

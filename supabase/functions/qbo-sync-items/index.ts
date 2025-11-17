@@ -346,7 +346,7 @@ async function pushItemsToQB(supabase: any, connection: any): Promise<number> {
 
   for (const item of items) {
     try {
-      await rateLimiter.waitIfNeeded();
+      await QBRateLimiter.checkLimit(connection.organization_id);
 
       // Map Batchly item to QB Item format
       const qbItemData: any = {

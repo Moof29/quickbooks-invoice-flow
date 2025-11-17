@@ -57,9 +57,8 @@ Deno.serve(async (req) => {
       .eq('id', progressId);
 
     // Start background streaming processing
-    EdgeRuntime.waitUntil(
-      processImportStreaming(supabaseClient, profile.organization_id, filePath, dataType, progressId, options, columnMappings)
-    );
+    processImportStreaming(supabaseClient, profile.organization_id, filePath, dataType, progressId, options, columnMappings)
+      .catch(err => console.error('Background import error:', err));
 
     return new Response(
       JSON.stringify({

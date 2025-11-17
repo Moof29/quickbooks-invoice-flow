@@ -218,11 +218,24 @@ async function pullInvoicesFromQB(
   }
 
   // Build customer and item lookups for foreign key mapping
-  const customerMap = await createLookupMap(supabase, 'customer_profile', 'qbo_id', connection.organization_id);
-  const itemMap = await createLookupMap(supabase, 'item_record', 'qbo_id', connection.organization_id);
+  // Fetch all customers and items first to build lookup maps
+  const { data: customers } = await supabase
+    .from('customer_profile')
+    .select('id, qbo_id')
+    .eq('organization_id', connection.organization_id)
+    .not('qbo_id', 'is', null);
+  
+  const { data: items } = await supabase
+    .from('item_record')
+    .select('id, qbo_id')
+    .eq('organization_id', connection.organization_id)
+    .not('qbo_id', 'is', null);
+
+  const customerMap = new Map(customers?.map(c => [c.qbo_id!, c.id]) || []);
+  const itemMap = new Map(items?.map(i => [i.qbo_id!, i.id]) || []);
 
   while (hasMore) {
-    await rateLimiter.waitIfNeeded();
+    await QBRateLimiter.checkLimit(connection.organization_id);
 
     // Build query with pagination
     const query = `SELECT * FROM Invoice STARTPOSITION ${currentOffset + 1} MAXRESULTS ${batchSize}`;
@@ -243,8 +256,8 @@ async function pullInvoicesFromQB(
       });
 
       if (!response.ok) {
-        const error = await parseQBError(response);
-        throw new Error(`QuickBooks API error: ${error.message}`);
+        const errorMessage = await parseQBError(response);
+        throw new Error(`QuickBooks API error: ${errorMessage}`);
       }
 
       const data = await response.json();
@@ -438,7 +451,7 @@ async function pushInvoicesToQB(supabase: any, connection: any): Promise<number>
 
   for (const invoice of invoices) {
     try {
-      await rateLimiter.waitIfNeeded();
+      await QBRateLimiter.checkLimit(connection.organization_id);
 
       // Validate required QB references
       if (!invoice.customer?.qbo_id) {
