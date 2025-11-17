@@ -5,6 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * PRODUCTION SAFEGUARD: Clear Invoices
+ * 
+ * Deletes all invoices for an organization.
+ * 
+ * Security Requirements:
+ * 1. User must be authenticated
+ * 2. User must have admin role
+ * 3. Must provide confirmation parameter
+ * 4. Environment check (warning for production)
+ */
+
 async function clearInvoicesInBackground(organizationId: string) {
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -107,10 +119,10 @@ Deno.serve(async (req) => {
 
     console.log('User authenticated:', user.id);
 
-    // Get user's organization
+    // 2. Get user's profile and organization
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, role')
       .eq('id', user.id)
       .single();
 
@@ -121,7 +133,39 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 3. Check admin role
+    if (profile.role !== 'admin') {
+      console.warn(`Non-admin user ${user.id} attempted to clear invoices`);
+      return new Response(
+        JSON.stringify({ error: 'Admin role required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 4. Check confirmation parameter
+    const url = new URL(req.url);
+    const confirmed = url.searchParams.get('confirm') === 'DELETE_INVOICES';
+    
+    if (!confirmed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Confirmation required',
+          message: 'Add ?confirm=DELETE_INVOICES to the request to proceed'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 5. Environment warning
+    const environment = Deno.env.get('ENVIRONMENT') || 'development';
+    if (environment === 'production') {
+      console.warn(`⚠️ PRODUCTION INVOICE DELETION - Organization: ${profile.organization_id}, User: ${user.email}`);
+    }
+
     const organizationId = profile.organization_id;
+    console.log(`🗑️ Clearing invoices for organization: ${organizationId}`);
+    console.log(`Environment: ${environment}`);
+    console.log(`Initiated by: ${user.email}`);
     console.log('Organization ID:', organizationId);
 
     // Start background task for clearing invoices

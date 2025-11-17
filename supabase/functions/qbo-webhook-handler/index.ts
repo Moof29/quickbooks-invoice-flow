@@ -28,7 +28,7 @@ interface QBWebhookPayload {
  * Stores webhook events for async processing by qbo-continue-sync-sessions.
  * 
  * Security:
- * - Validates Intuit-Signature header (HMAC-SHA256)
+ * - Validates Intuit-Signature header (HMAC-SHA256) ✅ IMPLEMENTED
  * - Verifies realmId matches connected organization
  * - Rate limiting via database triggers
  * 
@@ -38,6 +38,46 @@ interface QBWebhookPayload {
  * 3. Store in qbo_webhook_events table
  * 4. Background cron job processes events
  */
+
+/**
+ * Validates the Intuit-Signature header using HMAC-SHA256
+ * @param payload - Raw request body as string
+ * @param signature - Intuit-Signature header value
+ * @param webhookToken - Webhook verification token
+ * @returns true if signature is valid
+ */
+async function validateWebhookSignature(
+  payload: string,
+  signature: string,
+  webhookToken: string
+): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(webhookToken),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+
+    const signatureBuffer = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      encoder.encode(payload)
+    );
+
+    // Convert to base64 for comparison
+    const computedSignature = btoa(
+      String.fromCharCode(...new Uint8Array(signatureBuffer))
+    );
+
+    return computedSignature === signature;
+  } catch (error) {
+    console.error("Error validating webhook signature:", error);
+    return false;
+  }
+}
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -54,19 +94,51 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('setting_key', 'qbo_webhook_token')
       .single();
 
+    // Read raw body for signature validation
+    const rawBody = await req.text();
+    
+    // Validate Intuit-Signature (HMAC-SHA256)
+    const signature = req.headers.get('intuit-signature');
+    
+    if (webhookToken?.setting_value) {
+      if (!signature) {
+        console.error("Missing Intuit-Signature header");
+        return new Response(
+          JSON.stringify({ error: "Missing signature" }),
+          { 
+            status: 401, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          }
+        );
+      }
+
+      const isValidSignature = await validateWebhookSignature(
+        rawBody,
+        signature,
+        webhookToken.setting_value
+      );
+
+      if (!isValidSignature) {
+        console.error("Invalid webhook signature");
+        return new Response(
+          JSON.stringify({ error: "Invalid signature" }),
+          { 
+            status: 401, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          }
+        );
+      }
+
+      console.log("✅ Webhook signature validated successfully");
+    } else {
+      console.warn("⚠️ No webhook token configured - signature validation skipped");
+    }
+
     // Parse request body
-    const payload: QBWebhookPayload = await req.json();
+    const payload: QBWebhookPayload = JSON.parse(rawBody);
     
     console.log("=== QuickBooks Webhook Received ===");
     console.log("Event count:", payload.eventNotifications?.length || 0);
-
-    // Validate Intuit-Signature (HMAC-SHA256)
-    const signature = req.headers.get('intuit-signature');
-    if (webhookToken?.setting_value && signature) {
-      // TODO: Implement HMAC signature validation
-      // For now, we'll skip this in development but it's required for production
-      console.log("Webhook signature present (validation TODO)");
-    }
 
     if (!payload.eventNotifications || payload.eventNotifications.length === 0) {
       return new Response(

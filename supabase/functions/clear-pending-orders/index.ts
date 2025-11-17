@@ -5,6 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * PRODUCTION SAFEGUARD: Clear Pending Orders
+ * 
+ * Deletes all pending orders for an organization.
+ * 
+ * Security Requirements:
+ * 1. User must be authenticated
+ * 2. User must have admin role
+ * 3. Must provide confirmation parameter
+ * 4. Environment check (warning for production)
+ */
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -21,7 +33,7 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Get the authenticated user
+    // 1. Get the authenticated user
     const {
       data: { user },
     } = await supabaseClient.auth.getUser();
@@ -30,10 +42,10 @@ Deno.serve(async (req) => {
       throw new Error('Not authenticated');
     }
 
-    // Get user's organization
+    // 2. Get user's profile and organization
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, role')
       .eq('id', user.id)
       .single();
 
@@ -41,9 +53,39 @@ Deno.serve(async (req) => {
       throw new Error('No organization found');
     }
 
-    const organizationId = profile.organization_id;
+    // 3. Check admin role
+    if (profile.role !== 'admin') {
+      console.warn(`Non-admin user ${user.id} attempted to clear pending orders`);
+      return new Response(
+        JSON.stringify({ error: 'Admin role required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    console.log('Clearing pending orders for organization:', organizationId);
+    // 4. Check confirmation parameter
+    const url = new URL(req.url);
+    const confirmed = url.searchParams.get('confirm') === 'DELETE_PENDING';
+    
+    if (!confirmed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Confirmation required',
+          message: 'Add ?confirm=DELETE_PENDING to the request to proceed'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 5. Environment warning
+    const environment = Deno.env.get('ENVIRONMENT') || 'development';
+    if (environment === 'production') {
+      console.warn(`⚠️ PRODUCTION PENDING ORDER DELETION - Organization: ${profile.organization_id}, User: ${user.email}`);
+    }
+
+    const organizationId = profile.organization_id;
+    console.log(`🗑️ Clearing pending orders for organization: ${organizationId}`);
+    console.log(`Environment: ${environment}`);
+    console.log(`Initiated by: ${user.email}`);
 
     // Delete in batches to avoid timeout
     let lineItemsCount = 0;
@@ -69,6 +111,7 @@ Deno.serve(async (req) => {
             pending_orders: 0,
             line_items: 0,
           },
+          environment,
           message: 'No pending orders to clear',
         }),
         {

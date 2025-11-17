@@ -5,6 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * PRODUCTION SAFEGUARD: Clear All Data
+ * 
+ * This is a DANGEROUS operation that deletes ALL data for an organization.
+ * 
+ * Security Requirements:
+ * 1. User must be authenticated
+ * 2. User must have admin role
+ * 3. Must provide confirmation parameter
+ * 4. Environment check (warning for production)
+ */
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -20,7 +32,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Authenticate the user
+    // 1. Authenticate the user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -30,10 +42,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get user's organization
+    // 2. Get user's profile and organization
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, role')
       .eq('id', user.id)
       .single();
 
@@ -44,8 +56,39 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 3. Check admin role
+    if (profile.role !== 'admin') {
+      console.warn(`Non-admin user ${user.id} attempted to clear all data`);
+      return new Response(
+        JSON.stringify({ error: 'Admin role required for this operation' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 4. Check confirmation parameter
+    const url = new URL(req.url);
+    const confirmed = url.searchParams.get('confirm') === 'DELETE_ALL_DATA';
+    
+    if (!confirmed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Confirmation required',
+          message: 'Add ?confirm=DELETE_ALL_DATA to the request to proceed'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 5. Environment warning
+    const environment = Deno.env.get('ENVIRONMENT') || 'development';
+    if (environment === 'production') {
+      console.warn(`⚠️ PRODUCTION DATA DELETION - Organization: ${profile.organization_id}, User: ${user.email}`);
+    }
+
     const organizationId = profile.organization_id;
-    console.log('Clearing all data for organization:', organizationId);
+    console.log(`🗑️ Clearing all data for organization: ${organizationId}`);
+    console.log(`Environment: ${environment}`);
+    console.log(`Initiated by: ${user.email} (${user.id})`);
 
     const deletionCounts: Record<string, number> = {};
 
