@@ -354,14 +354,14 @@ function mapQBCustomerToBatchly(qbCustomer: any, organizationId: string): any {
   };
 }
 
-async function pushCustomersToQB(supabase: any, connection: any): Promise<number> {
+async function pushCustomersToQB(supabase: any, connection: any, organizationId: string): Promise<number> {
   console.log("Pushing customers to QuickBooks...");
 
-  // Get customers that need to be pushed
+  // Get customers that need to be pushed - use passed organizationId
   const { data: customers, error } = await supabase
     .from("customer_profile")
     .select("*")
-    .eq("organization_id", connection.organization_id)
+    .eq("organization_id", organizationId)
     .eq("is_active", true)
     .or("qbo_id.is.null,qbo_sync_status.eq.pending")
     .limit(100); // Process in batches
@@ -377,9 +377,6 @@ async function pushCustomersToQB(supabase: any, connection: any): Promise<number
 
   for (const customer of customers) {
     try {
-      // Rate limiting
-      await QBRateLimiter.checkLimit(connection.organization_id);
-
       const qbCustomerData: any = {
         DisplayName: customer.display_name || customer.company_name,
         CompanyName: customer.company_name || "",
