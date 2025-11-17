@@ -5386,11 +5386,12 @@ export type Database = {
       get_qbo_connection_for_sync: {
         Args: { p_organization_id: string }
         Returns: {
-          access_token: string
           environment: string
-          realm_id: string
-          refresh_token: string
-          token_expires_at: string
+          organization_id: string
+          qbo_access_token: string
+          qbo_realm_id: string
+          qbo_refresh_token: string
+          qbo_token_expires_at: string
         }[]
       }
       get_qbo_connection_secure: {
