@@ -44,3 +44,9 @@ verify_jwt = true
 
 [functions.import-csv-data]
 verify_jwt = true
+
+[functions.qbo-initial-sync]
+verify_jwt = true
+
+[functions.qbo-sync-invoices]
+verify_jwt = true
