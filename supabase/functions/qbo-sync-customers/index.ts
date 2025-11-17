@@ -49,8 +49,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     const connection = connections[0];
 
-    // Refresh token if needed
-    await refreshTokenIfNeeded(supabase, connection);
+    // Refresh token if needed - pass organizationId
+    await refreshTokenIfNeeded(supabase, connection, organizationId);
 
     let syncResults = {
       pulled: 0,
@@ -61,7 +61,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Pull customers from QuickBooks
     if (direction === "pull" || direction === "both") {
       try {
-        const pullResult = await pullCustomersFromQB(supabase, connection);
+        const pullResult = await pullCustomersFromQB(supabase, connection, organizationId);
         syncResults.pulled = pullResult;
       } catch (error: any) {
         console.error("Pull error:", error);
@@ -72,7 +72,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Push customers to QuickBooks
     if (direction === "push" || direction === "both") {
       try {
-        const pushResult = await pushCustomersToQB(supabase, connection);
+        const pushResult = await pushCustomersToQB(supabase, connection, organizationId);
         syncResults.pushed = pushResult;
       } catch (error: any) {
         console.error("Push error:", error);
@@ -120,7 +120,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-async function refreshTokenIfNeeded(supabase: any, connection: any) {
+async function refreshTokenIfNeeded(supabase: any, connection: any, organizationId: string) {
   // Field name from RPC is token_expires_at, not qbo_token_expires_at
   const expiresAt = new Date(connection.token_expires_at);
   const now = new Date();
@@ -132,6 +132,36 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
     oneHourFromNow: oneHourFromNow.toISOString(),
     needsRefresh: expiresAt <= oneHourFromNow
   });
+
+  if (expiresAt <= oneHourFromNow) {
+    console.log("Token expiring soon, refreshing...");
+
+    const { data: refreshData, error: refreshError } = await supabase.functions.invoke('qbo-token-refresh', {
+      body: {
+        organizationId: organizationId
+      }
+    });
+
+    if (refreshError) {
+      console.error("Token refresh error:", refreshError);
+      throw new Error(`Failed to refresh token: ${refreshError.message}`);
+    }
+
+    console.log("Token refreshed successfully");
+
+    // Re-fetch connection with new tokens using RPC
+    const { data: updatedConnections } = await supabase
+      .rpc("get_qbo_connection_for_sync", { p_organization_id: organizationId });
+    
+    if (updatedConnections && updatedConnections.length > 0) {
+      // Update the connection object with new token values from RPC
+      const updated = updatedConnections[0];
+      connection.access_token = updated.access_token;
+      connection.token_expires_at = updated.token_expires_at;
+      console.log("Updated connection with new token");
+    }
+  }
+}
 
   if (expiresAt <= oneHourFromNow) {
     console.log("Token expiring soon, refreshing...");
