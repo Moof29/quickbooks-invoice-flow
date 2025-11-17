@@ -255,10 +255,10 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
 
   console.log(`Fetched ${allCustomers.length} customers from QuickBooks`);
 
-  // CRITICAL FIX: Map QB customers to Batchly schema
-  const mappedCustomers = allCustomers.map(qbCustomer => mapQBCustomerToBatchly(qbCustomer, connection.organization_id));
+  // Map QB customers to Batchly schema - use passed organizationId
+  const mappedCustomers = allCustomers.map(qbCustomer => mapQBCustomerToBatchly(qbCustomer, organizationId));
 
-  // CRITICAL FIX: Batch upsert to database (was missing!)
+  // Batch upsert to database
   const savedCount = await batchUpsert(
     supabase,
     'customer_profile',
