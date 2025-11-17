@@ -98,11 +98,31 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Extract organization ID from state with validation
     const [stateToken, organizationId] = state.split("|");
-    
+
     if (!organizationId || organizationId.length !== 36) { // UUID length check
       console.error("Invalid state parameter:", state);
       await logSecurityEvent(supabase, null, 'invalid_state', state, clientIP);
       return redirectToFrontend(supabaseUrl, "Invalid state parameter");
+    }
+
+    // Validate state token persisted during initiate
+    const { data: persistedState, error: stateLookupError } = await supabase
+      .from('qbo_oauth_state')
+      .select('id, expires_at, consumed_at')
+      .eq('organization_id', organizationId)
+      .eq('state_token', stateToken)
+      .maybeSingle();
+
+    if (stateLookupError || !persistedState) {
+      console.error('OAuth state not found or fetch error:', stateLookupError);
+      await logSecurityEvent(supabase, organizationId, 'missing_state', stateToken, clientIP);
+      return redirectToFrontend(supabaseUrl, "Invalid or missing OAuth state");
+    }
+
+    if (persistedState.consumed_at || new Date(persistedState.expires_at) < new Date()) {
+      console.error('OAuth state expired or already used:', persistedState);
+      await logSecurityEvent(supabase, organizationId, 'expired_state', stateToken, clientIP);
+      return redirectToFrontend(supabaseUrl, "OAuth session expired. Please try connecting again.");
     }
 
     // Exchange authorization code for access token
@@ -134,11 +154,17 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const tokenData = await tokenResponse.json();
-    console.log("Token exchange successful:", { 
+    console.log("Token exchange successful:", {
       access_token: tokenData.access_token ? "present" : "missing",
       refresh_token: tokenData.refresh_token ? "present" : "missing",
-      expires_in: tokenData.expires_in 
+      expires_in: tokenData.expires_in
     });
+
+    // Mark state token as consumed to prevent reuse
+    await supabase
+      .from('qbo_oauth_state')
+      .update({ consumed_at: new Date().toISOString() })
+      .eq('id', persistedState.id);
 
     // Calculate token expiration
     const expiresAt = new Date();
