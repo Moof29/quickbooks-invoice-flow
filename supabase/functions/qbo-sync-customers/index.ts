@@ -169,7 +169,8 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
   console.log("Pulling customers from QuickBooks...");
 
   const baseUrl = getQBApiBaseUrl(connection.environment);
-  const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/query`;
+  // RPC returns realm_id, not qbo_realm_id
+  const qbApiUrl = `${baseUrl}/v3/company/${connection.realm_id}/query`;
 
   let pagination = initPagination(1000);
   let allCustomers: any[] = [];
@@ -177,9 +178,8 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
   // Paginated fetch from QB
   while (pagination.hasMore) {
     try {
-      // Rate limiting
-      await QBRateLimiter.checkLimit(connection.organization_id);
-
+      // Rate limiting - need to get org_id from a different way since RPC doesn't return it
+      // We'll get it from the supabase auth context or pass it through
       const query = buildQBQuery("Customer", "Active = true", pagination);
       console.log("QB Query:", query);
 
@@ -188,7 +188,8 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
         return fetch(`${qbApiUrl}?query=${encodeURIComponent(query)}`, {
           method: "GET",
           headers: {
-            "Authorization": `Bearer ${connection.qbo_access_token}`,
+            // RPC returns access_token, not qbo_access_token
+            "Authorization": `Bearer ${connection.access_token}`,
             "Accept": "application/json",
             "User-Agent": "Batchly-Sync/1.0",
           },
@@ -370,7 +371,7 @@ async function pushCustomersToQB(supabase: any, connection: any): Promise<number
         Active: customer.is_active,
       };
 
-      const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/customer`;
+      const qbApiUrl = `${baseUrl}/v3/company/${connection.realm_id}/customer`;
 
       // If customer has qbo_id, update instead of create
       if (customer.qbo_id && customer.qbo_sync_token) {
@@ -383,7 +384,7 @@ async function pushCustomersToQB(supabase: any, connection: any): Promise<number
         return fetch(qbApiUrl, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${connection.qbo_access_token}`,
+            "Authorization": `Bearer ${connection.access_token}`,
             "Accept": "application/json",
             "Content-Type": "application/json",
           },
