@@ -50,3 +50,6 @@ verify_jwt = true
 
 [functions.qbo-sync-invoices]
 verify_jwt = true
+
+[functions.qbo-webhook-handler]
+verify_jwt = false

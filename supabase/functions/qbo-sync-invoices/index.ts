@@ -378,14 +378,141 @@ async function pullInvoicesFromQB(
 
 async function pushInvoicesToQB(supabase: any, connection: any): Promise<number> {
   console.log("Pushing invoices to QuickBooks...");
-  console.log("⚠️  Invoice push not yet implemented");
-  console.log("This requires:");
-  console.log("  1. Mapping Batchly invoices to QB Invoice API format");
-  console.log("  2. Handling QB customer/item references");
-  console.log("  3. Managing SyncToken for updates");
-  console.log("  4. Error handling for validation failures");
-  
-  return 0;
+
+  // Get invoices that need to be pushed
+  const { data: invoices, error } = await supabase
+    .from("invoice_record")
+    .select(`
+      *,
+      customer:customer_profile!inner(qbo_id, display_name),
+      line_items:invoice_line_item(
+        *,
+        item:item_record!inner(qbo_id, name)
+      )
+    `)
+    .eq("organization_id", connection.organization_id)
+    .or("qbo_id.is.null,qbo_sync_status.eq.pending")
+    .limit(50); // Smaller batches for invoices
+
+  if (error) {
+    throw new Error(`Failed to fetch invoices: ${error.message}`);
+  }
+
+  console.log(`Found ${invoices.length} invoices to push to QuickBooks`);
+
+  let syncedCount = 0;
+  const baseUrl = getQBApiBaseUrl(connection.environment);
+  const rateLimiter = new QBRateLimiter();
+
+  for (const invoice of invoices) {
+    try {
+      await rateLimiter.waitIfNeeded();
+
+      // Validate required QB references
+      if (!invoice.customer?.qbo_id) {
+        console.error(`Invoice ${invoice.id} missing customer QB ID, skipping`);
+        continue;
+      }
+
+      // Build QB Invoice object
+      const qbInvoiceData: any = {
+        CustomerRef: {
+          value: invoice.customer.qbo_id
+        },
+        TxnDate: invoice.invoice_date || new Date().toISOString().split('T')[0],
+        DueDate: invoice.due_date,
+        DocNumber: invoice.invoice_number,
+      };
+
+      // Add line items
+      const lines = [];
+      for (let i = 0; i < invoice.line_items.length; i++) {
+        const lineItem = invoice.line_items[i];
+        
+        if (!lineItem.item?.qbo_id) {
+          console.warn(`Line item ${lineItem.id} missing item QB ID, skipping`);
+          continue;
+        }
+
+        lines.push({
+          DetailType: "SalesItemLineDetail",
+          Amount: lineItem.amount,
+          Description: lineItem.description || undefined,
+          SalesItemLineDetail: {
+            ItemRef: {
+              value: lineItem.item.qbo_id
+            },
+            Qty: lineItem.quantity,
+            UnitPrice: lineItem.unit_price,
+            TaxCodeRef: lineItem.tax_rate > 0 ? { value: "TAX" } : { value: "NON" }
+          }
+        });
+      }
+
+      if (lines.length === 0) {
+        console.error(`Invoice ${invoice.id} has no valid line items, skipping`);
+        continue;
+      }
+
+      qbInvoiceData.Line = lines;
+
+      // Add optional fields
+      if (invoice.memo) qbInvoiceData.CustomerMemo = { value: invoice.memo };
+      if (invoice.private_note) qbInvoiceData.PrivateNote = invoice.private_note;
+
+      const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/invoice`;
+
+      // If invoice has qbo_id, update instead of create
+      if (invoice.qbo_id && invoice.qbo_sync_token) {
+        qbInvoiceData.Id = invoice.qbo_id;
+        qbInvoiceData.SyncToken = invoice.qbo_sync_token;
+        qbInvoiceData.sparse = true;
+      }
+
+      const response = await retryableQBApiCall(async () => {
+        return fetch(qbApiUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${connection.qbo_access_token}`,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(qbInvoiceData),
+        });
+      });
+
+      if (!response.ok) {
+        const error = await parseQBError(response);
+        console.error(`Failed to push invoice ${invoice.id}:`, error);
+        continue;
+      }
+
+      const responseData = await response.json();
+      const qbInvoice = responseData.Invoice;
+
+      if (qbInvoice) {
+        // Update invoice with QB data
+        await supabase
+          .from("invoice_record")
+          .update({
+            qbo_id: qbInvoice.Id.toString(),
+            qbo_sync_token: qbInvoice.SyncToken,
+            qbo_sync_status: 'synced',
+            source_system: 'ERP',
+            last_sync_at: new Date().toISOString(),
+          })
+          .eq("id", invoice.id);
+
+        syncedCount++;
+        console.log(`✓ Pushed invoice ${invoice.invoice_number}`);
+      }
+    } catch (error: any) {
+      console.error(`Failed to push invoice ${invoice.id}:`, error.message);
+    }
+  }
+
+  console.log(`Successfully pushed ${syncedCount} invoices to QuickBooks`);
+  return syncedCount;
 }
 
 serve(handler);
