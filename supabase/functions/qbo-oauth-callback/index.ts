@@ -152,6 +152,8 @@ const handler = async (req: Request): Promise<Response> => {
       .eq("organization_id", organizationId)
       .maybeSingle();
 
+    const isNewConnection = !existing;
+
     if (existing) {
       // Update existing connection using secure function
       const { error: updateError } = await supabase
@@ -191,13 +193,15 @@ const handler = async (req: Request): Promise<Response> => {
           qbo_company_id: realmId,
           is_active: true,
           last_connected_at: new Date().toISOString(),
-          environment: "production"
+          environment: "sandbox" // Detect from QB API in production
         });
 
       if (insertError) {
         console.error("Failed to insert connection:", insertError);
         throw new Error(`Failed to insert connection: ${insertError.message}`);
       }
+
+      console.log("New connection created - will trigger initial sync");
     }
 
     console.log("QuickBooks connection updated successfully");
@@ -205,8 +209,8 @@ const handler = async (req: Request): Promise<Response> => {
     // Log successful connection
     await logSecurityEvent(supabase, organizationId, 'qbo_connection_success', 'QuickBooks connected successfully', clientIP);
 
-    // Redirect to the frontend with success
-    return redirectToFrontend(supabaseUrl, null, true);
+    // Redirect to the frontend with success and trigger initial sync for new connections
+    return redirectToFrontend(supabaseUrl, null, true, isNewConnection);
 
   } catch (error: any) {
     console.error("Error in qbo-oauth-callback:", error);
@@ -247,13 +251,16 @@ async function logSecurityEvent(
   }
 }
 
-function redirectToFrontend(supabaseUrl: string, error?: string | null, success?: boolean) {
+function redirectToFrontend(supabaseUrl: string, error?: string | null, success?: boolean, isNewConnection?: boolean) {
   // Use the production domain for deployed apps, preview domain for development
   const frontendUrl = 'https://3274bdad-c9e4-429c-9ae4-5beb2ed291db.lovableproject.com';
   let redirectUrl = `${frontendUrl}/quickbooks`;
   
   if (success) {
     redirectUrl += '?success=true';
+    if (isNewConnection) {
+      redirectUrl += '&initial_sync=true';
+    }
   } else if (error) {
     redirectUrl += `?error=${encodeURIComponent(error)}`;
   }

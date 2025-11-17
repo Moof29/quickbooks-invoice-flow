@@ -68,13 +68,23 @@ const QuickBooksIntegration = () => {
     // Check for OAuth callback parameters
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
+    const initialSync = urlParams.get('initial_sync');
     const error = urlParams.get('error');
     
     if (success === 'true') {
       toast({
         title: "Connected Successfully",
-        description: "Your QuickBooks Online account has been connected.",
+        description: initialSync === 'true' 
+          ? "QuickBooks connected! Starting initial data sync..." 
+          : "Your QuickBooks Online account has been connected.",
       });
+      
+      // Trigger initial sync for new connections
+      if (initialSync === 'true') {
+        console.log('New connection detected - starting initial sync');
+        startInitialSync();
+      }
+      
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (error) {
@@ -372,6 +382,47 @@ const QuickBooksIntegration = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to start synchronization",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const startInitialSync = async () => {
+    if (!profile?.organization_id) {
+      console.error('No organization ID available for initial sync');
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      console.log('Starting initial sync for organization:', profile.organization_id);
+      
+      const response = await supabase.functions.invoke('qbo-initial-sync', {
+        body: { 
+          organizationId: profile.organization_id,
+          entityTypes: ['customer', 'item', 'invoice', 'payment']
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      toast({
+        title: "Initial Sync Complete",
+        description: "All QuickBooks data has been imported into Batchly!",
+      });
+
+      // Reload everything
+      await loadConnectionStatus();
+      await loadSyncHistory();
+    } catch (error: any) {
+      console.error('Error during initial sync:', error);
+      toast({
+        title: "Initial Sync Error",
+        description: error.message || "Failed to import QuickBooks data",
         variant: "destructive",
       });
     } finally {
