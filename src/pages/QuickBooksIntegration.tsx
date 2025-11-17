@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Zap, 
   CheckCircle, 
@@ -11,7 +13,8 @@ import {
   RefreshCw,
   Settings,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  Key
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -45,6 +48,11 @@ const QuickBooksIntegration = () => {
   const [syncHistory, setSyncHistory] = useState<SyncHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [savingCredentials, setSavingCredentials] = useState(false);
+  const [credentialsConfigured, setCredentialsConfigured] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuthProfile();
 
@@ -81,7 +89,71 @@ const QuickBooksIntegration = () => {
     
     loadConnectionStatus();
     loadSyncHistory();
+    checkCredentials();
   }, [profile]);
+
+  const checkCredentials = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('qbo-oauth-initiate', {
+        body: { organizationId: profile?.organization_id, checkOnly: true }
+      });
+      
+      if (!error && data) {
+        setCredentialsConfigured(true);
+      }
+    } catch (error) {
+      console.log('Credentials not yet configured');
+    }
+  };
+
+  const saveCredentials = async () => {
+    if (!clientId || !clientSecret) {
+      toast({
+        title: "Missing Credentials",
+        description: "Please enter both Client ID and Client Secret",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSavingCredentials(true);
+    try {
+      // Save credentials as secrets
+      const { error: clientIdError } = await supabase.functions.invoke('save-secret', {
+        body: { 
+          name: 'QB_CLIENT_ID',
+          value: clientId
+        }
+      });
+
+      if (clientIdError) throw clientIdError;
+
+      const { error: clientSecretError } = await supabase.functions.invoke('save-secret', {
+        body: { 
+          name: 'QB_CLIENT_SECRET',
+          value: clientSecret
+        }
+      });
+
+      if (clientSecretError) throw clientSecretError;
+
+      setCredentialsConfigured(true);
+      setShowCredentials(false);
+      toast({
+        title: "Credentials Saved",
+        description: "QuickBooks credentials have been securely stored. You can now connect.",
+      });
+    } catch (error: any) {
+      console.error('Error saving credentials:', error);
+      toast({
+        title: "Error Saving Credentials",
+        description: error.message || "Failed to save credentials. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingCredentials(false);
+    }
+  };
 
   const loadConnectionStatus = async () => {
     try {
@@ -176,8 +248,15 @@ const QuickBooksIntegration = () => {
   };
 
   const handleConnect = async () => {
-    console.log('Connect button clicked, profile:', profile);
-    
+    if (!credentialsConfigured) {
+      setShowCredentials(true);
+      toast({
+        title: "Credentials Required",
+        description: "Please configure your QuickBooks credentials first",
+      });
+      return;
+    }
+
     if (!profile?.organization_id) {
       console.error('No organization_id found in profile');
       toast({
@@ -337,6 +416,12 @@ const QuickBooksIntegration = () => {
             <p className="text-muted-foreground mt-1 text-sm sm:text-base">Connect and sync your data with QuickBooks Online</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              {!credentialsConfigured && (
+                <Button onClick={() => setShowCredentials(true)} variant="outline" className="w-full sm:w-auto">
+                  <Key className="w-4 h-4 mr-2" />
+                  Configure Credentials
+                </Button>
+              )}
               {connection?.is_active ? (
                 <>
                   <Button 
@@ -368,7 +453,7 @@ const QuickBooksIntegration = () => {
                   </Button>
                 </>
               ) : (
-                <Button onClick={handleConnect} className="w-full sm:w-auto">
+                <Button onClick={handleConnect} className="w-full sm:w-auto" disabled={!credentialsConfigured}>
                   <Zap className="w-4 h-4 mr-2" />
                   Connect to QuickBooks
                 </Button>
@@ -376,6 +461,72 @@ const QuickBooksIntegration = () => {
           </div>
         </div>
       </div>
+
+      {/* Credentials Configuration */}
+      {showCredentials && (
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Key className="w-5 h-5" />
+              QuickBooks API Credentials
+            </CardTitle>
+            <CardDescription>
+              Enter your QuickBooks Online app credentials from the Intuit Developer Portal
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="clientId">Client ID</Label>
+              <Input
+                id="clientId"
+                type="text"
+                placeholder="Enter your QuickBooks Client ID"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="clientSecret">Client Secret</Label>
+              <Input
+                id="clientSecret"
+                type="password"
+                placeholder="Enter your QuickBooks Client Secret"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={saveCredentials} 
+                disabled={savingCredentials}
+              >
+                {savingCredentials ? 'Saving...' : 'Save Credentials'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowCredentials(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+            <Alert>
+              <AlertDescription>
+                Get your credentials from the{' '}
+                <a 
+                  href="https://developer.intuit.com/app/developer/myapps" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  Intuit Developer Portal
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Connection Status */}
       <Card className="border-0 shadow-sm">
         <CardHeader>
