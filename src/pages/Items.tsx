@@ -249,6 +249,64 @@ export default function Items() {
     }
   });
 
+  // Fetch aggregate metrics for ALL items (not paginated)
+  const { data: aggregateMetrics } = useQuery({
+    queryKey: ['items-aggregate-metrics', debouncedSearch, advancedFilters],
+    queryFn: async () => {
+      let query = supabase.from('item_record').select('unit_price, quantity_on_hand');
+
+      // Apply same search as main query
+      if (debouncedSearch) {
+        const searchValue = debouncedSearch.trim();
+        query = query.or(
+          `name.ilike.%${searchValue}%,` +
+          `sku.ilike.%${searchValue}%,` +
+          `description.ilike.%${searchValue}%`
+        );
+      }
+
+      // Apply same filters as main query
+      if (advancedFilters.activeOnly) {
+        query = query.eq('is_active', true);
+      }
+      if (advancedFilters.syncedOnly) {
+        query = query.eq('sync_status', 'synced').not('qbo_id', 'is', null);
+      }
+      if (advancedFilters.minPrice) {
+        query = query.gte('unit_price', parseFloat(advancedFilters.minPrice));
+      }
+      if (advancedFilters.maxPrice) {
+        query = query.lte('unit_price', parseFloat(advancedFilters.maxPrice));
+      }
+      if (advancedFilters.minStock) {
+        query = query.gte('quantity_on_hand', parseInt(advancedFilters.minStock));
+      }
+      if (advancedFilters.maxStock) {
+        query = query.lte('quantity_on_hand', parseInt(advancedFilters.maxStock));
+      }
+      if (advancedFilters.itemTypes.length > 0) {
+        query = query.in('item_type', advancedFilters.itemTypes);
+      }
+      if (advancedFilters.lowStockOnly) {
+        query = query.lt('quantity_on_hand', 10).gt('quantity_on_hand', 0);
+      }
+      if (advancedFilters.outOfStockOnly) {
+        query = query.eq('quantity_on_hand', 0);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Calculate total value and low stock count
+      const totalValue = data.reduce((sum, item) => 
+        sum + (item.unit_price || 0) * (item.quantity_on_hand || 0), 0
+      );
+      const lowStockCount = data.filter(item => (item.quantity_on_hand || 0) < 10).length;
+
+      return { totalValue, lowStockCount };
+    }
+  });
+
   // Sync with QuickBooks
   const syncMutation = useMutation({
     mutationFn: async () => {
@@ -302,9 +360,9 @@ export default function Items() {
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
-  const totalValue = items.reduce((sum, item) => sum + (item.unit_price || 0) * (item.quantity_on_hand || 0), 0);
+  const totalValue = aggregateMetrics?.totalValue || 0;
   const totalItems = totalCount;
-  const lowStockItems = items.filter(item => (item.quantity_on_hand || 0) < 10).length;
+  const lowStockItems = aggregateMetrics?.lowStockCount || 0;
 
   const getStatusBadge = (item: Item) => {
     if (item.qbo_id && item.sync_status === 'synced') {
