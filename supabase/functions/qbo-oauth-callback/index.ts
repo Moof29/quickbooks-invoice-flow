@@ -170,6 +170,41 @@ const handler = async (req: Request): Promise<Response> => {
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expires_in);
 
+    // Detect environment by testing API endpoints
+    console.log("Detecting QuickBooks environment...");
+    let detectedEnvironment = "sandbox";
+    
+    // Try production API first
+    const productionApiUrl = `https://quickbooks.api.intuit.com/v3/company/${realmId}/companyinfo/${realmId}?minorversion=73`;
+    const productionTest = await fetch(productionApiUrl, {
+      headers: {
+        "Authorization": `Bearer ${tokenData.access_token}`,
+        "Accept": "application/json"
+      }
+    });
+
+    if (productionTest.ok) {
+      detectedEnvironment = "production";
+      console.log("✓ Environment detected: PRODUCTION");
+    } else {
+      // Try sandbox API
+      const sandboxApiUrl = `https://sandbox-quickbooks.api.intuit.com/v3/company/${realmId}/companyinfo/${realmId}?minorversion=73`;
+      const sandboxTest = await fetch(sandboxApiUrl, {
+        headers: {
+          "Authorization": `Bearer ${tokenData.access_token}`,
+          "Accept": "application/json"
+        }
+      });
+
+      if (sandboxTest.ok) {
+        detectedEnvironment = "sandbox";
+        console.log("✓ Environment detected: SANDBOX");
+      } else {
+        // Default to sandbox if both fail (shouldn't happen)
+        console.warn("⚠ Could not detect environment, defaulting to sandbox");
+      }
+    }
+
     // Store/Update QuickBooks connection in database
     // Check if connection exists first
     const { data: existing } = await supabase
@@ -195,17 +230,20 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`Failed to update tokens: ${updateError.message}`);
       }
 
-      // Update other connection fields with service_role
+      // Update other connection fields with service_role, including detected environment
       await supabase
         .from("qbo_connection")
         .update({
           is_active: true,
           qbo_realm_id: realmId,
           qbo_company_id: realmId,
+          environment: detectedEnvironment,
           last_connected_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq("organization_id", organizationId);
+      
+      console.log(`Existing connection updated with environment: ${detectedEnvironment}`);
     } else {
       // Insert new connection (service_role can do this)
       const { error: insertError } = await supabase
@@ -219,8 +257,10 @@ const handler = async (req: Request): Promise<Response> => {
           qbo_company_id: realmId,
           is_active: true,
           last_connected_at: new Date().toISOString(),
-          environment: "sandbox" // Detect from QB API in production
+          environment: detectedEnvironment
         });
+      
+      console.log(`New connection created with environment: ${detectedEnvironment}`);
 
       if (insertError) {
         console.error("Failed to insert connection:", insertError);
@@ -232,8 +272,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("QuickBooks connection updated successfully");
 
-    // Log successful connection
-    await logSecurityEvent(supabase, organizationId, 'qbo_connection_success', 'QuickBooks connected successfully', clientIP);
+    // Log successful connection with environment info
+    await logSecurityEvent(
+      supabase, 
+      organizationId, 
+      'qbo_connection_success', 
+      `QuickBooks connected successfully (${detectedEnvironment.toUpperCase()} environment)`, 
+      clientIP
+    );
 
     // Redirect to the frontend with success and trigger initial sync for new connections
     return redirectToFrontend(supabaseUrl, null, true, isNewConnection);
