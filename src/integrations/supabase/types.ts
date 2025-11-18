@@ -3597,6 +3597,39 @@ export type Database = {
           },
         ]
       }
+      qbo_oauth_state: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          ip_address: string | null
+          organization_id: string
+          state_token: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          organization_id: string
+          state_token: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          organization_id?: string
+          state_token?: string
+        }
+        Relationships: []
+      }
       qbo_sync_batch: {
         Row: {
           batch_id: string
