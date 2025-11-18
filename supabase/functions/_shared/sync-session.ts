@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.5/+esm";
 
 interface SyncSession {
   id: string;
