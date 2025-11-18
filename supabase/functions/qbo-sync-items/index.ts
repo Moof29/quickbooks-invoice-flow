@@ -169,6 +169,32 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
   const baseUrl = getQBApiBaseUrl(connection.environment);
   const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/query`;
 
+  // STEP 1: Get actual total count from QuickBooks
+  console.log("Fetching total item count from QuickBooks...");
+  const countQuery = "SELECT COUNT(*) FROM Item WHERE Active IN (true, false)";
+  
+  await QBRateLimiter.checkLimit(connection.organization_id);
+  const countResponse = await retryableQBApiCall(async () => {
+    return fetch(`${qbApiUrl}?query=${encodeURIComponent(countQuery)}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${connection.qbo_access_token}`,
+        "Accept": "application/json",
+        "User-Agent": "Batchly-Sync/1.0",
+      },
+    });
+  });
+
+  if (!countResponse.ok) {
+    const errorText = await parseQBError(countResponse);
+    throw new Error(`QuickBooks COUNT query error (${countResponse.status}): ${errorText}`);
+  }
+
+  const countData = await countResponse.json();
+  const actualTotalCount = countData.QueryResponse?.totalCount || 0;
+  console.log(`✓ QuickBooks reports ${actualTotalCount} total items (active + inactive)`);
+
+  // STEP 2: Fetch all items using pagination
   let pagination = initPagination(1000);
   let allItems: any[] = [];
 
@@ -221,6 +247,17 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
   }
 
   console.log(`Fetched ${allItems.length} items from QuickBooks`);
+  
+  // STEP 3: Check for potential API limit issues
+  if (allItems.length === 1000 && actualTotalCount > 1000) {
+    console.warn("⚠️ WARNING: QuickBooks API returned exactly 1000 items but COUNT shows " + actualTotalCount + " total items.");
+    console.warn("⚠️ This indicates the API is limiting results. Consider implementing date-based chunking.");
+    console.warn("⚠️ Only 1000 out of " + actualTotalCount + " items will be synced!");
+  } else if (allItems.length < actualTotalCount) {
+    console.warn(`⚠️ WARNING: Fetched ${allItems.length} items but QuickBooks reports ${actualTotalCount} total items.`);
+  } else {
+    console.log(`✓ Successfully fetched all ${allItems.length} items matching the expected count.`);
+  }
 
   // CRITICAL FIX: Map QB items to Batchly schema
   const mappedItems = allItems.map(qbItem => mapQBItemToBatchly(qbItem, connection.organization_id));
@@ -316,6 +353,7 @@ function mapQBItemToBatchly(qbItem: any, organizationId: string): any {
     // QB Sync Metadata
     qbo_sync_token: parseQBInt(qbItem.SyncToken),
     sync_status: 'synced',
+    source_system: 'QBO',
     last_sync_at: new Date().toISOString(),
     qbo_created_at: formatQBTimestamp(qbItem.MetaData?.CreateTime),
     qbo_updated_at: formatQBTimestamp(qbItem.MetaData?.LastUpdatedTime),
