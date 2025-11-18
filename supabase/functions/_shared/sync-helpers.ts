@@ -8,7 +8,7 @@
  * - Progress tracking
  */
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
+import { createClient, SupabaseClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.5/+esm";
 
 /**
  * Pagination state for QB API queries
