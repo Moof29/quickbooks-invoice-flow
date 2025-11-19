@@ -238,9 +238,12 @@ async function pullInvoicesFromQB(
     await QBRateLimiter.checkLimit(connection.organization_id);
 
     // Build query with pagination
+    // NOTE: Unlike Customers, Invoices don't have an "Active" filter by default
+    // All invoices (including voided/deleted) should be retrieved
     const query = `SELECT * FROM Invoice STARTPOSITION ${currentOffset + 1} MAXRESULTS ${batchSize}`;
     
-    console.log(`Fetching invoices: offset=${currentOffset}, batch=${batchSize}`);
+    console.log(`=== Fetching invoices: offset=${currentOffset}, batch=${batchSize} ===`);
+    console.log(`Query: ${query}`);
 
     try {
       const response = await retryableQBApiCall(async () => {
@@ -249,7 +252,8 @@ async function pullInvoicesFromQB(
           {
             headers: {
               "Authorization": `Bearer ${connection.qbo_access_token}`,
-              "Accept": "application/json"
+              "Accept": "application/json",
+              "User-Agent": "Batchly-Sync/1.0"
             }
           }
         );
@@ -257,15 +261,31 @@ async function pullInvoicesFromQB(
 
       if (!response.ok) {
         const errorMessage = await parseQBError(response);
-        throw new Error(`QuickBooks API error: ${errorMessage}`);
+        
+        // Enhanced error logging for debugging
+        if (response.status === 403 || response.status === 401) {
+          console.error("=== AUTHENTICATION ERROR ===");
+          console.error("Status:", response.status);
+          console.error("Realm ID:", connection.qbo_realm_id);
+          console.error("Environment:", connection.environment);
+          console.error("Base URL:", baseUrl);
+          console.error("Error:", errorMessage);
+          console.error("============================");
+        }
+        
+        throw new Error(`QuickBooks API error (${response.status}): ${errorMessage}`);
       }
 
       const data = await response.json();
       const invoices = data.QueryResponse?.Invoice || [];
+      const maxResults = data.QueryResponse?.maxResults;
+      const totalCount = data.QueryResponse?.totalCount;
       
-      console.log(`Received ${invoices.length} invoices`);
+      console.log(`✓ Received ${invoices.length} invoices`);
+      console.log(`  Total count: ${totalCount}, Max results: ${maxResults}`);
 
       if (invoices.length === 0) {
+        console.log("No more invoices to fetch - reached end of results");
         hasMore = false;
         break;
       }
@@ -273,12 +293,15 @@ async function pullInvoicesFromQB(
       // Transform and prepare invoices for upsert
       const invoiceRecords = [];
       const lineItemRecords = [];
+      let skippedCount = 0;
 
+      console.log("Processing invoices...");
       for (const qbInvoice of invoices) {
         // Map customer
         const customerBatchlyId = customerMap.get(qbInvoice.CustomerRef?.value);
         if (!customerBatchlyId) {
-          console.warn(`Customer not found for QB ID: ${qbInvoice.CustomerRef?.value}, skipping invoice ${qbInvoice.Id}`);
+          console.warn(`⚠ Customer not found for QB ID: ${qbInvoice.CustomerRef?.value}, skipping invoice ${qbInvoice.Id} (DocNumber: ${qbInvoice.DocNumber})`);
+          skippedCount++;
           continue;
         }
 
@@ -306,15 +329,30 @@ async function pullInvoicesFromQB(
 
         // Prepare line items
         const lines = qbInvoice.Line || [];
+        let skippedLineItems = 0;
+        
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
-          if (line.DetailType !== 'SalesItemLineDetail') continue;
+          
+          // Only process SalesItemLineDetail (not SubTotal, Discount, etc.)
+          if (line.DetailType !== 'SalesItemLineDetail') {
+            continue;
+          }
 
           const detail = line.SalesItemLineDetail;
-          const itemBatchlyId = itemMap.get(detail.ItemRef?.value);
+          
+          // Check if item reference exists
+          if (!detail.ItemRef?.value) {
+            console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Line ${i+1} has no item reference, skipping`);
+            skippedLineItems++;
+            continue;
+          }
+          
+          const itemBatchlyId = itemMap.get(detail.ItemRef.value);
           
           if (!itemBatchlyId) {
-            console.warn(`Item not found for QB ID: ${detail.ItemRef?.value}, skipping line item`);
+            console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Item not found for QB ID: ${detail.ItemRef.value}, skipping line item`);
+            skippedLineItems++;
             continue;
           }
 
@@ -323,7 +361,7 @@ async function pullInvoicesFromQB(
             // invoice_id will be set after invoice upsert
             invoice_qbo_id: qbInvoice.Id, // Temporary field for mapping
             item_id: itemBatchlyId,
-            description: line.Description,
+            description: line.Description || detail.ItemRef.name || '',
             quantity: parseQBAmount(detail.Qty) || 1,
             unit_price: parseQBAmount(detail.UnitPrice) || 0,
             amount: parseQBAmount(line.Amount) || 0,
@@ -332,6 +370,14 @@ async function pullInvoicesFromQB(
             last_sync_at: new Date().toISOString()
           });
         }
+        
+        if (skippedLineItems > 0) {
+          console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Skipped ${skippedLineItems} line items due to missing items`);
+        }
+      }
+      
+      if (skippedCount > 0) {
+        console.warn(`⚠ Skipped ${skippedCount} invoices due to missing customers in this batch`);
       }
 
       // Upsert invoices
