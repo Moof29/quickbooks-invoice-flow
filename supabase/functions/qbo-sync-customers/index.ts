@@ -305,9 +305,10 @@ function mapQBCustomerToBatchly(qbCustomer: any, organizationId: string): any {
 
     // Financial Info
     credit_limit: parseQBAmount(qbCustomer.CreditLimit),
-    current_balance: parseQBAmount(qbCustomer.Balance),
+    balance: parseQBAmount(qbCustomer.Balance),
     balance_with_jobs: parseQBAmount(qbCustomer.BalanceWithJobs),
     open_balance_date: qbCustomer.OpenBalanceDate || null,
+    resale_number: qbCustomer.ResaleNum || null,
 
     // Payment Terms
     payment_terms_ref: qbCustomer.SalesTermRef ? {
@@ -325,7 +326,6 @@ function mapQBCustomerToBatchly(qbCustomer: any, organizationId: string): any {
 
     // Tax Configuration
     tax_exempt: qbCustomer.Taxable === false,
-    resale_number: qbCustomer.ResaleNum || null,
 
     // Status & Hierarchy
     is_active: qbCustomer.Active !== false,
