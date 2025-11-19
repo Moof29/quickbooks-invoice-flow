@@ -450,12 +450,17 @@ async function pullInvoicesFromQB(
           upsertedInvoices.map((inv: any) => [inv.qbo_id, inv.id])
         );
 
-        // Map line items to actual invoice IDs
-        const mappedLineItems = lineItemRecords.map(item => ({
-          ...item,
-          invoice_id: invoiceIdMap.get(item.invoice_qbo_id),
-          invoice_qbo_id: undefined // Remove temporary field
-        })).filter(item => item.invoice_id); // Only items with valid invoice_id
+        // Map line items to actual invoice IDs and remove temporary field
+        const mappedLineItems = lineItemRecords
+          .map(({ invoice_qbo_id, ...rest }) => {
+            const invoice_id = invoiceIdMap.get(invoice_qbo_id);
+            if (!invoice_id) {
+              console.warn(`⚠ Could not map invoice_qbo_id ${invoice_qbo_id} to Batchly invoice_id`);
+              return null;
+            }
+            return { ...rest, invoice_id };
+          })
+          .filter((item): item is NonNullable<typeof item> => item !== null);
 
         // Delete existing line items for these invoices
         const invoiceIds = Array.from(invoiceIdMap.values());
