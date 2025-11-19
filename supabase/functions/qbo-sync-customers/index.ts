@@ -170,8 +170,16 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
   }
 }
 
-async function pullCustomersFromQB(supabase: any, connection: any): Promise<number> {
-  console.log("Pulling customers from QuickBooks...");
+/**
+ * Helper function to fetch customers by active status
+ * QuickBooks defaults to showing only active customers, so we need separate queries
+ */
+async function fetchCustomersByActiveStatus(
+  supabase: any,
+  connection: any,
+  isActive: boolean
+): Promise<any[]> {
+  console.log(`Fetching ${isActive ? 'ACTIVE' : 'INACTIVE'} customers from QuickBooks...`);
 
   const baseUrl = getQBApiBaseUrl(connection.environment);
   const qbApiUrl = `${baseUrl}/v3/company/${connection.qbo_realm_id}/query`;
@@ -185,9 +193,9 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
       // Rate limiting
       await QBRateLimiter.checkLimit(connection.organization_id);
 
-      // Sync ALL customers (both active and inactive) by explicitly including both states
-      const query = buildQBQuery("Customer", "Active IN (true,false)", pagination);
-      console.log("QB Query:", query);
+      // Query for specific active status
+      const query = buildQBQuery("Customer", `Active = ${isActive}`, pagination);
+      console.log(`QB Query (Active=${isActive}):`, query);
 
       // Retry logic with exponential backoff
       const response = await retryableQBApiCall(async () => {
@@ -235,7 +243,7 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
       pagination = updatePagination(pagination, data);
 
       // Log progress
-      logProgress("Customer", allCustomers.length, pagination.totalCount, customers.length);
+      logProgress(`Customer (Active=${isActive})`, allCustomers.length, pagination.totalCount, customers.length);
 
       // Break if no more records
       if (customers.length === 0 || !pagination.hasMore) {
@@ -243,12 +251,25 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
       }
 
     } catch (error: any) {
-      console.error("Error fetching customer page:", error.message);
+      console.error(`Error fetching customer page (Active=${isActive}):`, error.message);
       throw error;
     }
   }
 
-  console.log(`Fetched ${allCustomers.length} customers from QuickBooks`);
+  console.log(`Fetched ${allCustomers.length} ${isActive ? 'active' : 'inactive'} customers from QuickBooks`);
+  return allCustomers;
+}
+
+async function pullCustomersFromQB(supabase: any, connection: any): Promise<number> {
+  console.log("=== Pulling customers from QuickBooks ===");
+  
+  // QuickBooks defaults to showing only active customers
+  // We need to query active and inactive separately
+  const activeCustomers = await fetchCustomersByActiveStatus(supabase, connection, true);
+  const inactiveCustomers = await fetchCustomersByActiveStatus(supabase, connection, false);
+  
+  const allCustomers = [...activeCustomers, ...inactiveCustomers];
+  console.log(`Total customers fetched: ${allCustomers.length} (${activeCustomers.length} active, ${inactiveCustomers.length} inactive)`);
 
   // CRITICAL FIX: Map QB customers to Batchly schema
   const mappedCustomers = allCustomers.map(qbCustomer => mapQBCustomerToBatchly(qbCustomer, connection.organization_id));
