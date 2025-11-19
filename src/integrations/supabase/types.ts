@@ -2217,6 +2217,7 @@ export type Database = {
           promised_ship_date: string | null
           qbo_id: string | null
           qbo_sync_status: string | null
+          qbo_sync_token: number | null
           requested_ship_date: string | null
           ship_date: string | null
           shipping_method: string | null
@@ -2266,6 +2267,7 @@ export type Database = {
           promised_ship_date?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          qbo_sync_token?: number | null
           requested_ship_date?: string | null
           ship_date?: string | null
           shipping_method?: string | null
@@ -2315,6 +2317,7 @@ export type Database = {
           promised_ship_date?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          qbo_sync_token?: number | null
           requested_ship_date?: string | null
           ship_date?: string | null
           shipping_method?: string | null
