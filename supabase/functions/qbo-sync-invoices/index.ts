@@ -27,6 +27,50 @@ interface SyncRequest {
   offset?: number;
   direction?: "push" | "pull" | "both";
   batchSize?: number;
+  dryRun?: boolean;
+  limit?: number;
+}
+
+interface InvoiceRecordPayload {
+  organization_id: string;
+  qbo_id: string;
+  invoice_number: string;
+  invoice_date: string;
+  due_date?: string;
+  customer_id: string;
+  subtotal: number;
+  tax_total: number;
+  total: number;
+  balance_due: number;
+  status: string;
+  memo?: string;
+  qbo_sync_token: number | null;
+  qbo_sync_status: string;
+  source_system: string;
+  last_sync_at: string;
+  qbo_created_at: string | null;
+  qbo_updated_at: string | null;
+  currency_code: string;
+  exchange_rate: number | null;
+  terms_ref: Record<string, unknown> | null;
+  billing_address: Record<string, unknown> | null;
+  shipping_address: Record<string, unknown> | null;
+  txn_tax_detail: Record<string, unknown> | null;
+}
+
+interface InvoiceLineRecordPayload {
+  organization_id: string;
+  invoice_qbo_id?: string;
+  invoice_id?: string;
+  item_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  amount: number;
+  position: number;
+  tax_rate: number;
+  tax_code?: string;
+  last_sync_at: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -36,12 +80,14 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const supabase = createSupabaseClient();
-    const { 
-      organizationId, 
+    const {
+      organizationId,
       sessionId,
       offset = 0,
       direction = "pull",
-      batchSize = 50 // Smaller batches for invoices (larger objects)
+      batchSize = 50, // Smaller batches for invoices (larger objects)
+      dryRun = false,
+      limit
     }: SyncRequest = await req.json();
 
     console.log("=== Starting Invoice Sync ===");
@@ -65,7 +111,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Refresh token if needed
     await refreshTokenIfNeeded(supabase, connection);
 
-    let syncResults = {
+    const syncResults = {
       pulled: 0,
       pushed: 0,
       errors: [] as string[]
@@ -75,11 +121,15 @@ const handler = async (req: Request): Promise<Response> => {
     if (direction === "pull" || direction === "both") {
       try {
         const pullResult = await pullInvoicesFromQB(
-          supabase, 
-          connection, 
+          supabase,
+          connection,
           sessionId || null,
           offset,
-          batchSize
+          batchSize,
+          {
+            dryRun,
+            limit
+          }
         );
         syncResults.pulled = pullResult;
       } catch (error: any) {
@@ -191,20 +241,27 @@ async function refreshTokenIfNeeded(supabase: any, connection: any): Promise<voi
   }
 }
 
+interface PullOptions {
+  dryRun: boolean;
+  limit?: number;
+}
+
 async function pullInvoicesFromQB(
   supabase: any,
   connection: any,
   sessionId: string | null,
   startOffset: number,
-  batchSize: number
+  batchSize: number,
+  options: PullOptions
 ): Promise<number> {
   console.log("Pulling invoices from QuickBooks...");
-  
+
   const rateLimiter = new QBRateLimiter();
   const baseUrl = getQBApiBaseUrl(connection.environment);
   let totalPulled = 0;
   let currentOffset = startOffset;
   let hasMore = true;
+  const maxToProcess = typeof options.limit === "number" ? Math.max(options.limit, 0) : null;
 
   // Get or create session
   let session = null;
@@ -235,14 +292,30 @@ async function pullInvoicesFromQB(
   const itemMap = new Map(items?.map((i: any) => [i.qbo_id!, i.id]) || []);
 
   while (hasMore) {
+    if (maxToProcess !== null && totalPulled >= maxToProcess) {
+      console.log(`Reached requested invoice limit (${maxToProcess}). Stopping pull.`);
+      break;
+    }
+
     await QBRateLimiter.checkLimit(connection.organization_id);
+
+    const remainingBudget =
+      maxToProcess === null ? null : Math.max(maxToProcess - totalPulled, 0);
+
+    if (remainingBudget !== null && remainingBudget === 0) {
+      console.log("No remaining invoices requested. Stopping pull loop.");
+      break;
+    }
+
+    const currentBatchSize =
+      remainingBudget === null ? batchSize : Math.min(batchSize, Math.max(remainingBudget, 1));
 
     // Build query with pagination
     // NOTE: Unlike Customers, Invoices don't have an "Active" filter by default
     // All invoices (including voided/deleted) should be retrieved
-    const query = `SELECT * FROM Invoice STARTPOSITION ${currentOffset + 1} MAXRESULTS ${batchSize}`;
+    const query = `SELECT * FROM Invoice STARTPOSITION ${currentOffset + 1} MAXRESULTS ${currentBatchSize}`;
     
-    console.log(`=== Fetching invoices: offset=${currentOffset}, batch=${batchSize} ===`);
+    console.log(`=== Fetching invoices: offset=${currentOffset}, batch=${currentBatchSize} ===`);
     console.log(`Query: ${query}`);
 
     try {
@@ -291,9 +364,12 @@ async function pullInvoicesFromQB(
       }
 
       // Transform and prepare invoices for upsert
-      const invoiceRecords = [];
-      const lineItemRecords = [];
+      const invoiceRecords: InvoiceRecordPayload[] = [];
+      const lineItemRecords: InvoiceLineRecordPayload[] = [];
+      const lineItemPositionMap = new Map<string, number[]>();
+      const invoicesWithLinePayload = new Set<string>();
       let skippedCount = 0;
+      const batchSyncTimestamp = new Date().toISOString();
 
       console.log("Processing invoices...");
       for (const qbInvoice of invoices) {
@@ -305,6 +381,27 @@ async function pullInvoicesFromQB(
           continue;
         }
 
+        // Calculate monetary fields
+        const totalAmount = parseQBAmount(qbInvoice.TotalAmt) ?? 0;
+        const taxAmount = parseQBAmount(qbInvoice.TxnTaxDetail?.TotalTax) ?? 0;
+        const subtotalAmount =
+          parseQBAmount(qbInvoice.SubTotalAmt) ?? Math.max(totalAmount - taxAmount, 0);
+        const balanceAmount = parseQBAmount(qbInvoice.Balance) ?? 0;
+
+        let status = "sent";
+        if (balanceAmount === 0) {
+          status = "paid";
+        } else if (totalAmount !== null && balanceAmount < totalAmount) {
+          status = "partial";
+        }
+
+        if (status !== "paid" && qbInvoice.DueDate) {
+          const due = new Date(qbInvoice.DueDate);
+          if (!isNaN(due.getTime()) && due < new Date()) {
+            status = "overdue";
+          }
+        }
+
         // Prepare invoice record
         const invoiceRecord = {
           organization_id: connection.organization_id,
@@ -313,16 +410,24 @@ async function pullInvoicesFromQB(
           invoice_date: qbInvoice.TxnDate || new Date().toISOString().split('T')[0],
           due_date: qbInvoice.DueDate,
           customer_id: customerBatchlyId,
-          subtotal: parseQBAmount(qbInvoice.TotalAmt) || 0,
-          tax_total: parseQBAmount(qbInvoice.TxnTaxDetail?.TaxLine[0]?.TaxLineDetail?.TaxPercent) || 0,
-          total: parseQBAmount(qbInvoice.TotalAmt) || 0,
-          balance_due: parseQBAmount(qbInvoice.Balance) || 0,
-          status: parseQBAmount(qbInvoice.Balance) === 0 ? 'paid' : 'open',
+          subtotal: subtotalAmount,
+          tax_total: taxAmount,
+          total: totalAmount,
+          balance_due: balanceAmount,
+          status,
           memo: qbInvoice.CustomerMemo?.value,
-          qbo_sync_token: qbInvoice.SyncToken,
+          qbo_sync_token: parseQBInt(qbInvoice.SyncToken),
           qbo_sync_status: 'synced',
           source_system: 'QBO',
-          last_sync_at: new Date().toISOString()
+          last_sync_at: batchSyncTimestamp,
+          qbo_created_at: formatQBTimestamp(qbInvoice.MetaData?.CreateTime),
+          qbo_updated_at: formatQBTimestamp(qbInvoice.MetaData?.LastUpdatedTime),
+          currency_code: qbInvoice.CurrencyRef?.value || 'USD',
+          exchange_rate: parseQBAmount(qbInvoice.ExchangeRate),
+          terms_ref: qbInvoice.SalesTermRef ? qbInvoice.SalesTermRef : null,
+          billing_address: qbInvoice.BillAddr ? qbInvoice.BillAddr : null,
+          shipping_address: qbInvoice.ShipAddr ? qbInvoice.ShipAddr : null,
+          txn_tax_detail: qbInvoice.TxnTaxDetail ? qbInvoice.TxnTaxDetail : null
         };
 
         invoiceRecords.push(invoiceRecord);
@@ -330,7 +435,7 @@ async function pullInvoicesFromQB(
         // Prepare line items
         const lines = qbInvoice.Line || [];
         let skippedLineItems = 0;
-        
+
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
           
@@ -349,12 +454,23 @@ async function pullInvoicesFromQB(
           }
           
           const itemBatchlyId = itemMap.get(detail.ItemRef.value);
-          
+
           if (!itemBatchlyId) {
             console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Item not found for QB ID: ${detail.ItemRef.value}, skipping line item`);
             skippedLineItems++;
             continue;
           }
+
+          const quantity = parseQBAmount(detail.Qty);
+          const unitPrice = parseQBAmount(detail.UnitPrice);
+          const lineAmount = parseQBAmount(line.Amount);
+          const lineTaxRate = parseQBAmount(detail.TaxRate);
+
+          if (!lineItemPositionMap.has(qbInvoice.Id)) {
+            lineItemPositionMap.set(qbInvoice.Id, []);
+          }
+          lineItemPositionMap.get(qbInvoice.Id)!.push(i + 1);
+          invoicesWithLinePayload.add(qbInvoice.Id);
 
           lineItemRecords.push({
             organization_id: connection.organization_id,
@@ -362,12 +478,13 @@ async function pullInvoicesFromQB(
             invoice_qbo_id: qbInvoice.Id, // Temporary field for mapping
             item_id: itemBatchlyId,
             description: line.Description || detail.ItemRef.name || '',
-            quantity: parseQBAmount(detail.Qty) || 1,
-            unit_price: parseQBAmount(detail.UnitPrice) || 0,
-            amount: parseQBAmount(line.Amount) || 0,
+            quantity: quantity ?? 1,
+            unit_price: unitPrice ?? 0,
+            amount: lineAmount ?? 0,
             position: i + 1,
-            tax_rate: detail.TaxCodeRef?.value === 'TAX' ? 10 : 0, // Simplified
-            last_sync_at: new Date().toISOString()
+            tax_rate: lineTaxRate ?? 0,
+            tax_code: detail.TaxCodeRef?.value,
+            last_sync_at: batchSyncTimestamp
           });
         }
         
@@ -380,13 +497,53 @@ async function pullInvoicesFromQB(
         console.warn(`⚠ Skipped ${skippedCount} invoices due to missing customers in this batch`);
       }
 
+      const validInvoiceRecords = invoiceRecords.filter(record => {
+        if (!record.qbo_id) {
+          console.warn("Skipping invoice with missing qbo_id", record);
+          return false;
+        }
+        if (!record.customer_id) {
+          console.warn(`Skipping invoice ${record.qbo_id} - missing customer mapping`);
+          return false;
+        }
+        if (!record.invoice_number) {
+          console.warn(`Skipping invoice ${record.qbo_id} - missing invoice_number`);
+          return false;
+        }
+        return true;
+      });
+
+      if (validInvoiceRecords.length !== invoiceRecords.length) {
+        console.warn(
+          `Filtered out ${invoiceRecords.length - validInvoiceRecords.length} invalid invoices before persistence`
+        );
+      }
+
+      if (options.dryRun) {
+        console.log(
+          `[DRY RUN] Prepared ${validInvoiceRecords.length} invoices and ${lineItemRecords.length} line items (offset ${currentOffset})`
+        );
+        if (validInvoiceRecords[0]) {
+          console.log("Sample invoice payload:", JSON.stringify(validInvoiceRecords[0], null, 2));
+        }
+        totalPulled += validInvoiceRecords.length;
+        currentOffset += invoices.length;
+        continue;
+      }
+
+      const validInvoiceQboIds = new Set(validInvoiceRecords.map(record => record.qbo_id));
+      const filteredLineItems = lineItemRecords.filter(item => validInvoiceQboIds.has(item.invoice_qbo_id));
+      const filteredPositionMap = new Map(
+        Array.from(validInvoiceQboIds).map(qboId => [qboId, lineItemPositionMap.get(qboId) || []])
+      );
+
       // Upsert invoices
-      if (invoiceRecords.length > 0) {
+      if (validInvoiceRecords.length > 0) {
         const { data: upsertedInvoices, error: invoiceError } = await supabase
           .from('invoice_record')
-          .upsert(invoiceRecords, { 
+          .upsert(validInvoiceRecords, {
             onConflict: 'organization_id,qbo_id',
-            ignoreDuplicates: false 
+            ignoreDuplicates: false
           })
           .select('id, qbo_id');
 
@@ -403,33 +560,72 @@ async function pullInvoicesFromQB(
         );
 
         // Map line items to actual invoice IDs
-        const mappedLineItems = lineItemRecords.map(item => ({
-          ...item,
-          invoice_id: invoiceIdMap.get(item.invoice_qbo_id),
-          invoice_qbo_id: undefined // Remove temporary field
-        })).filter(item => item.invoice_id); // Only items with valid invoice_id
+        const mappedLineItems = filteredLineItems
+          .map(item => {
+            const invoiceId = invoiceIdMap.get(item.invoice_qbo_id);
+            if (!invoiceId) return null;
 
-        // Delete existing line items for these invoices
-        const invoiceIds = Array.from(invoiceIdMap.values());
-        if (invoiceIds.length > 0) {
-          await supabase
-            .from('invoice_line_item')
-            .delete()
-            .in('invoice_id', invoiceIds);
-        }
+            const { invoice_qbo_id, ...rest } = item;
+            return {
+              ...rest,
+              invoice_id: invoiceId
+            };
+          })
+          .filter((item): item is InvoiceLineRecordPayload => Boolean(item));
 
-        // Insert new line items
+        const linePositionsByInvoiceId = new Map(
+          Array.from(invoiceIdMap.entries())
+            .filter(([qboId]) => invoicesWithLinePayload.has(qboId))
+            .map(([qboId, invoiceId]) => [
+              invoiceId,
+              filteredPositionMap.get(qboId) || []
+            ])
+            .filter(([, positions]) => positions.length > 0)
+        );
+
         if (mappedLineItems.length > 0) {
           const { error: lineError } = await supabase
             .from('invoice_line_item')
-            .insert(mappedLineItems);
+            .upsert(mappedLineItems, {
+              onConflict: 'invoice_id,position',
+              ignoreDuplicates: false
+            });
 
           if (lineError) {
-            console.error("Line item insert error:", lineError);
+            console.error("Line item upsert error:", lineError);
             throw lineError;
           }
 
-          console.log(`✓ Inserted ${mappedLineItems.length} line items`);
+          console.log(`✓ Upserted ${mappedLineItems.length} line items`);
+        }
+
+        // Remove orphaned line items whose positions were not present in the QB payload
+        for (const [invoiceId, positions] of linePositionsByInvoiceId.entries()) {
+          if (!invoiceId) continue;
+
+          if (!positions || positions.length === 0) {
+            const { error: clearError } = await supabase
+              .from('invoice_line_item')
+              .delete()
+              .eq('invoice_id', invoiceId);
+            if (clearError) {
+              console.error(`Line item cleanup error for invoice ${invoiceId}:`, clearError);
+              throw clearError;
+            }
+            continue;
+          }
+
+          const uniquePositions = Array.from(new Set(positions));
+          const inList = `(${uniquePositions.join(',')})`;
+          const { error: pruneError } = await supabase
+            .from('invoice_line_item')
+            .delete()
+            .eq('invoice_id', invoiceId)
+            .not('position', 'in', inList);
+          if (pruneError) {
+            console.error(`Line item prune error for invoice ${invoiceId}:`, pruneError);
+            throw pruneError;
+          }
         }
 
         totalPulled += upsertedInvoices.length;
@@ -450,7 +646,7 @@ async function pullInvoicesFromQB(
       currentOffset += invoices.length;
 
       // Check if we should continue
-      if (invoices.length < batchSize) {
+      if (invoices.length < currentBatchSize) {
         hasMore = false;
       }
 
