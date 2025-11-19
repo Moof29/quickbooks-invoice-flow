@@ -61,6 +61,7 @@ import {
   SlidersHorizontal,
   X,
   ChevronDown,
+  RefreshCw,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -98,6 +99,7 @@ const Invoices = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
@@ -379,6 +381,52 @@ const Invoices = () => {
     queryClient.invalidateQueries({ queryKey: ['invoices-count'] });
   };
 
+  const handleTestSync = async () => {
+    setIsSyncing(true);
+    try {
+      // Get organization ID from profile
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .single();
+
+      if (!profileData?.organization_id) {
+        throw new Error('Organization not found');
+      }
+
+      toast({
+        title: 'Starting invoice sync...',
+        description: 'Syncing invoices from QuickBooks',
+      });
+
+      const { data, error } = await supabase.functions.invoke('qbo-sync-invoices', {
+        body: {
+          organizationId: profileData.organization_id,
+          direction: 'pull',
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sync completed',
+        description: `Pulled ${data?.results?.pulled || 0} invoices from QuickBooks`,
+      });
+
+      // Refresh invoice list
+      loadInvoices();
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast({
+        title: 'Sync failed',
+        description: error.message || 'Failed to sync invoices',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const getStatusVariant = (status: string, amountDue: number): { variant: "default" | "secondary" | "destructive" | "outline"; className: string } => {
     // Paid invoices (amount_due = 0)
     if (amountDue === 0) {
@@ -500,6 +548,15 @@ const Invoices = () => {
               </p>
             </div>
             <div className="hidden md:flex gap-2">
+              <Button
+                onClick={handleTestSync}
+                disabled={isSyncing}
+                variant="outline"
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Test Sync'}
+              </Button>
               <ClearInvoicesButton />
               <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
