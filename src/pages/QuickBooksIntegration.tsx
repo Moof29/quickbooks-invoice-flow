@@ -49,6 +49,7 @@ const QuickBooksIntegration = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string>('');
+  const [refreshing, setRefreshing] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
@@ -492,6 +493,46 @@ const QuickBooksIntegration = () => {
     }
   };
 
+  const forceRefreshToken = async () => {
+    if (!profile?.organization_id) {
+      toast({
+        title: "Error",
+        description: "No organization ID available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      const response = await supabase.functions.invoke('qbo-token-refresh', {
+        body: { organizationId: profile.organization_id }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      toast({
+        title: "Token Refreshed",
+        description: "QuickBooks OAuth token has been refreshed successfully",
+      });
+
+      // Reload connection status to show new expiry
+      await loadConnectionStatus();
+      await loadSyncHistory();
+    } catch (error: any) {
+      console.error('Error refreshing token:', error);
+      toast({
+        title: "Refresh Failed",
+        description: error.message || "Failed to refresh QuickBooks token",
+        variant: "destructive",
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const startInitialSync = async () => {
     if (!profile?.organization_id) {
       console.error('No organization ID available for initial sync');
@@ -578,10 +619,19 @@ const QuickBooksIntegration = () => {
               )}
               {connection?.is_active ? (
                 <>
+                  <Button 
+                    onClick={forceRefreshToken} 
+                    disabled={syncing || refreshing}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                    {refreshing ? 'Refreshing...' : 'Refresh Token'}
+                  </Button>
                   <div className="flex flex-col gap-2 w-full sm:w-auto">
                     <Button 
                       onClick={handleSync} 
-                      disabled={syncing}
+                      disabled={syncing || refreshing}
                       variant="outline"
                       className="w-full sm:w-auto"
                     >
