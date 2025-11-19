@@ -59,6 +59,7 @@ interface Customer {
 const Customers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [includeInactive, setIncludeInactive] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
@@ -83,13 +84,16 @@ const Customers = () => {
 
   // Fetch total count for pagination
   const { data: totalCount = 0 } = useQuery<number>({
-    queryKey: ['customers-count', debouncedSearch],
+    queryKey: ['customers-count', debouncedSearch, includeInactive],
     placeholderData: (previousData) => previousData, // Keep previous count while loading
     queryFn: async () => {
       let query = supabase
         .from('customer_profile')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true);
+        .select('*', { count: 'exact', head: true });
+
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
 
       // Search across name, company, email, and phone using GIN index
       if (debouncedSearch) {
@@ -110,7 +114,7 @@ const Customers = () => {
 
   // Fetch paginated customers
   const { data: customers = [], isLoading, isFetching } = useQuery<Customer[]>({
-    queryKey: ['customers', currentPage, debouncedSearch],
+    queryKey: ['customers', currentPage, debouncedSearch, includeInactive],
     placeholderData: (previousData) => previousData, // Keep previous customers while loading for smooth UX
     queryFn: async () => {
       const from = (currentPage - 1) * pageSize;
@@ -119,9 +123,12 @@ const Customers = () => {
       let query = supabase
         .from('customer_profile')
         .select('*')
-        .eq('is_active', true)
         .order('created_at', { ascending: false })
         .range(from, to);
+
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
 
       // Search across name, company, email, and phone using GIN index
       if (debouncedSearch) {
@@ -316,15 +323,26 @@ const Customers = () => {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative w-full">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Search customers..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 h-10 md:h-auto"
-        />
+      {/* Search & filters */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="relative w-full md:max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search customers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 h-10 md:h-auto"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={includeInactive}
+            onCheckedChange={(value) => setIncludeInactive(Boolean(value))}
+          />
+          <span className="text-xs md:text-sm text-muted-foreground">
+            Include inactive customers
+          </span>
+        </div>
       </div>
 
       {/* Desktop Table View */}
