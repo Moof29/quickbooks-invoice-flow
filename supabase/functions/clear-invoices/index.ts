@@ -40,7 +40,7 @@ async function clearInvoicesInBackground(organizationId: string) {
       if (fetchError) throw fetchError;
       if (!items || items.length === 0) break;
 
-      const ids = items.map(item => item.id);
+      const ids = items.map((item: any) => item.id);
       const { error: deleteError } = await supabase
         .from('invoice_line_item')
         .delete()
@@ -64,7 +64,7 @@ async function clearInvoicesInBackground(organizationId: string) {
       if (fetchError) throw fetchError;
       if (!invoices || invoices.length === 0) break;
 
-      const ids = invoices.map(inv => inv.id);
+      const ids = invoices.map((inv: any) => inv.id);
       const { error: deleteError } = await supabase
         .from('invoice_record')
         .delete()
