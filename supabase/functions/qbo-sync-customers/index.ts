@@ -288,12 +288,12 @@ function mapQBCustomerToBatchly(qbCustomer: any, organizationId: string): any {
     website_url: qbCustomer.WebAddr?.URI || null,
 
     // Billing Address
-    address_line1: qbCustomer.BillAddr?.Line1 || null,
-    address_line2: qbCustomer.BillAddr?.Line2 || null,
-    city: qbCustomer.BillAddr?.City || null,
-    state: qbCustomer.BillAddr?.CountrySubDivisionCode || null,
-    postal_code: qbCustomer.BillAddr?.PostalCode || null,
-    country: qbCustomer.BillAddr?.Country || null,
+    billing_address_line1: qbCustomer.BillAddr?.Line1 || null,
+    billing_address_line2: qbCustomer.BillAddr?.Line2 || null,
+    billing_city: qbCustomer.BillAddr?.City || null,
+    billing_state: qbCustomer.BillAddr?.CountrySubDivisionCode || null,
+    billing_postal_code: qbCustomer.BillAddr?.PostalCode || null,
+    billing_country: qbCustomer.BillAddr?.Country || null,
 
     // Shipping Address
     shipping_address_line1: qbCustomer.ShipAddr?.Line1 || null,

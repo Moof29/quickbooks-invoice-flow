@@ -271,12 +271,16 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
   console.log("Step 4: Mapping to Batchly schema...");
   const mappedItems = allItems.map(qbItem => mapQBItemToBatchly(qbItem, connection.organization_id));
 
+  // Filter out Category type items (not allowed by DB constraint)
+  const validItems = mappedItems.filter(item => item.item_type !== 'Category');
+  console.log(`Filtered out ${mappedItems.length - validItems.length} Category items`);
+
   // STEP 5: Batch upsert to database
   console.log("Step 5: Upserting to database...");
   const savedCount = await batchUpsert(
     supabase,
     'item_record',
-    mappedItems,
+    validItems,
     'organization_id,qbo_id',
     500
   );
