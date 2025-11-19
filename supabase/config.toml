@@ -53,3 +53,6 @@ verify_jwt = true
 
 [functions.qbo-webhook-handler]
 verify_jwt = false
+
+[functions.qbo-validate-connection]
+verify_jwt = true

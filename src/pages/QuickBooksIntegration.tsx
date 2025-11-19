@@ -14,8 +14,11 @@ import {
   Settings,
   AlertTriangle,
   ExternalLink,
-  Key
+  Key,
+  Activity
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthProfile } from '@/hooks/useAuthProfile';
@@ -55,6 +58,9 @@ const QuickBooksIntegration = () => {
   const [clientSecret, setClientSecret] = useState('');
   const [savingCredentials, setSavingCredentials] = useState(false);
   const [credentialsConfigured, setCredentialsConfigured] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [validationResults, setValidationResults] = useState<any>(null);
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuthProfile();
 
@@ -493,6 +499,40 @@ const QuickBooksIntegration = () => {
     }
   };
 
+  const handleTestConnection = async () => {
+    if (!profile?.organization_id) {
+      toast({
+        title: "Error",
+        description: "No organization ID available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTestingConnection(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('qbo-validate-connection', {
+        body: { organizationId: profile.organization_id }
+      });
+      
+      if (error) throw error;
+      
+      // Show results in modal/dialog
+      setValidationResults(data);
+      setShowValidationDialog(true);
+      
+    } catch (error: any) {
+      toast({
+        title: "Connection Test Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   const forceRefreshToken = async () => {
     if (!profile?.organization_id) {
       toast({
@@ -620,8 +660,17 @@ const QuickBooksIntegration = () => {
               {connection?.is_active ? (
                 <>
                   <Button 
+                    onClick={handleTestConnection} 
+                    disabled={syncing || refreshing || testingConnection}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    <Activity className={`w-4 h-4 mr-2 ${testingConnection ? 'animate-pulse' : ''}`} />
+                    {testingConnection ? 'Testing...' : 'Test Connection'}
+                  </Button>
+                  <Button 
                     onClick={forceRefreshToken} 
-                    disabled={syncing || refreshing}
+                    disabled={syncing || refreshing || testingConnection}
                     variant="outline"
                     className="w-full sm:w-auto"
                   >
@@ -631,7 +680,7 @@ const QuickBooksIntegration = () => {
                   <div className="flex flex-col gap-2 w-full sm:w-auto">
                     <Button 
                       onClick={handleSync} 
-                      disabled={syncing || refreshing}
+                      disabled={syncing || refreshing || testingConnection}
                       variant="outline"
                       className="w-full sm:w-auto"
                     >
@@ -921,6 +970,225 @@ const QuickBooksIntegration = () => {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Validation Results Dialog */}
+      <Dialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {validationResults?.valid ? (
+                <>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  Connection Healthy
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  Connection Issues Detected
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {validationResults?.valid ? (
+                "All QuickBooks API tests passed successfully"
+              ) : (
+                "Some connection tests failed. Review the details below."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {validationResults && (
+            <div className="space-y-4">
+              {/* Test Results */}
+              <div>
+                <h3 className="font-semibold mb-3">Test Results</h3>
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">Token Status</TableCell>
+                      <TableCell className="text-right">
+                        {!validationResults.tests?.token_expired ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Valid
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Expired
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Company Info Access</TableCell>
+                      <TableCell className="text-right">
+                        {validationResults.tests?.company_info ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Passed
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Failed
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Customer Query Access</TableCell>
+                      <TableCell className="text-right">
+                        {validationResults.tests?.customer_query ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Passed
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Failed (HTTP {validationResults.diagnostics?.customer_status})
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Item Query Access</TableCell>
+                      <TableCell className="text-right">
+                        {validationResults.tests?.item_query ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Passed
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Failed (HTTP {validationResults.diagnostics?.item_status})
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Invoice Query Access</TableCell>
+                      <TableCell className="text-right">
+                        {validationResults.tests?.invoice_query ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Passed
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Failed (HTTP {validationResults.diagnostics?.invoice_status})
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Diagnostics */}
+              {validationResults.diagnostics && (
+                <div>
+                  <h3 className="font-semibold mb-3">Connection Details</h3>
+                  <div className="bg-muted/50 p-4 rounded-lg space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Environment:</span>
+                      <span className="font-medium">{validationResults.diagnostics.environment}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Realm ID:</span>
+                      <span className="font-mono text-xs">{validationResults.diagnostics.realm_id}</span>
+                    </div>
+                    {validationResults.diagnostics.token_expires_at && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Token Expires:</span>
+                        <span className="font-medium">
+                          {new Date(validationResults.diagnostics.token_expires_at).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {validationResults.diagnostics.last_connected_at && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Last Connected:</span>
+                        <span className="font-medium">
+                          {new Date(validationResults.diagnostics.last_connected_at).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {validationResults.recommendations && validationResults.recommendations.length > 0 && (
+                <Alert className="border-orange-200 bg-orange-50">
+                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                  <AlertDescription>
+                    <h3 className="font-semibold mb-2">Recommended Actions</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {validationResults.recommendations.map((rec: string, index: number) => (
+                        <li key={index}>{rec}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Error Details */}
+              {(validationResults.diagnostics?.customer_error || 
+                validationResults.diagnostics?.item_error || 
+                validationResults.diagnostics?.invoice_error) && (
+                <div>
+                  <h3 className="font-semibold mb-3">Error Details</h3>
+                  <div className="space-y-2 text-sm">
+                    {validationResults.diagnostics.customer_error && (
+                      <Alert variant="destructive">
+                        <AlertDescription>
+                          <strong>Customer API:</strong> {validationResults.diagnostics.customer_error}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {validationResults.diagnostics.item_error && (
+                      <Alert variant="destructive">
+                        <AlertDescription>
+                          <strong>Item API:</strong> {validationResults.diagnostics.item_error}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {validationResults.diagnostics.invoice_error && (
+                      <Alert variant="destructive">
+                        <AlertDescription>
+                          <strong>Invoice API:</strong> {validationResults.diagnostics.invoice_error}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {validationResults?.tests?.token_expired && (
+              <Button onClick={forceRefreshToken} variant="outline">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Token
+              </Button>
+            )}
+            {!validationResults?.valid && (
+              <Button onClick={handleConnect} variant="outline">
+                <Zap className="w-4 h-4 mr-2" />
+                Reconnect QuickBooks
+              </Button>
+            )}
+            <Button onClick={() => setShowValidationDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
