@@ -412,7 +412,7 @@ async function pullInvoicesFromQB(
             description: line.Description || detail.ItemRef.name || '',
             quantity: parseQBAmount(detail.Qty) || 1,
             unit_price: parseQBAmount(detail.UnitPrice) || 0,
-            amount: parseQBAmount(line.Amount) || 0,
+            // amount is auto-calculated by database as quantity * unit_price (GENERATED column)
             position: i + 1,
             tax_rate: detail.TaxCodeRef?.value === 'TAX' ? 10 : 0, // Simplified
             last_sync_at: new Date().toISOString()
