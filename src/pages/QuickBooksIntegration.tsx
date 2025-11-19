@@ -48,6 +48,7 @@ const QuickBooksIntegration = () => {
   const [syncHistory, setSyncHistory] = useState<SyncHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string>('');
   const [showCredentials, setShowCredentials] = useState(false);
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
@@ -348,44 +349,146 @@ const QuickBooksIntegration = () => {
     }
 
     setSyncing(true);
+    setSyncStatus('Starting sync...');
+    
+    // Initialize results tracking
+    const syncResults = {
+      customers: { pulled: 0, errors: [] as string[] },
+      items: { pulled: 0, errors: [] as string[] },
+      invoices: { pulled: 0, errors: [] as string[] },
+      payments: { pulled: 0, errors: [] as string[] }
+    };
+    
     try {
       toast({
         title: "Sync Started",
         description: "Data synchronization with QuickBooks has been initiated",
       });
 
-      // Start customer sync
-      const response = await supabase.functions.invoke('qbo-sync-customers', {
-        body: { 
-          organizationId: profile.organization_id,
-          direction: "both"
+      // Sync Customers
+      setSyncStatus('Syncing customers...');
+      try {
+        const customersResponse = await supabase.functions.invoke('qbo-sync-customers', {
+          body: { 
+            organizationId: profile.organization_id,
+            direction: "pull"
+          }
+        });
+        
+        if (customersResponse.data?.results) {
+          syncResults.customers.pulled = customersResponse.data.results.pulled || 0;
+          syncResults.customers.errors = customersResponse.data.results.errors || [];
         }
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
+      } catch (error: any) {
+        console.error('Customer sync error:', error);
+        syncResults.customers.errors.push(error.message || 'Customer sync failed');
       }
 
-      const { results } = response.data;
+      // Sync Items
+      setSyncStatus('Syncing items...');
+      try {
+        const itemsResponse = await supabase.functions.invoke('qbo-sync-items', {
+          body: { 
+            organizationId: profile.organization_id,
+            direction: "pull"
+          }
+        });
+        
+        if (itemsResponse.data?.results) {
+          syncResults.items.pulled = itemsResponse.data.results.pulled || 0;
+          syncResults.items.errors = itemsResponse.data.results.errors || [];
+        }
+      } catch (error: any) {
+        console.error('Item sync error:', error);
+        syncResults.items.errors.push(error.message || 'Item sync failed');
+      }
+
+      // Sync Invoices
+      setSyncStatus('Syncing invoices...');
+      try {
+        const invoicesResponse = await supabase.functions.invoke('qbo-sync-invoices', {
+          body: { 
+            organizationId: profile.organization_id,
+            direction: "pull"
+          }
+        });
+        
+        if (invoicesResponse.data?.results) {
+          syncResults.invoices.pulled = invoicesResponse.data.results.pulled || 0;
+          syncResults.invoices.errors = invoicesResponse.data.results.errors || [];
+        }
+      } catch (error: any) {
+        console.error('Invoice sync error:', error);
+        syncResults.invoices.errors.push(error.message || 'Invoice sync failed');
+      }
+
+      // Sync Payments
+      setSyncStatus('Syncing payments...');
+      try {
+        const paymentsResponse = await supabase.functions.invoke('qbo-sync-payments', {
+          body: { 
+            organizationId: profile.organization_id,
+            direction: "pull"
+          }
+        });
+        
+        if (paymentsResponse.data?.results) {
+          syncResults.payments.pulled = paymentsResponse.data.results.pulled || 0;
+          syncResults.payments.errors = paymentsResponse.data.results.errors || [];
+        }
+      } catch (error: any) {
+        console.error('Payment sync error:', error);
+        syncResults.payments.errors.push(error.message || 'Payment sync failed');
+      }
+
+      // Calculate totals and errors
+      const totalErrors = 
+        syncResults.customers.errors.length +
+        syncResults.items.errors.length +
+        syncResults.invoices.errors.length +
+        syncResults.payments.errors.length;
       
+      const hasErrors = totalErrors > 0;
+      
+      // Build summary message
+      const summaryParts = [
+        `Customers: ${syncResults.customers.pulled}`,
+        `Items: ${syncResults.items.pulled}`,
+        `Invoices: ${syncResults.invoices.pulled}`,
+        `Payments: ${syncResults.payments.pulled}`
+      ];
+      
+      let errorDetails = '';
+      if (hasErrors) {
+        const failedEntities = [];
+        if (syncResults.customers.errors.length > 0) failedEntities.push('Customers');
+        if (syncResults.items.errors.length > 0) failedEntities.push('Items');
+        if (syncResults.invoices.errors.length > 0) failedEntities.push('Invoices');
+        if (syncResults.payments.errors.length > 0) failedEntities.push('Payments');
+        errorDetails = ` | Errors in: ${failedEntities.join(', ')}`;
+      }
+      
+      // Show final summary toast
       toast({
-        title: "Sync Completed",
-        description: `Synced ${results.pulled + results.pushed} records. ${results.errors.length > 0 ? `${results.errors.length} errors occurred.` : ''}`,
-        variant: results.errors.length > 0 ? "destructive" : "default",
+        title: hasErrors ? "Sync Completed with Errors" : "Sync Complete",
+        description: summaryParts.join(' | ') + errorDetails,
+        variant: hasErrors ? "destructive" : "default",
       });
 
       // Reload sync history and connection status
-      loadSyncHistory();
-      loadConnectionStatus();
+      await loadSyncHistory();
+      await loadConnectionStatus();
+      
     } catch (error: any) {
-      console.error('Error syncing:', error);
+      console.error('Error during sync:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to start synchronization",
+        title: "Sync Error",
+        description: error.message || "Failed to complete synchronization",
         variant: "destructive",
       });
     } finally {
       setSyncing(false);
+      setSyncStatus('');
     }
   };
 
@@ -475,15 +578,22 @@ const QuickBooksIntegration = () => {
               )}
               {connection?.is_active ? (
                 <>
-                  <Button 
-                    onClick={handleSync} 
-                    disabled={syncing}
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                  >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                    {syncing ? 'Syncing...' : 'Sync Now'}
-                  </Button>
+                  <div className="flex flex-col gap-2 w-full sm:w-auto">
+                    <Button 
+                      onClick={handleSync} 
+                      disabled={syncing}
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                      {syncing ? 'Syncing...' : 'Sync Now'}
+                    </Button>
+                    {syncing && syncStatus && (
+                      <p className="text-sm text-muted-foreground text-center sm:text-left">
+                        {syncStatus}
+                      </p>
+                    )}
+                  </div>
                   <Button onClick={handleDisconnect} variant="destructive" className="w-full sm:w-auto">
                     Disconnect
                   </Button>
