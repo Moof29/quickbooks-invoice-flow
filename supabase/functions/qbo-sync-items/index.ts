@@ -194,18 +194,24 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
   const actualTotalCount = countData.QueryResponse?.totalCount || 0;
   console.log(`✓ QuickBooks reports ${actualTotalCount} total items (active + inactive)`);
 
-  // STEP 2: Fetch all items using pagination
-  let pagination = initPagination(1000);
-  let allItems: any[] = [];
+  // STEP 2: Fetch all items using explicit pagination control
+  console.log("Step 2: Fetching all items in batches...");
 
-  // Paginated fetch from QB
-  while (pagination.hasMore) {
+  const batchSize = 1000; // QB max per request
+  let startPosition = 1;
+  let allItems: any[] = [];
+  let batchNum = 1;
+
+  // Manual pagination loop - continue until we've fetched all items
+  while (startPosition <= actualTotalCount) {
     try {
       // Rate limiting
       await QBRateLimiter.checkLimit(connection.organization_id);
 
-      const query = buildQBQuery("Item", "Active IN (true, false)", pagination);
-      console.log("QB Query:", query);
+      const query = `SELECT * FROM Item WHERE Active IN (true, false) STARTPOSITION ${startPosition} MAXRESULTS ${batchSize}`;
+      const endPosition = Math.min(startPosition + batchSize - 1, actualTotalCount);
+
+      console.log(`[Batch ${batchNum}] Fetching items ${startPosition}-${endPosition} of ${actualTotalCount}`);
 
       // Retry logic with exponential backoff
       const response = await retryableQBApiCall(async () => {
@@ -221,48 +227,52 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
 
       if (!response.ok) {
         const errorText = await parseQBError(response);
-        throw new Error(`QuickBooks API error (${response.status}): ${errorText}`);
+        throw new Error(`Batch ${batchNum} failed (${response.status}): ${errorText}`);
       }
 
       const data = await response.json();
       const items = data.QueryResponse?.Item || [];
 
-      allItems = allItems.concat(items);
+      console.log(`[Batch ${batchNum}] Received ${items.length} items`);
 
-      // Update pagination state
-      pagination = updatePagination(pagination, data);
-
-      // Log progress
-      logProgress("Item", allItems.length, pagination.totalCount, items.length);
-
-      // Break if no more records
-      if (items.length === 0 || !pagination.hasMore) {
+      if (items.length === 0) {
+        console.log(`[Batch ${batchNum}] No items returned, ending pagination`);
         break;
       }
 
+      allItems = allItems.concat(items);
+
+      // Progress log
+      const progress = Math.round((allItems.length / actualTotalCount) * 100);
+      console.log(`Progress: ${allItems.length}/${actualTotalCount} (${progress}%)`);
+
+      // Move to next batch
+      startPosition += items.length;
+      batchNum++;
+
+      // Rate limit protection: 500ms between batches
+      await new Promise(resolve => setTimeout(resolve, 500));
+
     } catch (error: any) {
-      console.error("Error fetching item page:", error.message);
+      console.error(`[Batch ${batchNum}] Error:`, error.message);
       throw error;
     }
   }
 
-  console.log(`Fetched ${allItems.length} items from QuickBooks`);
-  
-  // STEP 3: Check for potential API limit issues
-  if (allItems.length === 1000 && actualTotalCount > 1000) {
-    console.warn("⚠️ WARNING: QuickBooks API returned exactly 1000 items but COUNT shows " + actualTotalCount + " total items.");
-    console.warn("⚠️ This indicates the API is limiting results. Consider implementing date-based chunking.");
-    console.warn("⚠️ Only 1000 out of " + actualTotalCount + " items will be synced!");
-  } else if (allItems.length < actualTotalCount) {
-    console.warn(`⚠️ WARNING: Fetched ${allItems.length} items but QuickBooks reports ${actualTotalCount} total items.`);
+  // STEP 3: Validate count
+  console.log("Step 3: Validating results...");
+  if (allItems.length < actualTotalCount) {
+    console.warn(`⚠️ WARNING: Expected ${actualTotalCount} items but only fetched ${allItems.length}`);
   } else {
-    console.log(`✓ Successfully fetched all ${allItems.length} items matching the expected count.`);
+    console.log(`✓ Successfully fetched all ${allItems.length} items`);
   }
 
-  // CRITICAL FIX: Map QB items to Batchly schema
+  // STEP 4: Map QB items to Batchly schema
+  console.log("Step 4: Mapping to Batchly schema...");
   const mappedItems = allItems.map(qbItem => mapQBItemToBatchly(qbItem, connection.organization_id));
 
-  // CRITICAL FIX: Batch upsert to database
+  // STEP 5: Batch upsert to database
+  console.log("Step 5: Upserting to database...");
   const savedCount = await batchUpsert(
     supabase,
     'item_record',
@@ -272,6 +282,7 @@ async function pullItemsFromQB(supabase: any, connection: any): Promise<number> 
   );
 
   console.log(`✓ Successfully saved ${savedCount} items to database`);
+  console.log("=== Item Sync Complete ===");
   return savedCount;
 }
 

@@ -202,6 +202,26 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
 
       if (!response.ok) {
         const errorText = await parseQBError(response);
+
+        // Enhanced diagnostics for 403 Forbidden errors
+        if (response.status === 403) {
+          console.error("=== 403 FORBIDDEN DIAGNOSTIC ===");
+          console.error("Realm ID:", connection.qbo_realm_id);
+          console.error("Environment:", connection.environment);
+          console.error("API URL:", qbApiUrl);
+          console.error("Query:", query);
+          console.error("Token preview:", connection.qbo_access_token?.substring(0, 30) + "...");
+          console.error("Token expires:", connection.qbo_token_expires_at);
+          console.error("Error body:", errorText);
+          console.error("================================");
+          console.warn("Common 403 causes:");
+          console.warn("1. OAuth scope missing: com.intuit.quickbooks.accounting");
+          console.warn("2. Environment mismatch: sandbox token used for production or vice versa");
+          console.warn("3. Realm ID incorrect (check qbo_connection table)");
+          console.warn("4. Token expired but refresh failed");
+          console.warn("5. QuickBooks subscription inactive/expired");
+        }
+
         throw new Error(`QuickBooks API error (${response.status}): ${errorText}`);
       }
 
