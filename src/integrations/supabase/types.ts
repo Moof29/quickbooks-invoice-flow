@@ -1223,6 +1223,8 @@ export type Database = {
           account_number: string | null
           auto_invoice: boolean | null
           balance: number | null
+          balance_with_jobs: number | null
+          bill_with_parent: boolean | null
           billing_address_line1: string | null
           billing_address_line2: string | null
           billing_city: string | null
@@ -1264,6 +1266,7 @@ export type Database = {
           mobile: string | null
           mobile_phone: string | null
           notes: string | null
+          open_balance_date: string | null
           organization_id: string
           overdue_balance: number | null
           parent_ref: Json | null
@@ -1275,8 +1278,12 @@ export type Database = {
           preferred_billing_day: number | null
           preferred_shipping_method: string | null
           price_level_ref: Json | null
+          qbo_created_at: string | null
           qbo_id: string | null
           qbo_sync_status: string | null
+          qbo_sync_token: number | null
+          qbo_updated_at: string | null
+          resale_number: string | null
           sales_tax_code_ref: Json | null
           shipping_address_line1: string | null
           shipping_address_line2: string | null
@@ -1299,6 +1306,8 @@ export type Database = {
           account_number?: string | null
           auto_invoice?: boolean | null
           balance?: number | null
+          balance_with_jobs?: number | null
+          bill_with_parent?: boolean | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
           billing_city?: string | null
@@ -1340,6 +1349,7 @@ export type Database = {
           mobile?: string | null
           mobile_phone?: string | null
           notes?: string | null
+          open_balance_date?: string | null
           organization_id: string
           overdue_balance?: number | null
           parent_ref?: Json | null
@@ -1351,8 +1361,12 @@ export type Database = {
           preferred_billing_day?: number | null
           preferred_shipping_method?: string | null
           price_level_ref?: Json | null
+          qbo_created_at?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          qbo_sync_token?: number | null
+          qbo_updated_at?: string | null
+          resale_number?: string | null
           sales_tax_code_ref?: Json | null
           shipping_address_line1?: string | null
           shipping_address_line2?: string | null
@@ -1375,6 +1389,8 @@ export type Database = {
           account_number?: string | null
           auto_invoice?: boolean | null
           balance?: number | null
+          balance_with_jobs?: number | null
+          bill_with_parent?: boolean | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
           billing_city?: string | null
@@ -1416,6 +1432,7 @@ export type Database = {
           mobile?: string | null
           mobile_phone?: string | null
           notes?: string | null
+          open_balance_date?: string | null
           organization_id?: string
           overdue_balance?: number | null
           parent_ref?: Json | null
@@ -1427,8 +1444,12 @@ export type Database = {
           preferred_billing_day?: number | null
           preferred_shipping_method?: string | null
           price_level_ref?: Json | null
+          qbo_created_at?: string | null
           qbo_id?: string | null
           qbo_sync_status?: string | null
+          qbo_sync_token?: number | null
+          qbo_updated_at?: string | null
+          resale_number?: string | null
           sales_tax_code_ref?: Json | null
           shipping_address_line1?: string | null
           shipping_address_line2?: string | null
