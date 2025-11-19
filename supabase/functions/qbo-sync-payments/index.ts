@@ -191,8 +191,8 @@ async function pullPaymentsFromQB(supabase: any, connection: any): Promise<numbe
     .eq('organization_id', connection.organization_id)
     .not('qbo_id', 'is', null);
 
-  const customerLookup = new Map(customers?.map(c => [c.qbo_id!, c]) || []);
-  const invoiceLookup = new Map(invoices?.map(i => [i.qbo_id!, i]) || []);
+  const customerLookup: Map<string, any> = new Map(customers?.map((c: any) => [c.qbo_id!, c]) || []);
+  const invoiceLookup: Map<string, any> = new Map(invoices?.map((i: any) => [i.qbo_id!, i]) || []);
   
   console.log(`✓ Created lookup maps: ${customerLookup.size} customers, ${invoiceLookup.size} invoices`);
 

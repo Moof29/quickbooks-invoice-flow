@@ -55,7 +55,10 @@ export function updatePagination(
   const queryResponse = response.QueryResponse;
   const returnedCount = Object.keys(queryResponse)
     .filter(key => Array.isArray(queryResponse[key]))
-    .reduce((count, key) => count + queryResponse[key].length, 0);
+    .reduce((count, key) => {
+      const value = queryResponse[key];
+      return count + (Array.isArray(value) ? value.length : 0);
+    }, 0);
 
   const totalCount = queryResponse.totalCount || returnedCount;
   const maxResults = queryResponse.maxResults || state.maxResults;

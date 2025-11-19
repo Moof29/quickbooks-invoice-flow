@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
       throw customersError;
     }
 
-    const customerIds = customers?.map(c => c.id) || [];
+    const customerIds = customers?.map((c: any) => c.id) || [];
     console.log(`Found ${customerIds.length} customers to process`);
 
     if (customerIds.length > 0) {
@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
         break;
       }
 
-      const customerIds = customersToDelete.map(customer => customer.id);
+      const customerIds = customersToDelete.map((customer: any) => customer.id);
       const { error: deleteError } = await supabase
         .from('customer_profile')
         .delete()

@@ -231,8 +231,8 @@ async function pullInvoicesFromQB(
     .eq('organization_id', connection.organization_id)
     .not('qbo_id', 'is', null);
 
-  const customerMap = new Map(customers?.map(c => [c.qbo_id!, c.id]) || []);
-  const itemMap = new Map(items?.map(i => [i.qbo_id!, i.id]) || []);
+  const customerMap = new Map(customers?.map((c: any) => [c.qbo_id!, c.id]) || []);
+  const itemMap = new Map(items?.map((i: any) => [i.qbo_id!, i.id]) || []);
 
   while (hasMore) {
     await QBRateLimiter.checkLimit(connection.organization_id);

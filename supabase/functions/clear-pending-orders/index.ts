@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const pendingOrderIds = allPendingOrders.map(inv => inv.id);
+    const pendingOrderIds = allPendingOrders.map((inv: any) => inv.id);
     console.log(`Found ${pendingOrderIds.length} pending orders to clear`);
 
     // Delete invoice line items for pending orders in batches of 500
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       const { error: deleteError } = await supabaseClient
         .from('invoice_line_item')
         .delete()
-        .in('id', batch.map(item => item.id));
+        .in('id', batch.map((item: any) => item.id));
 
       if (deleteError) {
         throw new Error(`Failed to delete invoice line items batch: ${deleteError.message}`);

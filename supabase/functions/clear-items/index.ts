@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
         break;
       }
 
-      const itemIds = itemsToDelete.map(item => item.id);
+      const itemIds = itemsToDelete.map((item: any) => item.id);
       const { error: deleteError } = await supabase
         .from('item_record')
         .delete()
