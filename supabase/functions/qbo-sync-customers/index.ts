@@ -321,7 +321,25 @@ function mapQBCustomerToBatchly(qbCustomer: any, organizationId: string): any {
       value: qbCustomer.PriceLevelRef.value,
       name: qbCustomer.PriceLevelRef.name
     } : null,
-    invoice_delivery_method: qbCustomer.PreferredDeliveryMethod?.toLowerCase() || 'email',
+    // Map QBO PreferredDeliveryMethod to allowed values: email, mail, portal, none
+    invoice_delivery_method: (() => {
+      const method = qbCustomer.PreferredDeliveryMethod as string | undefined;
+      if (!method) return 'email';
+      switch (method.toLowerCase()) {
+        case 'email':
+          return 'email';
+        case 'print':
+        case 'mail':
+          return 'mail';
+        case 'online':
+        case 'portal':
+          return 'portal';
+        case 'none':
+          return 'none';
+        default:
+          return 'email';
+      }
+    })(),
     currency_code: qbCustomer.CurrencyRef?.value || 'USD',
 
     // Tax Configuration
