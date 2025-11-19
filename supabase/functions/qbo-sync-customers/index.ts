@@ -185,7 +185,8 @@ async function pullCustomersFromQB(supabase: any, connection: any): Promise<numb
       // Rate limiting
       await QBRateLimiter.checkLimit(connection.organization_id);
 
-      const query = buildQBQuery("Customer", "Active = true", pagination);
+      // Sync ALL customers (both active and inactive)
+      const query = buildQBQuery("Customer", undefined, pagination);
       console.log("QB Query:", query);
 
       // Retry logic with exponential backoff
