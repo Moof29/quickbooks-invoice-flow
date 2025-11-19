@@ -142,6 +142,53 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
+/**
+ * Maps QuickBooks invoice status to our allowed invoice_record status values.
+ * Allowed values: pending, invoiced, draft, confirmed, delivered, paid, cancelled, partial, sent, overdue
+ */
+function mapQboInvoiceStatus(qbInvoice: any): string {
+  const balance = parseQBAmount(qbInvoice.Balance) || 0;
+  const total = parseQBAmount(qbInvoice.TotalAmt) || 0;
+  const dueDate = qbInvoice.DueDate ? new Date(qbInvoice.DueDate) : null;
+  const today = new Date();
+  
+  // Check for voided/deleted status
+  if (qbInvoice.TxnStatus === 'Voided' || qbInvoice.TxnStatus === 'Deleted') {
+    return 'cancelled';
+  }
+  
+  // Fully paid
+  if (total > 0 && balance === 0) {
+    return 'paid';
+  }
+  
+  // Partially paid
+  if (balance > 0 && balance < total) {
+    return 'partial';
+  }
+  
+  // Overdue (unpaid and past due date)
+  if (balance > 0 && dueDate && dueDate < today) {
+    return 'overdue';
+  }
+  
+  // All other open cases (unpaid, not yet due)
+  return 'sent';
+}
+
+/**
+ * Calculate total tax from QuickBooks TxnTaxDetail
+ */
+function calcTaxTotalFromQbo(qbInvoice: any): number {
+  if (!qbInvoice.TxnTaxDetail?.TaxLine) {
+    return 0;
+  }
+  
+  return qbInvoice.TxnTaxDetail.TaxLine.reduce((sum: number, taxLine: any) => {
+    return sum + (parseQBAmount(taxLine.Amount) || 0);
+  }, 0);
+}
+
 async function refreshTokenIfNeeded(supabase: any, connection: any): Promise<void> {
   if (!connection.qbo_token_expires_at) {
     console.log("No token expiration date found, skipping refresh check");
@@ -313,13 +360,14 @@ async function pullInvoicesFromQB(
           invoice_date: qbInvoice.TxnDate || new Date().toISOString().split('T')[0],
           due_date: qbInvoice.DueDate,
           customer_id: customerBatchlyId,
-          subtotal: parseQBAmount(qbInvoice.TotalAmt) || 0,
-          tax_total: parseQBAmount(qbInvoice.TxnTaxDetail?.TaxLine[0]?.TaxLineDetail?.TaxPercent) || 0,
+          subtotal: parseQBAmount(qbInvoice.Line?.find((l: any) => l.DetailType === 'SubTotalLineDetail')?.Amount) || parseQBAmount(qbInvoice.TotalAmt) || 0,
+          tax_total: calcTaxTotalFromQbo(qbInvoice),
           total: parseQBAmount(qbInvoice.TotalAmt) || 0,
           balance_due: parseQBAmount(qbInvoice.Balance) || 0,
-          status: parseQBAmount(qbInvoice.Balance) === 0 ? 'paid' : 'open',
+          amount_paid: Math.max(0, (parseQBAmount(qbInvoice.TotalAmt) || 0) - (parseQBAmount(qbInvoice.Balance) || 0)),
+          status: mapQboInvoiceStatus(qbInvoice),
           memo: qbInvoice.CustomerMemo?.value,
-          qbo_sync_token: qbInvoice.SyncToken,
+          qbo_sync_token: qbInvoice.SyncToken ? parseInt(qbInvoice.SyncToken, 10) : null,
           qbo_sync_status: 'synced',
           source_system: 'QBO',
           last_sync_at: new Date().toISOString()
