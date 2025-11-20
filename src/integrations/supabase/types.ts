@@ -2187,39 +2187,64 @@ export type Database = {
       }
       invoice_record: {
         Row: {
+          allow_ipn_payment: boolean | null
+          allow_online_ach_payment: boolean | null
+          allow_online_credit_card_payment: boolean | null
           amount_due: number | null
           amount_paid: number | null
+          apply_tax_after_discount: boolean | null
           approved_at: string | null
           approved_by: string | null
           balance_due: number | null
+          bill_addr: Json | null
+          class_ref: Json | null
           created_at: string | null
           created_by: string | null
           currency_id: string | null
           custom_fields: Json | null
           customer_id: string | null
+          customer_memo: string | null
           customer_po_number: string | null
           delivery_date: string | null
+          delivery_status: string | null
+          department_ref: Json | null
+          deposit_to_account_ref: Json | null
           discount_rate: number | null
           discount_total: number | null
           discount_type: string | null
           due_date: string | null
+          email_status: string | null
           exchange_rate: number | null
+          global_tax_calculation: string | null
+          home_balance: number | null
+          home_total_amt: number | null
           id: string
           invoice_date: string | null
           invoice_number: string | null
           is_no_order: boolean | null
           last_sync_at: string | null
+          linked_txn: Json | null
           memo: string | null
           message: string | null
           order_date: string | null
           organization_id: string
           po_number: string | null
+          print_status: string | null
+          private_note: string | null
           promised_ship_date: string | null
+          qbo_create_time: string | null
+          qbo_doc_number: string | null
           qbo_id: string | null
+          qbo_last_updated_time: string | null
+          qbo_meta_data: Json | null
           qbo_sync_status: string | null
           qbo_sync_token: number | null
+          qbo_txn_date: string | null
           requested_ship_date: string | null
+          sales_term_ref: Json | null
+          ship_addr: Json | null
           ship_date: string | null
+          ship_method_ref: Json | null
           shipping_method: string | null
           shipping_total: number | null
           shipping_tracking: string | null
@@ -2228,48 +2253,75 @@ export type Database = {
           status: string | null
           subtotal: number | null
           sync_status: string | null
+          tax_code_ref: Json | null
           tax_total: number | null
           terms: string | null
           total: number | null
+          txn_tax_detail: Json | null
           updated_at: string | null
           updated_by: string | null
           updated_by_user_id: string | null
           updated_source: string | null
         }
         Insert: {
+          allow_ipn_payment?: boolean | null
+          allow_online_ach_payment?: boolean | null
+          allow_online_credit_card_payment?: boolean | null
           amount_due?: number | null
           amount_paid?: number | null
+          apply_tax_after_discount?: boolean | null
           approved_at?: string | null
           approved_by?: string | null
           balance_due?: number | null
+          bill_addr?: Json | null
+          class_ref?: Json | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
           custom_fields?: Json | null
           customer_id?: string | null
+          customer_memo?: string | null
           customer_po_number?: string | null
           delivery_date?: string | null
+          delivery_status?: string | null
+          department_ref?: Json | null
+          deposit_to_account_ref?: Json | null
           discount_rate?: number | null
           discount_total?: number | null
           discount_type?: string | null
           due_date?: string | null
+          email_status?: string | null
           exchange_rate?: number | null
+          global_tax_calculation?: string | null
+          home_balance?: number | null
+          home_total_amt?: number | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
           is_no_order?: boolean | null
           last_sync_at?: string | null
+          linked_txn?: Json | null
           memo?: string | null
           message?: string | null
           order_date?: string | null
           organization_id: string
           po_number?: string | null
+          print_status?: string | null
+          private_note?: string | null
           promised_ship_date?: string | null
+          qbo_create_time?: string | null
+          qbo_doc_number?: string | null
           qbo_id?: string | null
+          qbo_last_updated_time?: string | null
+          qbo_meta_data?: Json | null
           qbo_sync_status?: string | null
           qbo_sync_token?: number | null
+          qbo_txn_date?: string | null
           requested_ship_date?: string | null
+          sales_term_ref?: Json | null
+          ship_addr?: Json | null
           ship_date?: string | null
+          ship_method_ref?: Json | null
           shipping_method?: string | null
           shipping_total?: number | null
           shipping_tracking?: string | null
@@ -2278,48 +2330,75 @@ export type Database = {
           status?: string | null
           subtotal?: number | null
           sync_status?: string | null
+          tax_code_ref?: Json | null
           tax_total?: number | null
           terms?: string | null
           total?: number | null
+          txn_tax_detail?: Json | null
           updated_at?: string | null
           updated_by?: string | null
           updated_by_user_id?: string | null
           updated_source?: string | null
         }
         Update: {
+          allow_ipn_payment?: boolean | null
+          allow_online_ach_payment?: boolean | null
+          allow_online_credit_card_payment?: boolean | null
           amount_due?: number | null
           amount_paid?: number | null
+          apply_tax_after_discount?: boolean | null
           approved_at?: string | null
           approved_by?: string | null
           balance_due?: number | null
+          bill_addr?: Json | null
+          class_ref?: Json | null
           created_at?: string | null
           created_by?: string | null
           currency_id?: string | null
           custom_fields?: Json | null
           customer_id?: string | null
+          customer_memo?: string | null
           customer_po_number?: string | null
           delivery_date?: string | null
+          delivery_status?: string | null
+          department_ref?: Json | null
+          deposit_to_account_ref?: Json | null
           discount_rate?: number | null
           discount_total?: number | null
           discount_type?: string | null
           due_date?: string | null
+          email_status?: string | null
           exchange_rate?: number | null
+          global_tax_calculation?: string | null
+          home_balance?: number | null
+          home_total_amt?: number | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
           is_no_order?: boolean | null
           last_sync_at?: string | null
+          linked_txn?: Json | null
           memo?: string | null
           message?: string | null
           order_date?: string | null
           organization_id?: string
           po_number?: string | null
+          print_status?: string | null
+          private_note?: string | null
           promised_ship_date?: string | null
+          qbo_create_time?: string | null
+          qbo_doc_number?: string | null
           qbo_id?: string | null
+          qbo_last_updated_time?: string | null
+          qbo_meta_data?: Json | null
           qbo_sync_status?: string | null
           qbo_sync_token?: number | null
+          qbo_txn_date?: string | null
           requested_ship_date?: string | null
+          sales_term_ref?: Json | null
+          ship_addr?: Json | null
           ship_date?: string | null
+          ship_method_ref?: Json | null
           shipping_method?: string | null
           shipping_total?: number | null
           shipping_tracking?: string | null
@@ -2328,9 +2407,11 @@ export type Database = {
           status?: string | null
           subtotal?: number | null
           sync_status?: string | null
+          tax_code_ref?: Json | null
           tax_total?: number | null
           terms?: string | null
           total?: number | null
+          txn_tax_detail?: Json | null
           updated_at?: string | null
           updated_by?: string | null
           updated_by_user_id?: string | null
