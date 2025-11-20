@@ -80,6 +80,20 @@ const handler = async (req: Request): Promise<Response> => {
     // Pull invoices from QuickBooks
     if (direction === "pull" || direction === "both") {
       try {
+        // Check for existing in-progress syncs to prevent deadlocks
+        if (!sessionId) {
+          const { data: existingSyncs } = await supabase
+            .from('qbo_sync_sessions')
+            .select('id, status')
+            .eq('organization_id', organizationId)
+            .eq('entity_type', 'invoice')
+            .eq('status', 'in_progress');
+          
+          if (existingSyncs && existingSyncs.length > 0) {
+            throw new Error('Another invoice sync is already in progress. Please wait for it to complete or use the existing session ID.');
+          }
+        }
+        
         const pullResult = await pullInvoicesFromQB(
           supabase, 
           connection, 
@@ -653,27 +667,21 @@ async function pullInvoicesFromQB(
           })
           .filter((item): item is NonNullable<typeof item> => item !== null);
 
-        // Delete existing line items for these invoices
-        const invoiceIds = Array.from(invoiceIdMap.values());
-        if (invoiceIds.length > 0) {
-          await supabase
-            .from('invoice_line_item')
-            .delete()
-            .in('invoice_id', invoiceIds);
-        }
-
-        // Insert new line items
+        // Upsert line items (safer than delete+insert, prevents deadlocks)
         if (mappedLineItems.length > 0) {
           const { error: lineError } = await supabase
             .from('invoice_line_item')
-            .insert(mappedLineItems);
+            .upsert(mappedLineItems, {
+              onConflict: 'id',
+              ignoreDuplicates: false
+            });
 
           if (lineError) {
-            console.error("Line item insert error:", lineError);
+            console.error("Line item upsert error:", lineError);
             throw lineError;
           }
 
-          console.log(`✓ Inserted ${mappedLineItems.length} line items`);
+          console.log(`✓ Upserted ${mappedLineItems.length} line items`);
         }
 
         totalPulled += upsertedInvoices.length;
