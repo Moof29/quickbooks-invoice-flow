@@ -576,6 +576,12 @@ async function pullInvoicesFromQB(
 
       // Upsert invoices
       if (invoiceRecords.length > 0) {
+        // Log invoice details before upsert for debugging
+        console.log(`Attempting to upsert ${invoiceRecords.length} invoices:`);
+        invoiceRecords.forEach((inv, idx) => {
+          console.log(`  [${idx}] Invoice #${inv.invoice_number} (QBO ID: ${inv.qbo_id}) - Total: $${inv.total}, LineItems sum would be checked by trigger`);
+        });
+        
         const { data: upsertedInvoices, error: invoiceError } = await supabase
           .from('invoice_record')
           .upsert(invoiceRecords, { 
@@ -586,6 +592,7 @@ async function pullInvoicesFromQB(
 
         if (invoiceError) {
           console.error("Invoice upsert error:", invoiceError);
+          console.error("Failed batch invoice numbers:", invoiceRecords.map(inv => `#${inv.invoice_number} (QBO: ${inv.qbo_id})`).join(', '));
           throw invoiceError;
         }
 
