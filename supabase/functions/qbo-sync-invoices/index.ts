@@ -15,6 +15,12 @@ import {
   createSupabaseClient,
   createLookupMap
 } from "../_shared/sync-helpers.ts";
+import {
+  createSyncSession,
+  updateSyncSession,
+  completeSyncSession,
+  getActiveSession
+} from "../_shared/sync-session.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
       sessionId,
       offset = 0,
       direction = "pull",
-      batchSize = 50 // Smaller batches for invoices (larger objects)
+      batchSize = 1000 // Large batches for historical load
     }: SyncRequest = await req.json();
 
     console.log("=== Starting Invoice Sync ===");
@@ -253,15 +259,64 @@ async function pullInvoicesFromQB(
   let currentOffset = startOffset;
   let hasMore = true;
 
-  // Get or create session
+  // Get or create session for large syncs
   let session = null;
+  let totalExpected: number | undefined;
+
   if (sessionId) {
+    // Resume existing session
     const { data } = await supabase
       .from('qbo_sync_sessions')
       .select('*')
       .eq('id', sessionId)
       .single();
     session = data;
+    totalExpected = session?.total_expected;
+    console.log(`Resuming session ${sessionId}: ${session?.total_processed}/${totalExpected} processed`);
+  } else {
+    // First call - get total count from QB
+    console.log("First sync call - getting total invoice count from QuickBooks...");
+    try {
+      const countQuery = "SELECT COUNT(*) FROM Invoice";
+      const countResponse = await retryableQBApiCall(async () => {
+        return await fetch(
+          `${baseUrl}/v3/company/${connection.qbo_realm_id}/query?query=${encodeURIComponent(countQuery)}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${connection.qbo_access_token}`,
+              "Accept": "application/json"
+            }
+          }
+        );
+      });
+
+      if (countResponse.ok) {
+        const countData = await countResponse.json();
+        totalExpected = countData.QueryResponse?.totalCount || 0;
+        console.log(`Total invoices in QuickBooks: ${totalExpected}`);
+
+        // Only create session if there are many invoices (>100)
+        if (totalExpected > 100) {
+          console.log(`Creating sync session for ${totalExpected} invoices...`);
+          session = await createSyncSession(
+            connection.organization_id,
+            'invoice',
+            'pull',
+            batchSize,
+            'historical' 
+          );
+          
+          // Set total_expected
+          await updateSyncSession(session.id, {
+            total_expected: totalExpected,
+            metadata: { initiated_by: 'manual_sync', total_invoices: totalExpected }
+          });
+          console.log(`✓ Created session ${session.id} for background sync`);
+        }
+      }
+    } catch (error: any) {
+      console.warn("Could not get invoice count, proceeding without session:", error.message);
+    }
   }
 
   // Build customer and item lookups for foreign key mapping
@@ -490,14 +545,20 @@ async function pullInvoicesFromQB(
 
       // Update session if exists
       if (session) {
-        await supabase
-          .from('qbo_sync_sessions')
-          .update({
-            total_processed: session.total_processed + invoices.length,
-            current_offset: currentOffset + invoices.length,
-            last_chunk_at: new Date().toISOString()
-          })
-          .eq('id', session.id);
+        const newTotalProcessed = (session.total_processed || 0) + invoices.length;
+        const newOffset = currentOffset + invoices.length;
+        
+        await updateSyncSession(session.id, {
+          total_processed: newTotalProcessed,
+          current_offset: newOffset,
+          last_chunk_at: new Date().toISOString()
+        });
+        
+        console.log(`Session progress: ${newTotalProcessed}/${totalExpected || '?'} invoices (offset: ${newOffset})`);
+        
+        // Update local session object for next iteration
+        session.total_processed = newTotalProcessed;
+        session.current_offset = newOffset;
       }
 
       currentOffset += invoices.length;
@@ -514,6 +575,12 @@ async function pullInvoicesFromQB(
       console.error("Error fetching invoices:", error);
       throw error;
     }
+  }
+
+  // Complete session if all done
+  if (session && !hasMore) {
+    console.log(`✓ Sync complete! Processed ${session.total_processed} invoices`);
+    await completeSyncSession(session.id, true);
   }
 
   console.log(`✓ Total invoices pulled: ${totalPulled}`);
