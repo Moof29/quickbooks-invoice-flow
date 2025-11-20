@@ -407,22 +407,113 @@ async function pullInvoicesFromQB(
           continue;
         }
 
-        // Prepare invoice record
+        // Extract discount info from QB Line array
+        const discountLine = qbInvoice.Line?.find((l: any) => l.DetailType === 'DiscountLineDetail');
+        const discountAmount = discountLine ? parseQBAmount(discountLine.Amount) : 0;
+        const discountPercent = discountLine?.DiscountLineDetail?.DiscountPercent;
+        
+        // Prepare invoice record with ALL QuickBooks fields
         const invoiceRecord = {
           organization_id: connection.organization_id,
           qbo_id: qbInvoice.Id,
           invoice_number: qbInvoice.DocNumber || `INV-${qbInvoice.Id}`,
           invoice_date: qbInvoice.TxnDate || new Date().toISOString().split('T')[0],
           due_date: qbInvoice.DueDate,
+          ship_date: qbInvoice.ShipDate,
           customer_id: customerBatchlyId,
+          
+          // Amounts (with proper discount handling)
           subtotal: parseQBAmount(qbInvoice.Line?.find((l: any) => l.DetailType === 'SubTotalLineDetail')?.Amount) || parseQBAmount(qbInvoice.TotalAmt) || 0,
+          discount_total: discountAmount,
+          discount_rate: discountPercent || null,
           tax_total: calcTaxTotalFromQbo(qbInvoice),
           total: parseQBAmount(qbInvoice.TotalAmt) || 0,
           balance_due: parseQBAmount(qbInvoice.Balance) || 0,
           amount_paid: Math.max(0, (parseQBAmount(qbInvoice.TotalAmt) || 0) - (parseQBAmount(qbInvoice.Balance) || 0)),
+          home_balance: parseQBAmount(qbInvoice.HomeBalance),
+          home_total_amt: parseQBAmount(qbInvoice.HomeTotalAmt),
+          
+          // Status
           status: mapQboInvoiceStatus(qbInvoice),
+          email_status: qbInvoice.EmailStatus,
+          print_status: qbInvoice.PrintStatus,
+          delivery_status: qbInvoice.DeliveryInfo?.DeliveryType,
+          
+          // Addresses (store as JSONB)
+          bill_addr: qbInvoice.BillAddr ? {
+            Line1: qbInvoice.BillAddr.Line1,
+            Line2: qbInvoice.BillAddr.Line2,
+            Line3: qbInvoice.BillAddr.Line3,
+            Line4: qbInvoice.BillAddr.Line4,
+            Line5: qbInvoice.BillAddr.Line5,
+            City: qbInvoice.BillAddr.City,
+            CountrySubDivisionCode: qbInvoice.BillAddr.CountrySubDivisionCode,
+            PostalCode: qbInvoice.BillAddr.PostalCode,
+            Country: qbInvoice.BillAddr.Country,
+            Lat: qbInvoice.BillAddr.Lat,
+            Long: qbInvoice.BillAddr.Long
+          } : null,
+          ship_addr: qbInvoice.ShipAddr ? {
+            Line1: qbInvoice.ShipAddr.Line1,
+            Line2: qbInvoice.ShipAddr.Line2,
+            Line3: qbInvoice.ShipAddr.Line3,
+            Line4: qbInvoice.ShipAddr.Line4,
+            Line5: qbInvoice.ShipAddr.Line5,
+            City: qbInvoice.ShipAddr.City,
+            CountrySubDivisionCode: qbInvoice.ShipAddr.CountrySubDivisionCode,
+            PostalCode: qbInvoice.ShipAddr.PostalCode,
+            Country: qbInvoice.ShipAddr.Country,
+            Lat: qbInvoice.ShipAddr.Lat,
+            Long: qbInvoice.ShipAddr.Long
+          } : null,
+          
+          // Shipping info
+          shipping_method: qbInvoice.ShipMethodRef?.value,
+          ship_method_ref: qbInvoice.ShipMethodRef,
+          shipping_tracking: qbInvoice.TrackingNum,
+          
+          // Notes and messages
           memo: qbInvoice.CustomerMemo?.value,
+          customer_memo: qbInvoice.CustomerMemo?.value,
+          private_note: qbInvoice.PrivateNote,
+          message: qbInvoice.BillEmail?.Address || qbInvoice.BillEmailCc?.Address,
+          
+          // Payment options
+          allow_ipn_payment: qbInvoice.AllowIPNPayment || false,
+          allow_online_ach_payment: qbInvoice.AllowOnlineACHPayment || false,
+          allow_online_credit_card_payment: qbInvoice.AllowOnlineCreditCardPayment || false,
+          
+          // Tax details
+          global_tax_calculation: qbInvoice.GlobalTaxCalculation,
+          apply_tax_after_discount: qbInvoice.ApplyTaxAfterDiscount || false,
+          tax_code_ref: qbInvoice.TaxCodeRef,
+          txn_tax_detail: qbInvoice.TxnTaxDetail,
+          
+          // Multi-currency
+          currency_id: qbInvoice.CurrencyRef?.value || 'USD',
+          exchange_rate: parseQBAmount(qbInvoice.ExchangeRate) || 1,
+          
+          // References (store as JSONB)
+          sales_term_ref: qbInvoice.SalesTermRef,
+          class_ref: qbInvoice.ClassRef,
+          department_ref: qbInvoice.DepartmentRef,
+          deposit_to_account_ref: qbInvoice.DepositToAccountRef,
+          
+          // QB Metadata
+          qbo_meta_data: qbInvoice.MetaData,
+          qbo_doc_number: qbInvoice.DocNumber,
+          qbo_txn_date: qbInvoice.TxnDate,
+          qbo_create_time: qbInvoice.MetaData?.CreateTime ? formatQBTimestamp(qbInvoice.MetaData.CreateTime) : null,
+          qbo_last_updated_time: qbInvoice.MetaData?.LastUpdatedTime ? formatQBTimestamp(qbInvoice.MetaData.LastUpdatedTime) : null,
           qbo_sync_token: qbInvoice.SyncToken ? parseInt(qbInvoice.SyncToken, 10) : null,
+          
+          // Linked transactions
+          linked_txn: qbInvoice.LinkedTxn,
+          
+          // PO Number
+          customer_po_number: qbInvoice.PONumber,
+          
+          // Sync metadata
           qbo_sync_status: 'synced',
           source_system: 'QBO',
           last_sync_at: new Date().toISOString()
