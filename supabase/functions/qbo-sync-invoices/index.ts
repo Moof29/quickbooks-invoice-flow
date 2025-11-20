@@ -47,7 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
       sessionId,
       offset = 0,
       direction = "pull",
-      batchSize = 1000 // Large batches for historical load
+      batchSize = 100 // Reasonable batch size to avoid timeouts
     }: SyncRequest = await req.json();
 
     console.log("=== Starting Invoice Sync ===");
