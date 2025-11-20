@@ -364,7 +364,7 @@ async function pullInvoicesFromQB(
         const total = parseQBAmount(qbInvoice.TotalAmt) || 0;
         const balance = parseQBAmount(qbInvoice.Balance) || 0;
 
-        const invoiceRecord = {
+        const invoiceRecord: any = {
           organization_id: connection.organization_id,
           qbo_id: qbInvoice.Id,
           invoice_number: qbInvoice.DocNumber || `INV-${qbInvoice.Id}`,
@@ -383,7 +383,9 @@ async function pullInvoicesFromQB(
           qbo_sync_token: qbInvoice.SyncToken ? parseInt(qbInvoice.SyncToken, 10) : null,
           qbo_sync_status: 'synced',
           source_system: 'QBO',
-          last_sync_at: new Date().toISOString()
+          last_sync_at: new Date().toISOString(),
+          has_unmapped_items: false, // Will be set to true if unmapped items found
+          sync_warnings: []
         };
 
         invoiceRecords.push(invoiceRecord);
@@ -410,30 +412,40 @@ async function pullInvoicesFromQB(
           }
           
           const itemBatchlyId = itemMap.get(detail.ItemRef.value);
-          
+
+          // FULL FIDELITY SYNC: Include line items even if item doesn't exist in Batchly
+          // Store with item_id = NULL for unmapped items (will be mapped later)
           if (!itemBatchlyId) {
-            console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Item not found for QB ID: ${detail.ItemRef.value}, skipping line item`);
+            console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Item QB ID ${detail.ItemRef.value} (${detail.ItemRef.name}) not in Batchly - syncing with NULL item_id`);
             skippedLineItems++;
-            continue;
           }
 
           lineItemRecords.push({
             organization_id: connection.organization_id,
             // invoice_id will be set after invoice upsert
             invoice_qbo_id: qbInvoice.Id, // Temporary field for mapping
-            item_id: itemBatchlyId,
-            description: line.Description || detail.ItemRef.name || '',
+            item_id: itemBatchlyId || null, // ✅ Allow NULL for unmapped items
+            description: line.Description || detail.ItemRef.name || 'Unknown Item',
             quantity: parseQBAmount(detail.Qty) || 1,
             unit_price: parseQBAmount(detail.UnitPrice) || 0,
             amount: parseQBAmount(line.Amount) || 0,
+            qbo_line_amount: parseQBAmount(line.Amount) || 0, // ✅ Store exact QB amount
             position: i + 1,
             tax_rate: detail.TaxCodeRef?.value === 'TAX' ? 10 : 0, // Simplified
             last_sync_at: new Date().toISOString()
           });
         }
         
+        // Mark invoice as having unmapped items if any were found
         if (skippedLineItems > 0) {
-          console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Skipped ${skippedLineItems} line items due to missing items`);
+          invoiceRecord.has_unmapped_items = true;
+          invoiceRecord.sync_warnings.push({
+            timestamp: new Date().toISOString(),
+            type: 'unmapped_items',
+            message: `${skippedLineItems} line items have unmapped QB items`,
+            count: skippedLineItems
+          });
+          console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: ${skippedLineItems} line items have unmapped items (will sync with NULL item_id)`);
         }
       }
       
@@ -464,11 +476,17 @@ async function pullInvoicesFromQB(
         );
 
         // Map line items to actual invoice IDs
-        const mappedLineItems = lineItemRecords.map(item => ({
-          ...item,
-          invoice_id: invoiceIdMap.get(item.invoice_qbo_id),
-          invoice_qbo_id: undefined // Remove temporary field
-        })).filter(item => item.invoice_id); // Only items with valid invoice_id
+        // Use destructuring to completely remove invoice_qbo_id temp field
+        const mappedLineItems = lineItemRecords
+          .map(({ invoice_qbo_id, ...rest }) => {
+            const invoice_id = invoiceIdMap.get(invoice_qbo_id);
+            if (!invoice_id) {
+              console.warn(`⚠ Could not map invoice_qbo_id ${invoice_qbo_id} to Batchly invoice_id`);
+              return null;
+            }
+            return { ...rest, invoice_id };
+          })
+          .filter((item): item is NonNullable<typeof item> => item !== null);
 
         // Delete existing line items for these invoices
         const invoiceIds = Array.from(invoiceIdMap.values());
