@@ -276,6 +276,27 @@ async function pullInvoicesFromQB(
   // Get or create session for large syncs
   let session = null;
   let totalExpected: number | undefined;
+  let startFromQboId: string | null = null;
+
+  // Check what invoices we already have to skip re-syncing them
+  if (!sessionId) {
+    console.log("Checking for existing invoices in Batchly...");
+    const { data: maxInvoice } = await supabase
+      .from('invoice_record')
+      .select('qbo_id')
+      .eq('organization_id', connection.organization_id)
+      .not('qbo_id', 'is', null)
+      .order('qbo_id', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (maxInvoice?.qbo_id) {
+      startFromQboId = maxInvoice.qbo_id;
+      console.log(`Found existing invoices, will skip up to QBO ID: ${startFromQboId}`);
+    } else {
+      console.log("No existing invoices found, will sync all");
+    }
+  }
 
   if (sessionId) {
     // Resume existing session
@@ -286,12 +307,14 @@ async function pullInvoicesFromQB(
       .single();
     session = data;
     totalExpected = session?.total_expected;
+    startFromQboId = session?.metadata?.startFromQboId || null;
     console.log(`Resuming session ${sessionId}: ${session?.total_processed}/${totalExpected} processed`);
   } else {
-    // First call - get total count from QB
+    // First call - get total count from QB (only NEW invoices if startFromQboId is set)
     console.log("First sync call - getting total invoice count from QuickBooks...");
     try {
-      const countQuery = "SELECT COUNT(*) FROM Invoice";
+      const whereClause = startFromQboId ? ` WHERE Id > '${startFromQboId}'` : '';
+      const countQuery = `SELECT COUNT(*) FROM Invoice${whereClause}`;
       const countResponse = await retryableQBApiCall(async () => {
         return await fetch(
           `${baseUrl}/v3/company/${connection.qbo_realm_id}/query?query=${encodeURIComponent(countQuery)}`,
@@ -319,6 +342,16 @@ async function pullInvoicesFromQB(
             batchSize,
             'historical' 
           );
+          
+          // Store startFromQboId in session metadata so it persists across chunks
+          if (startFromQboId && session) {
+            await supabase
+              .from('qbo_sync_sessions')
+              .update({
+                metadata: { ...session.metadata, startFromQboId }
+              })
+              .eq('id', session.id);
+          }
           
           // Set total_expected
           await updateSyncSession(session.id, {
@@ -353,10 +386,11 @@ async function pullInvoicesFromQB(
   while (hasMore) {
     await QBRateLimiter.checkLimit(connection.organization_id);
 
-    // Build query with pagination
+    // Build query with pagination and optional WHERE clause to skip already-synced invoices
     // NOTE: Unlike Customers, Invoices don't have an "Active" filter by default
     // All invoices (including voided/deleted) should be retrieved
-    const query = `SELECT * FROM Invoice STARTPOSITION ${currentOffset + 1} MAXRESULTS ${batchSize}`;
+    const whereClause = startFromQboId ? ` WHERE Id > '${startFromQboId}'` : '';
+    const query = `SELECT * FROM Invoice${whereClause} STARTPOSITION ${currentOffset + 1} MAXRESULTS ${batchSize}`;
     
     console.log(`=== Fetching invoices: offset=${currentOffset}, batch=${batchSize} ===`);
     console.log(`Query: ${query}`);
