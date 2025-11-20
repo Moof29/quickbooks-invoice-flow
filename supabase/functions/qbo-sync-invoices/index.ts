@@ -557,10 +557,10 @@ async function pullInvoicesFromQB(
           
           const itemBatchlyId = itemMap.get(detail.ItemRef.value);
           
+          // FULL FIDELITY SYNC: Include line items even if item doesn't exist in Batchly
           if (!itemBatchlyId) {
-            console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Item not found for QB ID: ${detail.ItemRef.value}, skipping line item`);
-            skippedLineItems++;
-            continue;
+            console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Item QB ID ${detail.ItemRef.value} (${detail.ItemRef.name}) not in Batchly - syncing with NULL item_id`);
+            skippedLineItems++; // Track for warnings, but DON'T skip
           }
 
           const qty = parseQBAmount(detail.Qty) || 1;
@@ -572,14 +572,16 @@ async function pullInvoicesFromQB(
             console.log(`  Line item: Item=${detail.ItemRef.name}, Qty=${qty}, UnitPrice=${unitPrice}, Calculated=${lineAmount}, QB Line.Amount=${line.Amount}`);
           }
 
+          // Include line item even if item_id is NULL
           lineItemRecords.push({
             organization_id: connection.organization_id,
             // invoice_id will be set after invoice upsert
             invoice_qbo_id: qbInvoice.Id, // Temporary field for mapping
-            item_id: itemBatchlyId,
-            description: line.Description || detail.ItemRef.name || '',
+            item_id: itemBatchlyId || null, // ✅ Allow NULL for unmapped items
+            description: line.Description || detail.ItemRef.name || 'Unknown Item',
             quantity: qty,
             unit_price: unitPrice,
+            qbo_line_amount: parseQBAmount(line.Amount), // ✅ Store QB's exact amount
             // amount is auto-calculated by database as quantity * unit_price (GENERATED column)
             position: i + 1,
             tax_rate: detail.TaxCodeRef?.value === 'TAX' ? 10 : 0, // Simplified
@@ -591,21 +593,19 @@ async function pullInvoicesFromQB(
           console.log(`  Total line items sum: ${lineItemSum}, QB TotalAmt: ${qbInvoice.TotalAmt}, Discount: ${discountAmount}`);
         }
         
-        // Align invoice total with line items and tax to satisfy DB validation trigger
-        const calculatedTotal = lineItemSum - discountAmount + taxTotal;
-        const qboTotal = parseQBAmount(qbInvoice.TotalAmt) || 0;
-
-        if (Math.abs(calculatedTotal - qboTotal) > 0.01) {
-          console.warn(
-            `⚠ Invoice ${qbInvoice.DocNumber}: QBO total ${qboTotal} differs from calculated total ${calculatedTotal}. Using calculated total to satisfy validation.`,
-          );
-        }
-
-        invoiceRecord.total = calculatedTotal;
-        
+        // Track unmapped items for this invoice
         if (skippedLineItems > 0) {
-          console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: Skipped ${skippedLineItems} line items due to missing items`);
+          invoiceRecord.has_unmapped_items = true;
+          invoiceRecord.sync_warnings = [{
+            timestamp: new Date().toISOString(),
+            type: 'unmapped_items',
+            message: `${skippedLineItems} line items have QB items not in Batchly catalog`,
+            count: skippedLineItems
+          }];
+          console.warn(`⚠ Invoice ${qbInvoice.DocNumber}: ${skippedLineItems} line items with NULL item_id`);
         }
+        
+        // invoiceRecord.total already set from qbInvoice.TotalAmt at line 439 - NEVER override QB total
       }
       
       if (skippedCount > 0) {
