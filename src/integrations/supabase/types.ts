@@ -1932,6 +1932,7 @@ export type Database = {
           last_sync_at: string | null
           organization_id: string
           position: number | null
+          qbo_line_amount: number | null
           quantity: number
           tax_amount: number | null
           tax_code: string | null
@@ -1952,6 +1953,7 @@ export type Database = {
           last_sync_at?: string | null
           organization_id: string
           position?: number | null
+          qbo_line_amount?: number | null
           quantity: number
           tax_amount?: number | null
           tax_code?: string | null
@@ -1972,6 +1974,7 @@ export type Database = {
           last_sync_at?: string | null
           organization_id?: string
           position?: number | null
+          qbo_line_amount?: number | null
           quantity?: number
           tax_amount?: number | null
           tax_code?: string | null
@@ -2216,6 +2219,7 @@ export type Database = {
           email_status: string | null
           exchange_rate: number | null
           global_tax_calculation: string | null
+          has_unmapped_items: boolean | null
           home_balance: number | null
           home_total_amt: number | null
           id: string
@@ -2253,6 +2257,7 @@ export type Database = {
           status: string | null
           subtotal: number | null
           sync_status: string | null
+          sync_warnings: Json | null
           tax_code_ref: Json | null
           tax_total: number | null
           terms: string | null
@@ -2293,6 +2298,7 @@ export type Database = {
           email_status?: string | null
           exchange_rate?: number | null
           global_tax_calculation?: string | null
+          has_unmapped_items?: boolean | null
           home_balance?: number | null
           home_total_amt?: number | null
           id?: string
@@ -2330,6 +2336,7 @@ export type Database = {
           status?: string | null
           subtotal?: number | null
           sync_status?: string | null
+          sync_warnings?: Json | null
           tax_code_ref?: Json | null
           tax_total?: number | null
           terms?: string | null
@@ -2370,6 +2377,7 @@ export type Database = {
           email_status?: string | null
           exchange_rate?: number | null
           global_tax_calculation?: string | null
+          has_unmapped_items?: boolean | null
           home_balance?: number | null
           home_total_amt?: number | null
           id?: string
@@ -2407,6 +2415,7 @@ export type Database = {
           status?: string | null
           subtotal?: number | null
           sync_status?: string | null
+          sync_warnings?: Json | null
           tax_code_ref?: Json | null
           tax_total?: number | null
           terms?: string | null
