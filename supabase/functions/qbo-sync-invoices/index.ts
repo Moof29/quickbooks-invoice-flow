@@ -407,6 +407,14 @@ async function pullInvoicesFromQB(
           continue;
         }
 
+        // Debug logging for the problematic invoice
+        if (qbInvoice.DocNumber === '343591') {
+          console.log('=== DEBUG: Invoice #343591 (QBO ID 317730) ===');
+          console.log('QB TotalAmt:', qbInvoice.TotalAmt);
+          console.log('QB Balance:', qbInvoice.Balance);
+          console.log('QB Line array:', JSON.stringify(qbInvoice.Line, null, 2));
+        }
+
         // Extract discount info from QB Line array
         const discountLine = qbInvoice.Line?.find((l: any) => l.DetailType === 'DiscountLineDetail');
         const discountAmount = discountLine ? parseQBAmount(discountLine.Amount) : 0;
@@ -524,12 +532,16 @@ async function pullInvoicesFromQB(
         // Prepare line items
         const lines = qbInvoice.Line || [];
         let skippedLineItems = 0;
+        let lineItemSum = 0;
         
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
           
           // Only process SalesItemLineDetail (not SubTotal, Discount, etc.)
           if (line.DetailType !== 'SalesItemLineDetail') {
+            if (qbInvoice.DocNumber === '343591') {
+              console.log(`  Skipping non-item line: DetailType=${line.DetailType}, Amount=${line.Amount}`);
+            }
             continue;
           }
 
@@ -550,19 +562,32 @@ async function pullInvoicesFromQB(
             continue;
           }
 
+          const qty = parseQBAmount(detail.Qty) || 1;
+          const unitPrice = parseQBAmount(detail.UnitPrice) || 0;
+          const lineAmount = qty * unitPrice;
+          lineItemSum += lineAmount;
+
+          if (qbInvoice.DocNumber === '343591') {
+            console.log(`  Line item: Item=${detail.ItemRef.name}, Qty=${qty}, UnitPrice=${unitPrice}, Calculated=${lineAmount}, QB Line.Amount=${line.Amount}`);
+          }
+
           lineItemRecords.push({
             organization_id: connection.organization_id,
             // invoice_id will be set after invoice upsert
             invoice_qbo_id: qbInvoice.Id, // Temporary field for mapping
             item_id: itemBatchlyId,
             description: line.Description || detail.ItemRef.name || '',
-            quantity: parseQBAmount(detail.Qty) || 1,
-            unit_price: parseQBAmount(detail.UnitPrice) || 0,
+            quantity: qty,
+            unit_price: unitPrice,
             // amount is auto-calculated by database as quantity * unit_price (GENERATED column)
             position: i + 1,
             tax_rate: detail.TaxCodeRef?.value === 'TAX' ? 10 : 0, // Simplified
             last_sync_at: new Date().toISOString()
           });
+        }
+
+        if (qbInvoice.DocNumber === '343591') {
+          console.log(`  Total line items sum: ${lineItemSum}, QB TotalAmt: ${qbInvoice.TotalAmt}, Discount: ${discountAmount}`);
         }
         
         if (skippedLineItems > 0) {
